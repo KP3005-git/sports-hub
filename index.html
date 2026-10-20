@@ -252,6 +252,70 @@ tr.injmine td{background:rgba(255,198,26,.07)}
 .ancard{cursor:pointer}.ancard.on{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset}.ancard b{font-size:20px}.ancard .antag{font-size:12px}
 .ancard .row2{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin-top:4px}.ancard .row2 b{font-size:13px;color:var(--txt);margin:0;display:inline}
 
+/* ===== MONITOR (landscape TV board) ===== */
+html.mon-on,html.mon-on body{overflow:hidden;background:#05080f}
+#monboard{position:fixed;inset:0;z-index:90;background:#05080f;color:#f4f7ff;display:flex;flex-direction:column;gap:8px;
+  padding:max(10px,env(safe-area-inset-top)) max(28px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(28px,env(safe-area-inset-left))}
+#monboard[hidden]{display:none}
+.monbar{display:flex;align-items:center;gap:10px;min-height:36px}
+.monbar .who{flex:1;min-width:0;font-weight:900;letter-spacing:.4px;font-size:clamp(14px,2.4vw,22px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.monwake{font-size:12px;font-weight:800;letter-spacing:.4px;color:#9fb0cc;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.monwake i{width:8px;height:8px;border-radius:50%;background:#8a98b5;display:inline-block}
+.monwake.on{color:#b8ffd4}.monwake.on i{background:var(--green);box-shadow:0 0 8px var(--green)}
+.monwake.off{color:#ffd7a8}.monwake.off i{background:var(--amber)}
+#monstage{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;justify-content:flex-start}
+.monscore{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;text-align:center}
+.monname{font-size:clamp(26px,4.4vw,52px);font-weight:900;line-height:1.05}
+.monmeta{color:#d5deee;font-size:clamp(15px,2.2vw,24px);font-weight:700;margin-top:4px}
+.monpts{font-size:clamp(72px,16vw,160px);font-weight:900;line-height:.85;font-variant-numeric:tabular-nums;color:#fff}
+.monpts.lead{color:var(--gold)}
+.monclk{font-size:clamp(32px,6vw,72px);font-weight:900;color:var(--gold);letter-spacing:1px;line-height:1}
+.monsub{margin-top:8px;font-size:clamp(20px,3vw,34px);font-weight:800;color:#f4f7ff}
+.monlast{margin-top:12px;text-align:center;font-size:clamp(18px,2.6vw,30px);font-weight:800;color:#f4f7ff;line-height:1.25}
+.monposs{color:var(--gold)}
+.monlogo{width:clamp(36px,6vw,64px);height:clamp(36px,6vw,64px);object-fit:contain}
+.monkicker{font-size:clamp(13px,2vw,18px);font-weight:900;letter-spacing:3px;color:var(--gold);text-transform:uppercase}
+.monplays{display:flex;flex-direction:column;gap:6px}
+.monplay{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:baseline;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.12);font-size:clamp(18px,2.8vw,32px)}
+.monplay b{color:var(--gold);font-variant-numeric:tabular-nums;white-space:nowrap}
+.monplay .sc{font-weight:900;white-space:nowrap}
+.monplay.sc{background:rgba(255,198,26,.1);border-radius:8px;padding:6px 8px}
+.monflash{text-align:center;padding:12px}
+.monflash .big{font-size:clamp(40px,8vw,96px);font-weight:900;line-height:.95;margin:8px 0}
+.monflash .sub{font-size:clamp(18px,3vw,32px);font-weight:700;color:#d5deee}
+.monflash .sim{display:inline-block;margin-top:10px;background:var(--amber);color:#1a0d00;font-weight:900;letter-spacing:1px;border-radius:999px;padding:4px 10px;font-size:14px}
+.monbanner{display:inline-block;background:#2a2110;color:var(--gold2);border:1px solid var(--amber);border-radius:999px;padding:2px 8px;font-size:12px;font-weight:900;letter-spacing:1px;margin-left:8px}
+#monboard .gdh{font-size:clamp(16px,2.5vw,28px)}
+#monboard table.ls,#monboard table.tstats{font-size:clamp(16px,2.6vw,28px)}
+#monboard table.ls td,#monboard table.ls th,#monboard table.tstats td,#monboard table.tstats th{padding:6px 10px;color:#f4f7ff}
+#monboard table.tstats td:first-child,#monboard table.ls th{color:#d5deee}
+#monboard .tscroll{max-height:none}
+#monboard .wpbar{height:44px;font-size:18px}
+#monboard .wpchart{height:110px}
+#monboard .fptxt{font-size:clamp(18px,2.8vw,32px);color:#f4f7ff}
+#monboard .ldr{font-size:clamp(16px,2.4vw,26px)}
+#monboard .ldr b{font-size:clamp(18px,2.8vw,32px)}
+#monboard .ldr img,#monboard .ldr .nohs{width:52px;height:52px}
+#monboard .pick{font-size:clamp(16px,2.3vw,24px)}
+#monboard .pkleg{font-size:clamp(18px,2.6vw,28px)}
+#monboard .injrow{font-size:clamp(16px,2.3vw,24px)}
+#monboard .empty{font-size:clamp(18px,2.6vw,28px);color:#f4f7ff;border-color:#3a4d73}
+#monboard .note{color:#d5deee;font-size:clamp(13px,1.8vw,18px)}
+#monboard .badge{font-size:13px}
+.monff{display:flex;flex-direction:column;gap:8px}
+.monff .rowf{display:flex;justify-content:space-between;gap:12px;align-items:baseline;border-bottom:1px solid rgba(255,255,255,.08);padding:6px 0}
+.monff .pts{font-size:clamp(28px,4vw,48px);font-weight:900;color:var(--gold);font-variant-numeric:tabular-nums}
+.monclip video{width:100%;max-height:62vh;background:#000;border-radius:12px}
+.monclip .cap{font-size:clamp(16px,2.4vw,26px);font-weight:800;margin-top:8px}
+.mondots{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
+.mondots span{width:8px;height:8px;border-radius:50%;background:#2a3a5c}
+.mondots span.on{background:var(--gold);box-shadow:0 0 8px var(--gold)}
+.monchecks{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px 12px;margin:8px 0}
+.monchecks label{display:flex;gap:8px;align-items:center;font-size:15px;font-weight:700;color:var(--txt);text-transform:none;letter-spacing:0}
+.mongame{display:flex;gap:8px;align-items:center;padding:8px 4px;border-bottom:1px solid var(--line)}
+.mongame .nm{flex:1;min-width:0;font-weight:800}
+.monlist{max-height:280px;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:0 8px;margin:8px 0}
+
 /* ===== PHONE / TOUCH (Sports Hub mobile) ===== */
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 body{touch-action:manipulation}
@@ -351,6 +415,7 @@ html.reorder .reorderbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-i
     <button data-tab="nba">🏀 NBA</button>
     <button data-tab="fantasy">🏆 Fantasy</button>
     <button data-tab="highlights">🎬 Highlights</button>
+    <button data-tab="monitor">📺 Monitor</button>
     <button data-tab="injuries">🩹 Injuries</button>
     <button data-tab="bets">🎟️ Bets</button>
     <button data-tab="blitz" title="Picks Desk (Blitz &amp; Court) accuracy records">🎯 Picks Desk records</button>
@@ -704,7 +769,7 @@ function parseHash(){
   const h=decodeURIComponent(location.hash.slice(1)).split('/').filter(Boolean);
   if(!h.length) return null;
   if(h[0]==='records') h[0]='blitz';   // #records = Pick records (internal id stays 'blitz' so old links keep working)
-  const tabs=['mine','bets','blitz','settings','fantasy','highlights','injuries',...LGS];
+  const tabs=['mine','bets','blitz','settings','fantasy','highlights','monitor','injuries',...LGS];
   if(tabs.includes(h[0])){ if(h[1]&&FILTERS[h[1]]&&LGS.includes(h[0])) pref.set('filter.'+h[0],h[1]); return h[0]; }
   if(FILTERS[h[0]]){ const lg=pref.get('lastLeague','cfb'); pref.set('filter.'+lg,h[0]); return lg; }   // Blitz-style #live
   return null;
@@ -713,13 +778,14 @@ function setHash(){ const h = LGS.includes(TAB) ? `#${TAB}/${filterFor(TAB)}` : 
 function go(tab){
   if(typeof closeRoster==='function') closeRoster();
   if(typeof closeGame==='function') closeGame();
+  if(tab!=='monitor' && typeof monLeave==='function') monLeave();
   TAB=tab; pref.set('tab',tab); if(LGS.includes(tab)) pref.set('lastLeague',tab);
   document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===tab));
   if(REORDER) setReorder(false);
   { const nav=document.getElementById('tabs'), b=nav&&nav.querySelector('button.on'); if(b && nav.scrollWidth>nav.clientWidth) nav.scrollLeft=Math.max(0, b.offsetLeft-(nav.clientWidth-b.offsetWidth)/2); }
   setHash(); render();
 }
-const SHEET_BG_MS = 2*60e3, SHEET_BG_TABS = ['mine','cfb','cbb','nfl','nba','fantasy','highlights','injuries'];
+const SHEET_BG_MS = 2*60e3, SHEET_BG_TABS = ['mine','cfb','cbb','nfl','nba','fantasy','highlights','monitor','injuries'];
 async function render(){
   clearTimeout(RT); const tok=++TOKEN; showErr('');
   const view=$('#view');
@@ -731,6 +797,7 @@ async function render(){
     else if(TAB==='settings') { renderSettings(view); setRefresh([], null); }
     else if(TAB==='fantasy') await renderFantasy(tok,view);
     else if(TAB==='highlights') await renderHighlights(tok,view);
+    else if(TAB==='monitor') await renderMonitor(tok,view);
     else if(TAB==='injuries') await renderInjuries(tok,view);
     if(tok===TOKEN){ $('#upd').textContent=fmtTime(new Date()); $('#dot').className='dot'; document.body.dataset.loaded='1'; document.body.dataset.view=TAB; }
     // Keep Blitz's picks current on every tab, not just Bets: a page left open (score tabs auto-refresh, visibilitychange) used to keep
@@ -1631,7 +1698,7 @@ async function openGame(lg, id, opts={}){
     syncSheet().then(()=>gdLoadPickLegs(id)).then(()=>{ if(GD!==me) return; const el=$('#gdpicks'); if(el) el.innerHTML=gdPicksHTML(g); }).catch(()=>{});   // throttled (20 s); picks update in place
   }catch(e){ if(GD===me) $('#gdbody').innerHTML=`<div class="empty">Could not load this game from ESPN (${esc(e.message)}).</div>`; }
 }
-document.addEventListener('keydown', e=>{ if(e.key!=='Escape') return; if($('#rostermodal')){ closeRoster(); return; } if(GD) closeGame(); });
+document.addEventListener('keydown', e=>{ if(e.key!=='Escape') return; if($('#rostermodal')){ closeRoster(); return; } if(typeof MON!=='undefined' && MON.on){ monExit(); return; } if(GD) closeGame(); });
 // Double-click any score card to open details. Drag is handle-only (.dh), so a double-click on the card body never starts a drag.
 document.addEventListener('dblclick', e=>{
   const t=e.target; if(TOUCH || DRAG || t.closest('.dh,.mv,button,a,input,select,textarea,label,#gdmodal')) return;
@@ -2695,12 +2762,423 @@ async function openRoster(lg, id){
   }catch(e){ if(token===RSTN) $('#rosterbody').innerHTML=`<div class="empty">Could not load this roster from ESPN (${esc(e.message)}).</div>`; }
 }
 
+// ---------------- MONITOR (landscape TV board) ----------------
+// New keys only: sportsHub.monitor.panels / .interval / .pin / .follow
+// Wake lock is requested only while the board is up AND the viewport is landscape.
+const MON_PANELS = [
+  {id:'score', label:'Scoreboard'},
+  {id:'plays', label:'Latest plays'},
+  {id:'scoring', label:'Scoring summary'},
+  {id:'field', label:'Field position'},
+  {id:'stats', label:'Team stats'},
+  {id:'leaders', label:'Top performers'},
+  {id:'win', label:'Win probability'},
+  {id:'picks', label:'Picks & bets'},
+  {id:'fantasy', label:'Fantasy points'},
+  {id:'inj', label:'Injuries'},
+  {id:'clips', label:'Clips'}
+];
+const MON = { on:false, force:false, hold:false, pool:[], games:[], gi:0, pi:0, panels:['score'], sums:new Map(), prev:new Map(), flash:null, flashUntil:0, rot:null, fallback:false, err:'', ctx:null, wake:null, wakeNote:'', playedClip:'' };
+function monInterval(){ const n=+pref.get('monitor.interval','12'); return [8,12,20].includes(n)?n:12; }
+function monEnabled(){
+  let ids; try{ ids=JSON.parse(pref.get('monitor.panels','')||'null'); }catch(_){ ids=null; }
+  const all=MON_PANELS.map(p=>p.id);
+  if(!Array.isArray(ids)) return new Set(all);
+  const s=new Set(ids.filter(id=>all.includes(id)));
+  return s.size?s:new Set(['score']);
+}
+function monSavePanels(){
+  let ids=[...document.querySelectorAll('.monpanel')].filter(x=>x.checked).map(x=>x.dataset.panel);
+  if(!ids.length){ ids=['score']; const s=document.querySelector('.monpanel[data-panel="score"]'); if(s) s.checked=true; }
+  pref.set('monitor.panels', JSON.stringify(ids));
+  const g=MON.games[MON.gi]; if(g) MON.panels=monPanelsFor(g); if(MON.pi>=MON.panels.length) MON.pi=0;
+  if(MON.on){ monPaint(); monArmRotation(); }
+}
+function monBoardURL(lg){
+  const L=LG[lg], q=[]; if(L.sb) q.push(L.sb);
+  if(L.mode==='day') q.push('dates='+ymd(new Date()));
+  return API+L.path+'/scoreboard?'+q.join('&');
+}
+function monPhoneLandscape(){ try{ return matchMedia('(orientation: landscape) and (max-height: 520px)').matches; }catch(_){ return false; } }
+function monIsLandscape(){ try{ return matchMedia('(orientation: landscape)').matches; }catch(_){ return innerWidth>innerHeight; } }
+function monWantBoard(){ if(TAB!=='monitor') return false; if(MON.force) return true; if(MON.hold) return false; return monPhoneLandscape(); }
+function monLeave(){ MON.force=false; MON.hold=false; MON.on=false; clearTimeout(MON.rot); const b=$('#monboard'); if(b) b.hidden=true; document.documentElement.classList.remove('mon-on'); monReleaseWake(); }
+function monExit(){ MON.force=false; MON.hold=true; monApplyMode(); }
+function monAction(v){ if(v==='enter'){ MON.force=true; MON.hold=false; monApplyMode(); } else if(v==='exit') monExit(); }
+function monApplyMode(){
+  const want=monWantBoard();
+  MON.on=want;
+  document.documentElement.classList.toggle('mon-on', want);
+  let board=$('#monboard');
+  if(!board){ document.body.insertAdjacentHTML('beforeend', '<div id="monboard" hidden><div class="monbar"><span class="who" id="monwho"></span><span class="monwake" id="monwake"><i></i><span></span></span><button type="button" class="btn sm" data-mon="exit">Exit</button></div><div id="monstage"></div><div class="mondots" id="mondots"></div></div>'); board=$('#monboard'); }
+  board.hidden=!want;
+  if(want){ if(typeof closeRoster==='function') closeRoster(); if(typeof closeGame==='function') closeGame(); monPaint(); }
+  const ent=$('#monenter'); if(ent) ent.textContent=want?'TV board is on':'Enter monitor';
+  monWakeSync(); monArmRotation();
+}
+async function monWakeSync(){
+  const noteEl=document.querySelector('#monwake span');
+  const wrap=$('#monwake');
+  const setup=$('#monwakenote');
+  const supported = typeof navigator!=='undefined' && navigator.wakeLock && window.isSecureContext;
+  const want = MON.on && monIsLandscape() && !document.hidden && TAB==='monitor';
+  const paint=(cls, txt)=>{ if(wrap){ wrap.className='monwake'+(cls?' '+cls:''); } if(noteEl) noteEl.textContent=txt; MON.wakeNote=txt; if(setup) setup.textContent=txt; };
+  if(!navigator.wakeLock){ await monReleaseWake(); paint('off', 'This browser has no Screen Wake Lock — the phone may dim.'); return; }
+  if(!window.isSecureContext){ await monReleaseWake(); paint('off', 'Wake lock needs HTTPS. The board still works; the screen may dim.'); return; }
+  if(!want){
+    const msg = document.hidden && MON.on ? 'Paused — page is hidden' : (MON.on && !monIsLandscape() ? 'Portrait — wake lock stays off until landscape.' : 'Screen can sleep');
+    paint('', msg);
+    await monReleaseWake();
+    return;
+  }
+  if(MON.wake){ paint('on', 'Keeping screen awake'); return; }
+  try{
+    const sentinel = await navigator.wakeLock.request('screen');
+    MON.wake=sentinel;
+    sentinel.addEventListener('release', ()=>{ if(MON.wake===sentinel){ MON.wake=null; if(TAB==='monitor' && !document.hidden) monWakeSync(); } });
+    paint('on', 'Keeping screen awake');
+  }catch(e){
+    MON.wake=null;
+    paint('off', 'Couldn’t keep the screen awake'+(e&&e.name?' ('+e.name+')':'')+'. The board still works.');
+  }
+  void supported;
+}
+async function monReleaseWake(){
+  const w=MON.wake; MON.wake=null;
+  if(w){ try{ await w.release(); }catch(_){} }
+}
+function monArmRotation(){
+  clearTimeout(MON.rot);
+  if(!MON.on || document.hidden || TAB!=='monitor') return;
+  if(MON.flash && MON.flashUntil>Date.now()){
+    MON.rot=setTimeout(()=>{ MON.flash=null; MON.flashUntil=0; monPaint(); monArmRotation(); }, Math.max(200, MON.flashUntil-Date.now()));
+    return;
+  }
+  MON.rot=setTimeout(monNext, monInterval()*1000);
+}
+function monNext(){
+  if(MON.flash){ MON.flash=null; MON.flashUntil=0; }
+  const g=MON.games[MON.gi];
+  MON.panels=g?monPanelsFor(g):['score'];
+  MON.pi++;
+  if(MON.pi>=MON.panels.length){
+    MON.pi=0;
+    if(MON.games.length>1 && pref.get('monitor.follow','rotate')!=='pin') MON.gi=(MON.gi+1)%MON.games.length;
+    const ng=MON.games[MON.gi];
+    monEnsureSum(ng).then(()=>{ if(TAB!=='monitor') return; MON.panels=ng?monPanelsFor(ng):['score']; MON.pi=0; monPaint(); monArmRotation(); }).catch(()=>{ monPaint(); monArmRotation(); });
+    return;
+  }
+  monPaint(); monArmRotation();
+}
+function monShowFlash(f){ MON.flash=f; MON.flashUntil=Date.now()+6000; if(MON.on){ monPaint(); monArmRotation(); } }
+function monSnap(g){
+  const away=g.away.score, home=g.home.score;
+  const lead = away==null||home==null ? '' : away>home?'away':home>away?'home':'tie';
+  return {away, home, lead, last:(g.sit&&g.sit.last)||''};
+}
+function monDetectFlash(games){
+  if(MON.flash && MON.flashUntil>Date.now()) return;
+  for(const g of games){
+    const snap=monSnap(g);
+    const prev=MON.prev.get(g.id);
+    MON.prev.set(g.id, snap);
+    if(!prev || g.state!=='in' || snap.away==null) continue;
+    const scored = prev.away!==snap.away || prev.home!==snap.home;
+    const lead = prev.lead && snap.lead && prev.lead!=='tie' && snap.lead!=='tie' && prev.lead!==snap.lead;
+    const to = !scored && snap.last && snap.last!==prev.last && /interception|intercepted|fumble|turnover|picks off/i.test(snap.last);
+    if(!(scored||lead||to)) continue;
+    monShowFlash({ kicker: lead?'LEAD CHANGE':scored?'SCORE':'TURNOVER', big:`${g.away.abbr} ${snap.away}  –  ${snap.home} ${g.home.abbr}`, sub:snap.last||statusTxt(g), who:`${g.away.abbr} at ${g.home.abbr}`, sim:false });
+    return;
+  }
+}
+function monPriority(g, ctx){
+  if(!ctx) return 0;
+  const fav = ctx.teams.has(g.lg+':'+g.home.id)||ctx.teams.has(g.lg+':'+g.away.id)||ctx.players.has(g.lg+':'+g.home.id)||ctx.players.has(g.lg+':'+g.away.id);
+  const desk = betsForEvent(DATA.recommendations, g.id).length>0;
+  const mine = betsForEvent(DATA.placedBets, g.id).length>0;
+  const ff = g.lg==='nfl' && ctx.ff && (ctx.ff.has(g.home.id)||ctx.ff.has(g.away.id));
+  return (fav?4:0)+(desk||mine?3:0)+(ff?1:0);
+}
+async function monContext(){
+  const teams=new Set();
+  LGS.forEach(lg=>(DATA.myTeams[lg]||[]).forEach(t=>teams.add(lg+':'+String(t.id))));
+  const players=new Map();
+  await Promise.all(LGS.map(async lg=>{
+    try{ const m=await playerTeamIds(lg); m.forEach((names,id)=>players.set(lg+':'+id, names)); }catch(_){}
+  }));
+  return {teams, players, ff:fantasyTeamIds()};
+}
+function monClipURL(v){
+  const src=v&&v.links&&v.links.source;
+  const href=src&&(typeof src.href==='string'?src.href:(src.HD&&src.HD.href)||src.full&&src.full.href);
+  if(!href) return null;
+  try{
+    const u=new URL(href);
+    if(u.protocol!=='https:') return null;
+    if(u.hostname!=='espnmedia-cdn.akamaized.net' && !/(^|\.)espncdn\.com$/i.test(u.hostname)) return null;
+    if(!/\.mp4$/i.test(u.pathname)) return null;
+    return u.href;
+  }catch(_){ return null; }
+}
+function monClips(sum){
+  const vids=(sum&&sum.videos)||[];
+  return vids.map(v=>{ const url=monClipURL(v); if(!url) return null;
+    const t=Date.parse(v.originalPublishDate||v.lastModified||'')||0;
+    return {id:String(v.id||url), url, title:v.headline||v.description||'Clip', t, dur:v.duration||0};
+  }).filter(Boolean).sort((a,b)=>b.t-a.t);
+}
+function monFantasyRows(sum, g){
+  if(g.lg!=='nfl' || !sum) return [];
+  return (DATA.fantasy.roster||[]).filter(r=>r.teamId && (involves(g, r.teamId) || (isDST(r) && involves(g, r.teamId)))).map(r=>{
+    const res = isDST(r) ? dstPoints(sum, r.teamId) : playerPoints(sum, r);
+    return {name:r.name+(isDST(r)?' D/ST':''), pts:res?res.pts:null, line:res&&res.line?res.line:(res&&res.parts?'':'Waiting on the box score')};
+  });
+}
+function monPanelsFor(g){
+  const on=monEnabled(), sum=MON.sums.get(g.lg+'|'+g.id)||null;
+  const list=[];
+  MON_PANELS.forEach(p=>{
+    if(!on.has(p.id)) return;
+    if(p.id==='field' && !isFootball(g.lg)) return;
+    if(p.id==='fantasy'){ if(!monFantasyRows(sum,g).length) return; }
+    if(p.id==='clips' && !monClips(sum).length) return;
+    if(p.id==='win' && sum && !(sum.winprobability||[]).length) return;
+    if(p.id==='leaders' && sum && !(sum.leaders||[]).length) return;
+    if(p.id==='stats' && sum && (((sum.boxscore||{}).teams)||[]).length<2) return;
+    list.push(p.id);
+  });
+  return list.length?list:['score'];
+}
+async function monEnsureSum(g){
+  if(!g) return null;
+  const key=g.lg+'|'+g.id;
+  if(g.state==='in') JC.delete(API+LG[g.lg].path+'/summary?event='+g.id);
+  const d=await summary(g.lg, g.id);
+  try{
+    const sg=await summaryEvent(g.lg, g.id);
+    if(sg){ const keep=g.lg, sit=g.sit; Object.assign(g, sg); g.lg=keep; if(!g.sit && sit) g.sit=sit; LEGEV.set(g.id, g); remember([g]); }
+  }catch(_){}
+  MON.sums.set(key, d);
+  try{ injAddSummary(g.lg, d); }catch(_){}
+  return d;
+}
+async function monResolvePin(pin){
+  const [lg,id]=(pin||'').split('|');
+  if(!LG[lg]||!id) return null;
+  const hit=MON.pool.find(g=>g.lg===lg && g.id===id);
+  if(hit) return hit;
+  try{ const g=await summaryEvent(lg, id); if(g){ g.lg=lg; remember([g]); return g; } }catch(_){}
+  return null;
+}
+function monLines(d, g){
+  const h=d&&d.header||{}, c=(h.competitions||[])[0]||{};
+  const ls=side=>{ const x=(c.competitors||[]).find(k=>k.homeAway===side)||{}; return (x.linescores||[]).map(l=>l.displayValue??l.value); };
+  const la=ls('away'), lh=ls('home'), np=Math.max(la.length, lh.length);
+  const plbl=i=>{ const L=LG[g.lg]; return L.halves?(i<2?['1H','2H'][i]:'OT'+(i>2?i-1:'')):(i<4?String(i+1):'OT'+(i>4?i-3:'')); };
+  if(!np) return '';
+  return `<table class="ls"><tr><th></th>${Array.from({length:np},(_,i)=>`<th>${plbl(i)}</th>`).join('')}<th>T</th></tr>
+    <tr><td>${esc(g.away.abbr)}</td>${Array.from({length:np},(_,i)=>`<td>${esc(la[i]??'')}</td>`).join('')}<td><b>${g.away.score??''}</b></td></tr>
+    <tr><td>${esc(g.home.abbr)}</td>${Array.from({length:np},(_,i)=>`<td>${esc(lh[i]??'')}</td>`).join('')}<td><b>${g.home.score??''}</b></td></tr></table>`;
+}
+function monScoreHTML(g){
+  const leadA=g.away.score!=null && g.home.score!=null && g.away.score>g.home.score;
+  const leadH=g.away.score!=null && g.home.score!=null && g.home.score>g.away.score;
+  const poss=id=>g.state==='in' && g.sit && g.sit.poss===id;
+  const side=(t, lead)=>`<div><div class="monname">${t.logo?`<img class="monlogo" src="${esc(t.logo)}" alt=""> `:''}${esc(t.abbr||t.name)}${poss(t.id)?' <span class="monposs" title="Possession">●</span>':''}</div><div class="monpts${lead?' lead':''}">${t.score??'–'}</div><div class="monmeta">${esc(t.name)}</div></div>`;
+  const tag = g.state==='post' ? 'FINAL' : g.state==='pre' ? 'UPCOMING' : 'LIVE';
+  const dd = isFootball(g.lg) && g.sit && g.sit.dd ? g.sit.dd : '';
+  const ball = poss(g.away.id)?g.away.abbr+' ball':poss(g.home.id)?g.home.abbr+' ball':'';
+  const sub = [ball, dd, g.sit&&g.sit.rz?'RED ZONE':''].filter(Boolean).join(' · ');
+  const last = (g.sit&&g.sit.last)||'';
+  return `<div class="monkicker">${esc(LG[g.lg].short)} · ${tag}${g.state==='post'?' · not live':''}</div>
+    <div class="monscore">${side(g.away, leadA)}<div><div class="monclk">${esc(g.state==='in'?statusTxt(g):g.state==='post'?(g.detail||'Final'):fmtTime(g.date))}</div><div class="monsub">${esc(sub)}</div></div>${side(g.home, leadH)}</div>${last?`<div class="monlast">${esc(last)}</div>`:''}`;
+}
+function monPlaysHTML(g, d){
+  if(!d) return '<div class="empty">Loading plays…</div>';
+  const groups=gdPlays(d, g.lg);
+  const plays=groups.flatMap(x=>x.plays).slice(0,8);
+  if(!plays.length) return `<div class="monkicker">Latest plays</div><div class="empty">${g.state==='pre'?'Plays start at kickoff / tip-off.':'No plays from ESPN yet.'}</div>`;
+  return `<div class="monkicker">Latest plays</div><div class="monplays">${plays.map(p=>`<div class="monplay${p.scoring?' sc':''}"><b>${esc(p.clock||'')}</b><span>${esc(p.text)}</span>${p.scoring?`<span class="sc">${esc(g.away.abbr)} ${p.away??''}–${p.home??''} ${esc(g.home.abbr)}</span>`:'<span></span>'}</div>`).join('')}</div>`;
+}
+function monScoringHTML(g, d){
+  const lines=d?monLines(d,g):'';
+  const sps=(d&&d.scoringPlays)||[];
+  const rows=sps.slice(-6).reverse().map(p=>`<div class="monplay sc"><b>${esc((p.clock&&p.clock.displayValue)||'')}</b><span>${esc(p.text||'')}</span><span class="sc">${esc(g.away.abbr)} ${p.awayScore??''}–${p.homeScore??''} ${esc(g.home.abbr)}</span></div>`).join('');
+  return `<div class="monkicker">Scoring summary</div>${lines||''}${rows?`<div class="monplays">${rows}</div>`:'<div class="empty">No scoring plays yet.</div>'}`;
+}
+function monFantasyHTML(g, d){
+  const rows=monFantasyRows(d, g);
+  if(!rows.length) return '';
+  return `<div class="monkicker">Fantasy · your scoring</div><div class="monff">${rows.map(r=>`<div class="rowf"><div><b>${esc(r.name)}</b><div class="monmeta">${esc(r.line||'')}</div></div><div class="pts">${r.pts==null?'—':r.pts.toFixed(1)}</div></div>`).join('')}</div>`;
+}
+function monClipsHTML(g, d){
+  const clips=monClips(d);
+  if(!clips.length) return '';
+  const c=clips[0];
+  return `<div class="monclip"><div class="monkicker">Clip · muted</div><video id="monvideo" playsinline muted autoplay src="${esc(c.url)}"></video><div class="cap">${esc(c.title)}</div><div class="monmeta">${clips.length} ESPN clip${clips.length>1?'s':''} on this game · public MP4 · no login</div></div>`;
+}
+function monPanelHTML(id, g, d){
+  if(id==='score') return monScoreHTML(g);
+  if(id==='plays') return monPlaysHTML(g, d);
+  if(id==='scoring') return monScoringHTML(g, d);
+  if(id==='field') return d?`<div class="monkicker">Field · down & distance</div>${gdField(d, g.lg, g, gdPlays(d, g.lg))||'<div class="empty">No line of scrimmage right now.</div>'}`:'<div class="empty">Loading field…</div>';
+  if(id==='stats') return d?(gdTeamStats(d, g)||'<div class="empty">No team stats yet.</div>'):'<div class="empty">Loading team stats…</div>';
+  if(id==='leaders') return d?(gdLeaders(d, g)||'<div class="empty">No leaders yet.</div>'):'<div class="empty">Loading leaders…</div>';
+  if(id==='win') return d?(gdWinProb(d, g)||'<div class="empty">ESPN has no win probability for this game.</div>'):'<div class="empty">Loading win probability…</div>';
+  if(id==='picks') return gdPicksHTML(g);
+  if(id==='fantasy') return monFantasyHTML(g, d)||'<div class="empty">No fantasy players in this game.</div>';
+  if(id==='inj') return d?gdInjHTML(d, g.lg, g):'<div class="empty">Loading injuries…</div>';
+  if(id==='clips') return monClipsHTML(g, d)||'<div class="empty">No public ESPN clip on this game yet.</div>';
+  return monScoreHTML(g);
+}
+function monPaint(){
+  if(!MON.on) return;
+  const g=MON.games[MON.gi];
+  const who=$('#monwho'), stage=$('#monstage'), dots=$('#mondots');
+  if(!stage) return;
+  if(!g){ if(who) who.textContent='Monitor'; stage.innerHTML=`<div class="empty">${esc(MON.err||'No games on the scoreboard right now.')}</div>`; if(dots) dots.innerHTML=''; return; }
+  const d=MON.sums.get(g.lg+'|'+g.id)||null;
+  MON.panels=monPanelsFor(g);
+  if(MON.pi>=MON.panels.length) MON.pi=0;
+  const id=MON.panels[MON.pi];
+  const stateLbl=g.state==='post'?'FINAL':g.state==='pre'?'UPCOMING':'LIVE';
+  if(MON.flash && MON.flashUntil>Date.now()){
+    const f=MON.flash;
+    if(who) who.innerHTML=`${esc(f.kicker)}${f.sim?' <span class="monbanner">SIMULATED</span>':''}`;
+    stage.innerHTML=`<div class="monflash"><div class="monkicker">${esc(f.kicker)}</div><div class="big">${esc(f.big)}</div><div class="sub">${esc(f.sub||'')}</div><div class="monmeta">${esc(f.who||'')}</div>${f.sim?'<div class="sim">SIMULATED</div>':''}</div>`;
+  } else {
+    if(who) who.innerHTML=`${esc(LG[g.lg].icon)} ${esc(g.away.abbr)} ${g.away.score??''} @ ${esc(g.home.abbr)} ${g.home.score??''} · ${esc(stateLbl)}${MON.fallback&&g.state!=='in'?'<span class="monbanner">NO LIVE GAMES</span>':''} <span class="monmeta">${esc(MON_PANELS.find(p=>p.id===id)?.label||'')}</span>`;
+    stage.innerHTML=monPanelHTML(id, g, d);
+  }
+  if(dots) dots.innerHTML=MON.panels.map((p,i)=>`<span class="${i===MON.pi?'on':''}" title="${esc(MON_PANELS.find(x=>x.id===p)?.label||p)}"></span>`).join('');
+  const vid=$('#monvideo');
+  if(vid){
+    vid.muted=true; vid.playsInline=true;
+    vid.addEventListener('ended', ()=>{ clearTimeout(MON.rot); if(MON.on && MON.panels[MON.pi]==='clips') monNext(); });
+    const p=vid.play&&vid.play();
+    if(p&&p.catch) p.catch(()=>{ const cap=stage.querySelector('.cap'); if(cap && !stage.querySelector('[data-monplay]')) cap.insertAdjacentHTML('afterend','<div><button type="button" class="btn pri" data-monplay="1">Play clip</button></div>'); });
+  }
+}
+function monSetupHTML(){
+  const on=monEnabled(), iv=monInterval(), follow=pref.get('monitor.follow','rotate');
+  return `<h2>Monitor</h2>
+    <p class="note">Landscape TV board for a phone on a stand. On a phone, turning sideways opens it. Portrait keeps these controls. Wake lock runs only while the board is up in landscape.</p>
+    <div class="panel">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button type="button" class="btn pri" id="monenter" data-mon="enter">Enter monitor</button>
+        <span class="monwake" id="monwake2"><i></i><span id="monwakenote">Checking wake lock…</span></span>
+      </div>
+      <p class="note">Screen Wake Lock is in Safari and iOS Safari from 16.4, and in Home Screen web apps from iOS 18.4. It needs HTTPS. If the API is missing, the board still works and the screen may dim. <a href="https://developer.mozilla.org/en-US/docs/Web/API/Screen_Wake_Lock_API" target="_blank" rel="noopener">MDN</a> · <a href="https://caniuse.com/wake-lock" target="_blank" rel="noopener">caniuse</a> · <a href="https://developer.apple.com/documentation/safari-release-notes/safari-18_4-release-notes#Home-Screen-Web-Apps" target="_blank" rel="noopener">Safari 18.4</a></p>
+      <div class="filters" style="margin-top:8px">
+        <span class="note" style="align-self:center">Each panel</span>
+        ${[8,12,20].map(n=>`<label class="btn ${n===iv?'pri':''}" style="display:inline-flex;gap:6px;align-items:center"><input type="radio" name="monint" value="${n}" ${n===iv?'checked':''}> ${n}s</label>`).join('')}
+      </div>
+      <div class="filters">
+        <button type="button" class="btn ${follow!=='pin'?'pri':''}" data-monfollow="rotate">Rotate live games</button>
+        <button type="button" class="btn ${follow==='pin'?'pri':''}" data-monfollow="pin">Pinned game</button>
+      </div>
+      <div class="monchecks">${MON_PANELS.map(p=>`<label><input type="checkbox" class="monpanel" data-panel="${p.id}" ${on.has(p.id)?'checked':''}> ${esc(p.label)}</label>`).join('')}</div>
+      <p class="note">Clips plays the newest public MP4 from that game’s ESPN summary (<span class="note">links.source</span> on espnmedia-cdn), muted and inline. Login-gated streams are ignored. The panel hides when a game has no such clip.</p>
+      <div id="monlist" class="monlist"><div class="note">Loading scoreboards…</div></div>
+      <p class="note" id="monfoot"></p>
+    </div>`;
+}
+function monPaintSetup(){
+  const list=$('#monlist'); if(!list || !MON.ctx) return;
+  const follow=pref.get('monitor.follow','rotate'), pin=pref.get('monitor.pin','');
+  const games=MON.choices||[];
+  list.innerHTML = games.length ? games.map(g=>{
+    const pr=monPriority(g, MON.ctx);
+    const tags=[];
+    if(MON.ctx.teams.has(g.lg+':'+g.home.id)||MON.ctx.teams.has(g.lg+':'+g.away.id)) tags.push('⭐ team');
+    const pn=[...(MON.ctx.players.get(g.lg+':'+g.home.id)||[]), ...(MON.ctx.players.get(g.lg+':'+g.away.id)||[])];
+    if(pn.length) tags.push('⭐ '+pn.join(', '));
+    if(betsForEvent(DATA.recommendations,g.id).length) tags.push('🎯 picks');
+    if(betsForEvent(DATA.placedBets,g.id).length) tags.push('🎟️ bet');
+    const key=g.lg+'|'+g.id, pinned=pin===key;
+    const st=g.state==='in'?'LIVE':g.state==='post'?'FINAL':'UPCOMING';
+    return `<div class="mongame"><div class="nm">${esc(LG[g.lg].short)} · ${esc(g.away.abbr)} ${g.away.score??''} @ ${esc(g.home.abbr)} ${g.home.score??''} <span class="badge ${g.state==='in'?'b-g':'b-n'}">${st}</span> ${tags.map(t=>`<span class="note">${esc(t)}</span>`).join(' ')}<div class="note">${esc(statusTxt(g))}${pr?` · priority ${pr}`:''}</div></div><button type="button" class="btn sm ${pinned?'pri':''}" data-monpin="${esc(key)}">${pinned?'Pinned':'Pin'}</button></div>`;
+  }).join('') : `<div class="empty">${esc(MON.err||'No games found.')}</div>`;
+  const foot=$('#monfoot');
+  if(foot) foot.textContent = MON.fallback ? 'Nothing is live. The board will use the recent games above and label them FINAL or UPCOMING — not simulated.' : `Following ${MON.games.length} live game${MON.games.length===1?'':'s'}${follow==='pin'?' (pinned).':' (rotating).'}`;
+  document.querySelectorAll('[data-monfollow]').forEach(b=>b.classList.toggle('pri', (b.dataset.monfollow==='pin')===(follow==='pin')));
+}
+async function monLoad(tok){
+  MON.ctx = MON.ctx || await monContext();
+  if(tok!==TOKEN) return;
+  const lists=await Promise.all(LGS.map(async lg=>{
+    try{ const d=await getJSON(monBoardURL(lg), 15000); return remember((d.events||[]).map(e=>normEvent(e, lg))); }
+    catch(e){ MON.err=e.message; return []; }
+  }));
+  if(tok!==TOKEN) return;
+  MON.pool=lists.flat();
+  const ranked=MON.pool.map(g=>({g, p:monPriority(g, MON.ctx)}));
+  const live=ranked.filter(x=>isLive(x.g)).sort((a,b)=>b.p-a.p || a.g.date-b.g.date);
+  const rest=ranked.filter(x=>!isLive(x.g) && x.g.state!=='pre').sort((a,b)=>b.g.date-a.g.date);
+  const soon=ranked.filter(x=>x.g.state==='pre').sort((a,b)=>a.g.date-b.g.date).slice(0,6);
+  const recent=rest.filter(x=>Date.now()-x.g.date<48*3600e3);
+  MON.choices=(live.length?live:recent.length?recent:rest.slice(0,8).concat(soon)).map(x=>x.g);
+  if(!live.length && !MON.choices.length) MON.choices=soon.map(x=>x.g);
+  const follow=pref.get('monitor.follow','rotate');
+  const pin=pref.get('monitor.pin','');
+  let games;
+  if(follow==='pin'){
+    const g = pin ? await monResolvePin(pin) : (MON.choices[0]||null);
+    if(tok!==TOKEN) return;
+    games = g ? [g] : MON.choices.slice(0,1);
+  } else games = (live.length?live.map(x=>x.g):MON.choices).slice(0,8);
+  const same=MON.games.length===games.length && games.every((g,i)=>MON.games[i] && MON.games[i].id===g.id && MON.games[i].lg===g.lg);
+  MON.games=games;
+  MON.fallback=!live.length;
+  if(!same){ MON.gi=0; MON.pi=0; }
+  if(MON.gi>=MON.games.length) MON.gi=0;
+  const cur=MON.games[MON.gi];
+  if(cur){ try{ await monEnsureSum(cur); }catch(e){ MON.err=e.message; } }
+  if(tok!==TOKEN) return;
+  monDetectFlash(MON.games.filter(isLive));
+  if(cur){ try{ await injEnsure([cur.lg]); }catch(_){} }
+  MON.panels=cur?monPanelsFor(cur):['score'];
+  if(MON.pi>=MON.panels.length) MON.pi=0;
+  const nLive=live.length;
+  $('#cnt').textContent=`Monitor · ${nLive?nLive+' live':'no live games'} · ${follow==='pin'?'pinned':'rotating'}`;
+  monPaintSetup();
+  monApplyMode();
+  setRefresh(MON.games, ()=>{ if(document.hidden){ if(TAB==='monitor') monScheduleHidden(); return; } if(TAB==='monitor') monRefresh(); });
+}
+function monScheduleHidden(){ clearTimeout(RT); }
+async function monRefresh(){
+  if(TAB!=='monitor' || document.hidden) return;
+  const tok=TOKEN;
+  await monLoad(tok);
+}
+async function renderMonitor(tok, view){
+  if(!$('#monsetup')) view.innerHTML='<div id="monsetup">'+monSetupHTML()+'</div>';
+  try{ await monLoad(tok); }
+  catch(e){ if(tok!==TOKEN) return; MON.err=e.message; monPaintSetup(); throw e; }
+  monWakeSync();
+}
+try{
+  matchMedia('(orientation: landscape)').addEventListener('change', ()=>{
+    if(!matchMedia('(orientation: landscape)').matches) MON.hold=false;
+    if(TAB==='monitor') monApplyMode();
+  });
+}catch(_){}
+window.addEventListener('resize', ()=>{ if(TAB!=='monitor') return; clearTimeout(MON._rz); MON._rz=setTimeout(()=>{ if(!monPhoneLandscape()) MON.hold=false; monApplyMode(); }, 120); });
+document.addEventListener('click', ev=>{
+  const b=ev.target.closest&&ev.target.closest('[data-monplay]');
+  if(!b) return;
+  const v=$('#monvideo'); if(v){ v.muted=true; v.play().catch(()=>{}); }
+});
+
 // ---------------- EVENT WIRING ----------------
 let IMPORT_MODE='merge';
 document.addEventListener('click', async ev=>{
   const t=ev.target, a=k=>{ const el=t.closest(`[data-${k}]`); return el?el.dataset[k.replace(/-([a-z])/g,(m,c)=>c.toUpperCase())]:null; };
   let v;
   if((v=a('tab'))!==null) return go(v);
+  if((v=a('mon'))!==null){ monAction(v); return; }
+  if((v=a('monpin'))!==null){ pref.set('monitor.pin', v); pref.set('monitor.follow','pin'); return render(); }
+  if((v=a('monfollow'))!==null){ pref.set('monitor.follow', v); return render(); }
   if(a('reorder')){ setReorder(!REORDER); return; }
   if(t.id==='rostermodal' || t.closest('[data-rosterclose]')){ closeRoster(); return; }
   if((v=a('roster'))!==null){ ev.preventDefault(); const [lg,id]=v.split('|'); return openRoster(lg, id); }
@@ -2762,6 +3240,8 @@ document.addEventListener('click', async ev=>{
 });
 document.addEventListener('change', ev=>{
   const t=ev.target, d=t.dataset;
+  if(t.classList.contains('monpanel')){ monSavePanels(); return; }
+  if(t.name==='monint'){ const n=+t.value; if([8,12,20].includes(n)){ pref.set('monitor.interval', String(n)); document.querySelectorAll('label.btn input[name="monint"]').forEach(el=>el.parentElement.classList.toggle('pri', +el.value===n)); if(typeof monArmRotation==='function') monArmRotation(); } return; }
   if(t.closest('#slipform')){
     const nm=t.name||''; syncDraft();
     if(nm==='betType'){ if(DRAFT.betType==='parlay' && DRAFT.legs.length<2) DRAFT.legs.push(blankLeg(DRAFT.legs[0].league)); }
@@ -2803,7 +3283,14 @@ $('#filein').addEventListener('change', async ev=>{
   }catch(e){ alert('Import failed: '+e.message); }
 });
 window.addEventListener('hashchange', ()=>{ const t=parseHash(); if(t && t!==TAB) go(t); else if(t){ render(); } });
-document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && LGS.concat(['mine','bets','blitz','fantasy','injuries']).includes(TAB) && !$('#slipform')) render(); });
+document.addEventListener('visibilitychange', ()=>{
+  if(document.hidden){
+    if(TAB==='monitor'){ clearTimeout(RT); clearTimeout(MON.rot); MON.rot=null; monWakeSync(); }
+    return;
+  }
+  if(TAB==='monitor'){ monWakeSync(); monRefresh(); return; }
+  if(LGS.concat(['mine','bets','blitz','fantasy','injuries']).includes(TAB) && !$('#slipform')) render();
+});
 
 // ---------------- INIT ----------------
 DATA = loadData();
