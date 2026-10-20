@@ -63,6 +63,10 @@ h3{font-size:13px;letter-spacing:2px;color:var(--gold2);margin:16px 0 8px;text-t
 .row{display:flex;align-items:center;gap:8px;padding:3px 0}
 .row img{width:24px;height:24px;object-fit:contain}
 .row .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.rbtn{flex:none;background:none;border:1px solid var(--line);color:var(--gold2);border-radius:999px;font-size:10px;font-weight:800;letter-spacing:.4px;padding:1px 6px;cursor:pointer;line-height:1.4}
+.rbtn:hover,.rbtn:focus-visible{border-color:var(--gold);color:var(--gold)}
+html.touch .rbtn{min-height:32px;min-width:44px;font-size:12px;padding:4px 8px;position:relative}
+html.touch .rbtn::after{content:"";position:absolute;inset:-8px}
 .row .rk{color:var(--gold2);font-size:11px;font-weight:800;margin-right:3px}
 .row .rec{color:var(--mut);font-size:11px;margin-left:4px;font-weight:400}
 .row .sc{font-weight:900;font-size:20px;min-width:30px;text-align:right;font-variant-numeric:tabular-nums}
@@ -161,7 +165,22 @@ body.dragging-on .dh{cursor:grabbing}
 .mclose{position:absolute;right:12px;top:12px}
 body.modal-on{overflow:hidden}
 .gdscore{display:grid;gap:6px;margin:10px 0}
-.gdteam{display:flex;align-items:center;gap:10px}.gdteam img{width:38px;height:38px;object-fit:contain}.gdteam>div:nth-child(2){flex:1;display:flex;flex-direction:column}
+.gdteam{display:flex;align-items:center;gap:10px}.gdteam img{width:38px;height:38px;object-fit:contain}.gdteam .gdwho{flex:1;display:flex;flex-direction:column;align-items:flex-start;min-width:0;gap:3px}
+#rostermodal{z-index:60}
+#rostermodal .mbox{max-width:980px;overflow-x:hidden}
+.rhead{display:flex;gap:10px;align-items:center;padding-right:96px;margin:0 0 8px}
+.rhead img{width:42px;height:42px;object-fit:contain}
+.rtitle{font-weight:900;font-size:20px;letter-spacing:.4px;color:var(--gold)}
+#rosterq{width:100%;margin:0 0 10px}
+.rgroup{margin:0 0 14px}
+.rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:10px}
+.rcard{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px;min-width:0}
+.rphoto{width:72px;height:72px;border-radius:50%;background:#0b1426;border:1px solid var(--line);position:relative;overflow:hidden;margin-bottom:8px}
+.rphoto img{width:100%;height:100%;object-fit:cover;position:relative;z-index:1;display:block}
+.rphoto .ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--gold2);font-weight:900;letter-spacing:1px;font-size:18px}
+.rcard .pn{font-weight:800;line-height:1.25;overflow-wrap:anywhere}
+.rcard .meta{color:var(--mut);font-size:12px;margin-top:3px}
+@media(max-width:520px){.rgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .gdsc{font-size:30px;font-weight:900;color:var(--gold)}
 .gdmeta{color:var(--mut);font-size:13px;margin-bottom:8px}
 table.ls{border-collapse:collapse;margin:6px 0 10px;font-size:13px}table.ls th,table.ls td{padding:3px 9px;text-align:center;border-bottom:1px solid var(--line)}table.ls td:first-child{text-align:left;font-weight:800}
@@ -539,6 +558,7 @@ function teamRow(g, s, favs){
   return `<div class="row ${lose?'lose':''} ${fav?'favt':''}">
     ${s.logo?`<img src="${esc(s.logo)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`:'<span style="width:24px"></span>'}
     <div class="nm">${s.rank?`<span class="rk">${s.rank}</span>`:''}${fav?'⭐ ':''}${esc(s.name)}${poss?'<span class="pos" title="Possession">🏈</span>':''}<span class="rec">${esc(s.record)}</span></div>
+    ${s.id?`<button type="button" class="rbtn" data-roster="${esc(g.lg)}|${esc(s.id)}" title="Roster · ${esc(s.full||s.name)}">Roster</button>`:''}
     <div class="sc">${g.state==='pre'||s.score==null?'':s.score}</div>
   </div>`;
 }
@@ -691,6 +711,7 @@ function parseHash(){
 }
 function setHash(){ const h = LGS.includes(TAB) ? `#${TAB}/${filterFor(TAB)}` : '#'+TAB; if(location.hash!==h) history.replaceState(null,'',h); }
 function go(tab){
+  if(typeof closeRoster==='function') closeRoster();
   if(typeof closeGame==='function') closeGame();
   TAB=tab; pref.set('tab',tab); if(LGS.includes(tab)) pref.set('lastLeague',tab);
   document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===tab));
@@ -1575,7 +1596,7 @@ async function openGame(lg, id, opts={}){
     const vids=(d.videos||[]).map(v=>hlFromSummary(v,lg,g)).filter(Boolean);
     (HL.items||[]).filter(x=>x.eventId===id).forEach(x=>{ if(!vids.some(v=>v.id===x.id)) vids.push(x); });
     const groups=gdPlays(d, lg), sit=gdSituation(d, lg, g, groups);
-    const side=t=>`<div class="gdteam">${t.logo?`<img src="${esc(t.logo)}" alt="">`:''}<div><b>${t.rank?'#'+t.rank+' ':''}${esc(t.full||t.name)}${sit&&sit.poss&&sit.poss.id===t.id&&isFootball(lg)?' <span title="Possession">🏈</span>':''}</b><span class="note">${esc(t.record||'')}</span></div><div class="gdsc">${t.score??''}</div></div>`;
+    const side=t=>`<div class="gdteam">${t.logo?`<img src="${esc(t.logo)}" alt="">`:''}<div class="gdwho"><b>${t.rank?'#'+t.rank+' ':''}${esc(t.full||t.name)}${sit&&sit.poss&&sit.poss.id===t.id&&isFootball(lg)?' <span title="Possession">🏈</span>':''}</b><span class="note">${esc(t.record||'')}</span>${t.id?`<button type="button" class="btn sm" data-roster="${esc(lg)}|${esc(t.id)}">Roster</button>`:''}</div><div class="gdsc">${t.score??''}</div></div>`;
     // keep scroll position + open drive/period groups across refreshes
     const modal=$('#gdmodal'), st=modal?modal.scrollTop:0, pbpEl=$('#gdpbp'), pst=pbpEl?pbpEl.scrollTop:0;
     const openKeys = pbpEl ? new Set([...pbpEl.querySelectorAll('details[open]')].map(x=>x.dataset.gk)) : null;
@@ -1610,7 +1631,7 @@ async function openGame(lg, id, opts={}){
     syncSheet().then(()=>gdLoadPickLegs(id)).then(()=>{ if(GD!==me) return; const el=$('#gdpicks'); if(el) el.innerHTML=gdPicksHTML(g); }).catch(()=>{});   // throttled (20 s); picks update in place
   }catch(e){ if(GD===me) $('#gdbody').innerHTML=`<div class="empty">Could not load this game from ESPN (${esc(e.message)}).</div>`; }
 }
-document.addEventListener('keydown', e=>{ if(e.key==='Escape' && GD) closeGame(); });
+document.addEventListener('keydown', e=>{ if(e.key!=='Escape') return; if($('#rostermodal')){ closeRoster(); return; } if(GD) closeGame(); });
 // Double-click any score card to open details. Drag is handle-only (.dh), so a double-click on the card body never starts a drag.
 document.addEventListener('dblclick', e=>{
   const t=e.target; if(TOUCH || DRAG || t.closest('.dh,.mv,button,a,input,select,textarea,label,#gdmodal')) return;
@@ -1718,7 +1739,7 @@ async function renderLeague(lg, tok, view){
   // --- featured favorites
   const favList = DATA.myTeams[lg]||[];
   const favOrdered = ORD.apply(KEY_FAV, favList, t=>'team:'+t.id);
-  const featured = favOrdered.map(t=>{ const g=games.find(x=>involves(x,t.id)); return withSid(g?card(g):`<div class="g fav" id="fx-${lg}-${esc(t.id)}"><div class="row"><div class="nm">⭐ ${esc(t.name)}</div></div><div class="foot">Loading next game…</div></div>`, 'team:'+t.id); }).join('');
+  const featured = favOrdered.map(t=>{ const g=games.find(x=>involves(x,t.id)); return withSid(g?card(g):`<div class="g fav" id="fx-${lg}-${esc(t.id)}"><div class="row"><div class="nm">⭐ ${esc(t.name)}</div></div><div class="foot">Loading next game… ${rosterBtn(lg,t.id)}</div></div>`, 'team:'+t.id); }).join('');
   const playersAll = DATA.favoritePlayers.filter(p=>p.league===lg);
   const playersHere = ORD.apply(KEY_PL, playersAll, p=>'p:'+p.id);
   let ffPanel='';
@@ -1744,7 +1765,7 @@ async function renderLeague(lg, tok, view){
     try{ const tg=await teamGames(lg,t.id); if(tok!==TOKEN) return; const el=document.getElementById(`fx-${lg}-${t.id}`); if(!el) return;
       const why = L.mode==='week' ? 'BYE / no game this week' : 'No game today';
       if(tg.next) el.outerHTML = withSid(gameCard(tg.next,{favs, extraTags:`<span class="badge b-n">${why} · next up</span>`}), 'team:'+t.id);
-      else el.innerHTML = DH+`<div class="row"><div class="nm">⭐ ${esc(t.name)}</div></div><div class="foot">${why} · no upcoming games scheduled${tg.last?` · last: ${esc(tg.last.away.abbr)} ${tg.last.away.score} @ ${esc(tg.last.home.abbr)} ${tg.last.home.score}`:''}</div>`;
+      else el.innerHTML = DH+`<div class="row"><div class="nm">⭐ ${esc(t.name)}</div></div><div class="foot">${why} · no upcoming games scheduled${tg.last?` · last: ${esc(tg.last.away.abbr)} ${tg.last.away.score} @ ${esc(tg.last.home.abbr)} ${tg.last.home.score}`:''} ${rosterBtn(lg,t.id)}</div>`;
     }catch(_){}
   });
   playersHere.forEach(async p=>{ const h=await playerCardHTML(p).catch(e=>`<div class="note">${esc(e.message)}</div>`); if(tok!==TOKEN) return; const el=document.getElementById('pl-'+p.id); if(el) el.outerHTML=withSid(h,'p:'+p.id); });
@@ -1776,7 +1797,7 @@ async function renderMine(tok, view){
   if(!sections.length && !players.length){ view.innerHTML=`<div class="empty">No favorites yet. Add teams and players in <b>⚙️ Settings</b>.</div>`; setRefresh([],null); return; }
   view.innerHTML = `${myInjBanner()}<div class="toolrow">${resetBtn(['mine.players','mine.teams'])}</div>${players.length?`<h2>👑 Favorite Players</h2><div class="grid" id="mplgrid" ${sortAttrs('mine.players', playersAll.map(p=>'p:'+p.league+p.id))}>${players.map(p=>withSid(`<div class="g" id="mpl-${esc(p.league+p.id)}"><div class="note">Loading ${esc(p.name)}…</div></div>`,'p:'+p.league+p.id)).join('')}</div>`:''}
     <h2>⭐ My Teams — today / next game</h2>
-    <div class="grid" id="minegrid" ${sortAttrs('mine.teams', teamsAll.map(x=>x.lg+':'+x.t.id))}>${teams.map(({lg,t})=>withSid(`<div class="g fav" id="mt-${lg}-${esc(t.id)}"><div class="lgtag"><span>${LG[lg].icon} ${LG[lg].short}</span></div><div class="row"><div class="nm">⭐ ${esc(t.name)}</div></div><div class="foot">Loading…</div></div>`, lg+':'+t.id)).join('')}</div>`;
+    <div class="grid" id="minegrid" ${sortAttrs('mine.teams', teamsAll.map(x=>x.lg+':'+x.t.id))}>${teams.map(({lg,t})=>withSid(`<div class="g fav" id="mt-${lg}-${esc(t.id)}"><div class="lgtag"><span>${LG[lg].icon} ${LG[lg].short}</span></div><div class="row"><div class="nm">⭐ ${esc(t.name)}</div></div><div class="foot">Loading… ${rosterBtn(lg,t.id)}</div></div>`, lg+':'+t.id)).join('')}</div>`;
   const all=[];
   injEnsure(myInjLeagues()).then(()=>{ if(tok===TOKEN) myInjPatch(); });
   await Promise.all([
@@ -1787,7 +1808,7 @@ async function renderMine(tok, view){
         if(g){ all.push(g); remember([g]);
           const lastTxt = tg.last && tg.last!==g ? `<div class="note" style="margin-top:4px">Last: ${esc(tg.last.away.abbr)} ${tg.last.away.score??''} @ ${esc(tg.last.home.abbr)} ${tg.last.home.score??''} · ${esc(tg.last.detail)} (${esc(fmtDay(tg.last.date))})</div>` : '';
           html = gameCard(g,{showLg:true, extraTags:`<span class="badge ${g.state==='in'?'b-g':'b-n'}">${g.state==='in'?'LIVE NOW':g===tg.cur?'TODAY':'NEXT GAME'}</span>`}).replace(/<\/div>\s*$/, lastTxt+'</div>');
-        } else html = `<div class="g fav"><div class="lgtag"><span>${LG[lg].icon} ${LG[lg].short}</span></div><div class="row"><div class="nm">⭐ ${esc(t.name)}</div></div><div class="foot">No upcoming games (off-season)${tg.last?` · last: ${esc(tg.last.away.abbr)} ${tg.last.away.score} @ ${esc(tg.last.home.abbr)} ${tg.last.home.score}`:''}</div></div>`;
+        } else html = `<div class="g fav"><div class="lgtag"><span>${LG[lg].icon} ${LG[lg].short}</span></div><div class="row"><div class="nm">⭐ ${esc(t.name)}</div></div><div class="foot">No upcoming games (off-season)${tg.last?` · last: ${esc(tg.last.away.abbr)} ${tg.last.away.score} @ ${esc(tg.last.home.abbr)} ${tg.last.home.score}`:''} ${rosterBtn(lg,t.id)}</div></div>`;
       }catch(e){ html = `<div class="g fav"><div class="row"><div class="nm">⭐ ${esc(t.name)}</div></div><div class="foot">Couldn't load (${esc(e.message)})</div></div>`; }
       if(tok!==TOKEN) return; const el=document.getElementById(`mt-${lg}-${t.id}`); if(el) el.outerHTML=withSid(html, lg+':'+t.id);
     })),
@@ -2577,6 +2598,103 @@ async function playerSearch(scope, q){
   }catch(e){ box.innerHTML=`<div class="note">Search failed (${esc(e.message)})</div>`; box.style.display='block'; }
 }
 
+// ---------------- TEAM ROSTER ----------------
+// ESPN roster (CORS open from http(s), checked in Chrome): site.api.espn.com/apis/site/v2/sports/{sport}/{league}/teams/{id}/roster
+// Headshots are the href ESPN returns (a.espncdn.com). /teams?enable=injuries is CORS-blocked and is not used.
+// Each roster is cached in memory for this page session. Photos use loading="lazy".
+const ROSTER_CACHE = new Map();
+const ROSTER_GROUP = {offense:'Offense', defense:'Defense', specialTeam:'Special teams', specialTeams:'Special teams', injuredReserveOrOut:'Injured reserve / Out', suspended:'Suspended', practiceSquad:'Practice squad'};
+let RST = null, RSTN = 0;
+function rosterBtn(lg, id){ return `<button type="button" class="rbtn" data-roster="${esc(lg)}|${esc(id)}">Roster</button>`; }
+function rosterURL(lg, id){ return API+LG[lg].path+'/teams/'+encodeURIComponent(id)+'/roster'; }
+function rosterInitials(name){ const p=String(name||'').trim().split(/\s+/).filter(Boolean); if(!p.length) return '?'; if(p.length===1) return p[0].slice(0,2).toUpperCase(); return (p[0][0]+p[p.length-1][0]).toUpperCase(); }
+function rosterYear(p, college){
+  const exp=p.experience||{};
+  if(college) return exp.displayValue||exp.abbreviation||'';
+  if(p.age!=null && p.age!=='') return 'Age '+p.age;
+  if(exp.years!=null && exp.years!=='') return exp.years+' yr'+(exp.years==1?'':'s');
+  return '';
+}
+function normRosterPlayer(p, group){
+  const pos=p.position||{}, col=p.college||{};
+  return { id:String(p.id||''), name:p.displayName||p.fullName||'', jersey:p.jersey!=null&&p.jersey!==''?String(p.jersey):'',
+    pos:pos.abbreviation||'', posName:pos.displayName||pos.name||'', group:group||'',
+    height:p.displayHeight||'', weight:p.displayWeight||'', year:'', college:col.shortName||col.name||'',
+    headshot:(p.headshot&&p.headshot.href)||'' , _age:p.age, _exp:p.experience||null };
+}
+function rosterNorm(d, lg){
+  const team=d.team||{}, logos=team.logos||[];
+  const logo=(logos.find(l=>(l.rel||[]).includes('default'))||logos[0]||{}).href || team.logo || (LG[lg].college&&team.id?`https://a.espncdn.com/i/teamlogos/ncaa/500/${team.id}.png`:'');
+  const ath=d.athletes||[];
+  let groups=[];
+  if(ath.length && Array.isArray(ath[0].items)){
+    ath.forEach(g=>{ const key=String(g.position||'other'); const items=(g.items||[]).map(p=>normRosterPlayer(p, key)).filter(p=>p.name);
+      items.forEach(p=>{ p.year=rosterYear({age:p._age, experience:p._exp}, LG[lg].college); if(LG[lg].college) p.college=''; });
+      if(items.length) groups.push({key, label:ROSTER_GROUP[key]||key, items}); });
+  } else {
+    const items=ath.map(p=>normRosterPlayer(p,'')).filter(p=>p.name);
+    items.forEach(p=>{ p.year=rosterYear({age:p._age, experience:p._exp}, LG[lg].college); if(LG[lg].college) p.college=''; });
+    if(items.length) groups=[{key:'all', label:'', items}];
+  }
+  const n=groups.reduce((a,g)=>a+g.items.length,0);
+  return { team:{id:String(team.id||''), name:team.displayName||team.shortDisplayName||team.name||'Team', abbr:team.abbreviation||'', logo},
+    season:(d.season&&(d.season.displayName||d.season.year))||'', groups, n };
+}
+function rosterLoad(lg, id){
+  const k=lg+'|'+id;
+  if(ROSTER_CACHE.has(k)) return ROSTER_CACHE.get(k);
+  const p=getJSON(rosterURL(lg,id), -1).then(d=>rosterNorm(d,lg)).catch(e=>{ ROSTER_CACHE.delete(k); throw e; });
+  ROSTER_CACHE.set(k, p); return p;
+}
+function rosterHit(p, q){
+  if(!q) return true;
+  return [p.name, p.jersey, p.pos, p.posName, p.college, p.year, p.height, p.weight].join(' ').toLowerCase().includes(q);
+}
+function rosterCard(p, lg, teamId){
+  const inj=injBadge(injFind(lg,{id:p.id, name:p.name, teamId}));
+  const who=[p.jersey?('#'+p.jersey):'', p.pos].filter(Boolean).join(' · ');
+  const facts=[p.height, p.weight, p.year, p.college].filter(Boolean).join(' · ');
+  const photo=p.headshot?`<img src="${esc(p.headshot)}" alt="" loading="lazy" onerror="this.remove()">`:'';
+  return `<article class="rcard" data-rid="${esc(p.id)}"><div class="rphoto"><span class="ph" aria-hidden="true">${esc(rosterInitials(p.name))}</span>${photo}</div>
+    <div class="pn">${esc(p.name)}</div>
+    <div class="meta">${esc(who||'—')}${inj?' '+inj:''}</div>
+    ${facts?`<div class="meta">${esc(facts)}</div>`:''}</article>`;
+}
+function paintRoster(q){
+  if(!RST||!RST.data) return;
+  const {lg, data}=RST, query=String(q==null?($('#rosterq')&&$('#rosterq').value)||'':q).trim().toLowerCase();
+  const shown=data.groups.map(g=>({...g, items:g.items.filter(p=>rosterHit(p, query))})).filter(g=>g.items.length);
+  const n=shown.reduce((a,g)=>a+g.items.length,0);
+  const list=shown.length?shown.map(g=>`<section class="rgroup">${g.label?`<h3 class="gdh">${esc(g.label)} <span class="note">${g.items.length}</span></h3>`:''}<div class="rgrid">${g.items.map(p=>rosterCard(p, lg, data.team.id)).join('')}</div></section>`).join('')
+    : `<div class="empty">No players match${query?' “'+esc(query)+'”':''}.</div>`;
+  const count=`${esc(LG[lg].short)}${data.season?' · '+esc(String(data.season)):''} · ${n} player${n===1?'':'s'}${query&&n!==data.n?' of '+data.n:''}`;
+  if(!$('#rosterq')){
+    $('#rosterbody').innerHTML=`<div class="rhead">${data.team.logo?`<img src="${esc(data.team.logo)}" alt="">`:''}<div><div class="rtitle">${esc(data.team.name)}</div><div class="note" id="rostercount">${count}</div></div></div>
+      <input id="rosterq" type="search" placeholder="Search name, number, position…" aria-label="Filter roster" autocomplete="off">
+      <div id="rosterlist">${list}</div>
+      <p class="note">Roster and photos from ESPN. A player with no headshot keeps the initial. Injury badges use this hub's ESPN injury report (college reports are often empty).</p>`;
+  } else { $('#rosterlist').innerHTML=list; const c=$('#rostercount'); if(c) c.innerHTML=count; }
+}
+function closeRoster(){
+  RSTN++; RST=null; const m=$('#rostermodal'); if(m) m.remove();
+  if(!$('#gdmodal')) document.body.classList.remove('modal-on');
+}
+async function openRoster(lg, id){
+  if(!LG[lg]||!id) return;
+  id=String(id); const token=++RSTN;
+  if(!$('#rostermodal')){
+    document.body.insertAdjacentHTML('beforeend', `<div id="rostermodal" class="modal"><div class="mbox" role="dialog" aria-modal="true" aria-label="Team roster"><div class="mtop"><button class="btn sm mclose" data-rosterclose="1" aria-label="Close">✕<span class="mcl"> Close</span></button></div><div id="rosterbody"><div class="note">Loading roster…</div></div></div></div>`);
+    document.body.classList.add('modal-on');
+  } else $('#rosterbody').innerHTML='<div class="note">Loading roster…</div>';
+  RST={lg, id, token, data:null};
+  try{
+    const [data]=await Promise.all([rosterLoad(lg, id), injEnsure([lg])]);
+    if(token!==RSTN) return;
+    RST={lg, id, token, data};
+    paintRoster('');
+  }catch(e){ if(token===RSTN) $('#rosterbody').innerHTML=`<div class="empty">Could not load this roster from ESPN (${esc(e.message)}).</div>`; }
+}
+
 // ---------------- EVENT WIRING ----------------
 let IMPORT_MODE='merge';
 document.addEventListener('click', async ev=>{
@@ -2584,6 +2702,8 @@ document.addEventListener('click', async ev=>{
   let v;
   if((v=a('tab'))!==null) return go(v);
   if(a('reorder')){ setReorder(!REORDER); return; }
+  if(t.id==='rostermodal' || t.closest('[data-rosterclose]')){ closeRoster(); return; }
+  if((v=a('roster'))!==null){ ev.preventDefault(); const [lg,id]=v.split('|'); return openRoster(lg, id); }
   if((v=a('mv'))!==null){ moveItem(t.closest('[data-mv]'), +v); return; }
   if(t.id==='gdmodal' && GD && Date.now()-(GD.openedAt||0)<450) return;   // the 2nd tap of a quick double-tap must not close what the 1st opened
   if(t.id==='gdmodal' || t.closest('[data-gdclose="x"]')){ closeGame(); return; }
@@ -2671,6 +2791,7 @@ document.addEventListener('input', ev=>{
   const t=ev.target, d=t.dataset;
   if(d.teamsearch){ clearTimeout(SEARCH_T); SEARCH_T=setTimeout(()=>teamSearch(d.teamsearch,t.value),150); }
   if(t.id==='injq'){ clearTimeout(SEARCH_T); SEARCH_T=setTimeout(()=>{ pref.set('inj.q',t.value); const b=$('#injbody'); if(b) b.innerHTML=injBodyHTML(); },150); }
+  if(t.id==='rosterq') paintRoster(t.value);
   if(d.playersearch){ clearTimeout(SEARCH_T); SEARCH_T=setTimeout(()=>playerSearch(d.playersearch,t.value),300); }
 });
 document.addEventListener('submit', ev=>{ if(ev.target.id==='slipform'){ ev.preventDefault(); saveDraft(); } });
