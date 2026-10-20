@@ -263,19 +263,20 @@ html.mon-on,html.mon-on body{overflow:hidden;background:#05080f}
 .monwake i{width:8px;height:8px;border-radius:50%;background:#8a98b5;display:inline-block}
 .monwake.on{color:#b8ffd4}.monwake.on i{background:var(--green);box-shadow:0 0 8px var(--green)}
 .monwake.off{color:#ffd7a8}.monwake.off i{background:var(--amber)}
-#monstage{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;justify-content:center}
+#monstage{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;justify-content:flex-start}
 .monscore{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;text-align:center}
-.monname{font-size:clamp(20px,3.6vw,40px);font-weight:900;line-height:1.05}
-.monmeta{color:#9fb0cc;font-size:clamp(12px,1.8vw,18px);font-weight:700;margin-top:4px}
-.monpts{font-size:clamp(48px,11vw,120px);font-weight:900;line-height:.85;font-variant-numeric:tabular-nums;color:#fff}
+.monname{font-size:clamp(26px,4.4vw,52px);font-weight:900;line-height:1.05}
+.monmeta{color:#d5deee;font-size:clamp(15px,2.2vw,24px);font-weight:700;margin-top:4px}
+.monpts{font-size:clamp(72px,16vw,160px);font-weight:900;line-height:.85;font-variant-numeric:tabular-nums;color:#fff}
 .monpts.lead{color:var(--gold)}
-.monclk{font-size:clamp(26px,4.6vw,52px);font-weight:900;color:var(--gold);letter-spacing:1px;line-height:1}
-.monsub{margin-top:8px;font-size:clamp(16px,2.6vw,28px);font-weight:800;color:#d5deee}
+.monclk{font-size:clamp(32px,6vw,72px);font-weight:900;color:var(--gold);letter-spacing:1px;line-height:1}
+.monsub{margin-top:8px;font-size:clamp(20px,3vw,34px);font-weight:800;color:#f4f7ff}
+.monlast{margin-top:12px;text-align:center;font-size:clamp(18px,2.6vw,30px);font-weight:800;color:#f4f7ff;line-height:1.25}
 .monposs{color:var(--gold)}
 .monlogo{width:clamp(36px,6vw,64px);height:clamp(36px,6vw,64px);object-fit:contain}
 .monkicker{font-size:clamp(13px,2vw,18px);font-weight:900;letter-spacing:3px;color:var(--gold);text-transform:uppercase}
 .monplays{display:flex;flex-direction:column;gap:6px}
-.monplay{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:baseline;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.08);font-size:clamp(15px,2.2vw,24px)}
+.monplay{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:baseline;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.12);font-size:clamp(18px,2.8vw,32px)}
 .monplay b{color:var(--gold);font-variant-numeric:tabular-nums;white-space:nowrap}
 .monplay .sc{font-weight:900;white-space:nowrap}
 .monplay.sc{background:rgba(255,198,26,.1);border-radius:8px;padding:6px 8px}
@@ -284,17 +285,23 @@ html.mon-on,html.mon-on body{overflow:hidden;background:#05080f}
 .monflash .sub{font-size:clamp(18px,3vw,32px);font-weight:700;color:#d5deee}
 .monflash .sim{display:inline-block;margin-top:10px;background:var(--amber);color:#1a0d00;font-weight:900;letter-spacing:1px;border-radius:999px;padding:4px 10px;font-size:14px}
 .monbanner{display:inline-block;background:#2a2110;color:var(--gold2);border:1px solid var(--amber);border-radius:999px;padding:2px 8px;font-size:12px;font-weight:900;letter-spacing:1px;margin-left:8px}
-#monboard .gdh{font-size:clamp(14px,2vw,20px)}
-#monboard table.ls,#monboard table.tstats{font-size:clamp(14px,2vw,22px)}
-#monboard table.ls td,#monboard table.ls th,#monboard table.tstats td,#monboard table.tstats th{padding:6px 10px}
+#monboard .gdh{font-size:clamp(16px,2.5vw,28px)}
+#monboard table.ls,#monboard table.tstats{font-size:clamp(16px,2.6vw,28px)}
+#monboard table.ls td,#monboard table.ls th,#monboard table.tstats td,#monboard table.tstats th{padding:6px 10px;color:#f4f7ff}
+#monboard table.tstats td:first-child,#monboard table.ls th{color:#d5deee}
 #monboard .tscroll{max-height:none}
-#monboard .wpbar{height:36px;font-size:16px}
-#monboard .wpchart{height:100px}
-#monboard .fptxt{font-size:clamp(16px,2.4vw,26px)}
-#monboard .ldr b{font-size:clamp(16px,2.2vw,24px)}
-#monboard .pick{font-size:clamp(14px,2vw,20px)}
-#monboard .pkleg{font-size:clamp(16px,2.2vw,24px)}
-#monboard .injrow{font-size:clamp(14px,2vw,20px)}
+#monboard .wpbar{height:44px;font-size:18px}
+#monboard .wpchart{height:110px}
+#monboard .fptxt{font-size:clamp(18px,2.8vw,32px);color:#f4f7ff}
+#monboard .ldr{font-size:clamp(16px,2.4vw,26px)}
+#monboard .ldr b{font-size:clamp(18px,2.8vw,32px)}
+#monboard .ldr img,#monboard .ldr .nohs{width:52px;height:52px}
+#monboard .pick{font-size:clamp(16px,2.3vw,24px)}
+#monboard .pkleg{font-size:clamp(18px,2.6vw,28px)}
+#monboard .injrow{font-size:clamp(16px,2.3vw,24px)}
+#monboard .empty{font-size:clamp(18px,2.6vw,28px);color:#f4f7ff;border-color:#3a4d73}
+#monboard .note{color:#d5deee;font-size:clamp(13px,1.8vw,18px)}
+#monboard .badge{font-size:13px}
 .monff{display:flex;flex-direction:column;gap:8px}
 .monff .rowf{display:flex;justify-content:space-between;gap:12px;align-items:baseline;border-bottom:1px solid rgba(255,255,255,.08);padding:6px 0}
 .monff .pts{font-size:clamp(28px,4vw,48px);font-weight:900;color:var(--gold);font-variant-numeric:tabular-nums}
@@ -2818,7 +2825,12 @@ async function monWakeSync(){
   const paint=(cls, txt)=>{ if(wrap){ wrap.className='monwake'+(cls?' '+cls:''); } if(noteEl) noteEl.textContent=txt; MON.wakeNote=txt; if(setup) setup.textContent=txt; };
   if(!navigator.wakeLock){ await monReleaseWake(); paint('off', 'This browser has no Screen Wake Lock — the phone may dim.'); return; }
   if(!window.isSecureContext){ await monReleaseWake(); paint('off', 'Wake lock needs HTTPS. The board still works; the screen may dim.'); return; }
-  if(!want){ await monReleaseWake(); paint('', MON.on && !monIsLandscape() ? 'Portrait — wake lock stays off until landscape.' : 'Screen can sleep'); return; }
+  if(!want){
+    const msg = document.hidden && MON.on ? 'Paused — page is hidden' : (MON.on && !monIsLandscape() ? 'Portrait — wake lock stays off until landscape.' : 'Screen can sleep');
+    paint('', msg);
+    await monReleaseWake();
+    return;
+  }
   if(MON.wake){ paint('on', 'Keeping screen awake'); return; }
   try{
     const sentinel = await navigator.wakeLock.request('screen');
@@ -2977,8 +2989,9 @@ function monScoreHTML(g){
   const dd = isFootball(g.lg) && g.sit && g.sit.dd ? g.sit.dd : '';
   const ball = poss(g.away.id)?g.away.abbr+' ball':poss(g.home.id)?g.home.abbr+' ball':'';
   const sub = [ball, dd, g.sit&&g.sit.rz?'RED ZONE':''].filter(Boolean).join(' · ');
+  const last = (g.sit&&g.sit.last)||'';
   return `<div class="monkicker">${esc(LG[g.lg].short)} · ${tag}${g.state==='post'?' · not live':''}</div>
-    <div class="monscore">${side(g.away, leadA)}<div><div class="monclk">${esc(g.state==='in'?statusTxt(g):g.state==='post'?(g.detail||'Final'):fmtTime(g.date))}</div><div class="monsub">${esc(sub)}</div></div>${side(g.home, leadH)}</div>`;
+    <div class="monscore">${side(g.away, leadA)}<div><div class="monclk">${esc(g.state==='in'?statusTxt(g):g.state==='post'?(g.detail||'Final'):fmtTime(g.date))}</div><div class="monsub">${esc(sub)}</div></div>${side(g.home, leadH)}</div>${last?`<div class="monlast">${esc(last)}</div>`:''}`;
 }
 function monPlaysHTML(g, d){
   if(!d) return '<div class="empty">Loading plays…</div>';
@@ -3029,11 +3042,14 @@ function monPaint(){
   if(MON.pi>=MON.panels.length) MON.pi=0;
   const id=MON.panels[MON.pi];
   const stateLbl=g.state==='post'?'FINAL':g.state==='pre'?'UPCOMING':'LIVE';
-  if(who) who.innerHTML=`${esc(LG[g.lg].icon)} ${esc(g.away.abbr)} ${g.away.score??''} @ ${esc(g.home.abbr)} ${g.home.score??''} · ${esc(stateLbl)}${MON.fallback&&g.state!=='in'?'<span class="monbanner">NO LIVE GAMES</span>':''} <span class="monmeta">${esc(MON_PANELS.find(p=>p.id===id)?.label||'')}</span>`;
   if(MON.flash && MON.flashUntil>Date.now()){
     const f=MON.flash;
+    if(who) who.innerHTML=`${esc(f.kicker)}${f.sim?' <span class="monbanner">SIMULATED</span>':''}`;
     stage.innerHTML=`<div class="monflash"><div class="monkicker">${esc(f.kicker)}</div><div class="big">${esc(f.big)}</div><div class="sub">${esc(f.sub||'')}</div><div class="monmeta">${esc(f.who||'')}</div>${f.sim?'<div class="sim">SIMULATED</div>':''}</div>`;
-  } else stage.innerHTML=monPanelHTML(id, g, d);
+  } else {
+    if(who) who.innerHTML=`${esc(LG[g.lg].icon)} ${esc(g.away.abbr)} ${g.away.score??''} @ ${esc(g.home.abbr)} ${g.home.score??''} · ${esc(stateLbl)}${MON.fallback&&g.state!=='in'?'<span class="monbanner">NO LIVE GAMES</span>':''} <span class="monmeta">${esc(MON_PANELS.find(p=>p.id===id)?.label||'')}</span>`;
+    stage.innerHTML=monPanelHTML(id, g, d);
+  }
   if(dots) dots.innerHTML=MON.panels.map((p,i)=>`<span class="${i===MON.pi?'on':''}" title="${esc(MON_PANELS.find(x=>x.id===p)?.label||p)}"></span>`).join('');
   const vid=$('#monvideo');
   if(vid){
@@ -3269,7 +3285,7 @@ $('#filein').addEventListener('change', async ev=>{
 window.addEventListener('hashchange', ()=>{ const t=parseHash(); if(t && t!==TAB) go(t); else if(t){ render(); } });
 document.addEventListener('visibilitychange', ()=>{
   if(document.hidden){
-    if(TAB==='monitor'){ clearTimeout(RT); clearTimeout(MON.rot); monReleaseWake(); }
+    if(TAB==='monitor'){ clearTimeout(RT); clearTimeout(MON.rot); MON.rot=null; monWakeSync(); }
     return;
   }
   if(TAB==='monitor'){ monWakeSync(); monRefresh(); return; }
