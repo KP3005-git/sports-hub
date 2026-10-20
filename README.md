@@ -2,9 +2,9 @@
 
 GitHub Pages serves `index.html` from the `main` branch (folder `/`). That file is the site; an empty `.nojekyll` keeps Pages from processing it with Jekyll.
 
-# Game Day HQ ⚡
+# Sports Hub
 
-> **Renamed (Oct 20, 2026):** the site was "BLITZ ⚡ Sports Hub"; it is now **Game Day HQ**, and the shared picks area (Blitz + Court) is the **🎯 Picks Desk**. The per-pick analyst tags (⚡ Blitz / 🏀 Court) and the All / Blitz / Court selector still name the individual analyst. The file name (`sports-hub.html`), the tab id `blitz` / `#records` link, and every localStorage key are unchanged, so saved teams, bets, layouts and settings carry over.
+> **Rebranded (Oct 20, 2026):** the site is **Sports Hub**. It was "Game Day HQ" and, before that, "BLITZ ⚡ Sports Hub". The shared picks area (Blitz + Court) is the **🎯 Picks Desk**. The per-pick analyst tags (⚡ Blitz / 🏀 Court) and the All / Blitz / Court selector still name the individual analyst. The file name (`sports-hub.html`), the tab id `blitz` / `#records` link, and every localStorage key are unchanged, so saved teams, bets, layouts and settings carry over.
 
 A personal, season-long scoreboard and bet tracker for **College Football, Men's College Basketball, NFL and NBA**.
 It's a single file, `sports-hub.html`. No server, no account, no install, and nothing is published anywhere.
@@ -32,7 +32,7 @@ Grab the small **⠿⠿ handle** at the top of any card and drag it, with a mous
 No hosting needed: your PC serves the file over your home Wi-Fi.
 1. On the PC, in the folder that holds `sports-hub.html`, run `python -m http.server 8000` (keep that window open). Find the PC's local IP (`ipconfig` on Windows, e.g. `192.168.1.23`). Windows may ask to allow Python through the firewall on **private** networks; allow it.
 2. On the iPhone (same Wi-Fi), open Safari at `http://<pc-ip>:8000/sports-hub.html`.
-3. Share → **Add to Home Screen**. It opens full-screen as **Game Day HQ** with its ⚡ icon.
+3. Share → **Add to Home Screen**. It opens full-screen as **Sports Hub** with its hub icon.
 - Only devices on your home network can reach it while the server runs; nothing is published online. Away from home it won't load (by design).
 - Data lives **per browser**: the phone has its own localStorage, separate from the PC's (and the Home Screen app can be separate from Safari tabs). Picks still come from the Google Sheet, but your teams, favorite players, fantasy roster and hub-only bets need to be copied over once with **Settings → Backup & restore** (export on the PC, import on the phone), or re-added.
 - **Tap** a score card to open game details (double-click on desktop). Details open full screen; the gold **✕ Close** button stays at the top while you scroll.
