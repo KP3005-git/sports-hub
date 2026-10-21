@@ -3030,7 +3030,7 @@ function monScoreRun(ev){
     if(!(add>0)) break;
     pts+=add; n++;
   }
-  return n>=2 && pts>=6 ? `${abbr} ${pts}–0 run` : '';
+  return n>=2 && pts>=6 ? `${abbr} ${pts} unanswered` : '';
 }
 function monScoreBlurb(g){
   const ev=monScoreEvents(MON.sums.get(g.lg+'|'+g.id), g);
