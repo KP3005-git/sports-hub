@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" role="img">
+  <title>Sports Hub icon option A, four-ball swirl</title>
+
+  <rect width="180" height="180" fill="#000"/>
+  <defs>
+    <clipPath id="a-plate"><circle cx="90" cy="90" r="73"/></clipPath>
+    <mask id="a-gaps" maskUnits="userSpaceOnUse">
+      <rect width="180" height="180" fill="#fff"/>
+      <circle cx="90" cy="54" r="27" fill="#000"/>
+      <circle cx="58" cy="110" r="25" fill="#000"/>
+      <circle cx="112" cy="128" r="23" fill="#000"/>
+      <path fill="#000" transform="translate(124 92) rotate(-32)" d="M0-31C15-23 19-11 19 0c0 11-4 23-19 31C-15 23-19 11-19 0c0-11 4-23 19-31z"/>
+    </mask>
+  </defs>
+  <circle cx="90" cy="90" r="73" fill="#fff"/>
+  <g clip-path="url(#a-plate)" mask="url(#a-gaps)" fill="none" stroke="#000" stroke-linecap="round">
+    <path stroke-width="15" d="M38 78C58 52 78 78 96 86c22 10 18 28 2 40-18 14 6 24 28 16"/>
+    <path stroke-width="10" d="M36 112c10 32 44 46 80 40 26-4 42-22 48-38"/>
+  </g>
+  <g fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="90" cy="54" r="27" stroke-width="5"/>
+    <path stroke-width="4" d="M90 29c9 12 9 38 0 50"/>
+    <path stroke-width="4" d="M65 48c10 12 40 12 50-2"/>
+    <path stroke-width="4" d="M66 62c12 6 38 2 46-8"/>
+    <g transform="translate(124 92) rotate(-32)" stroke-width="5">
+      <path d="M0-31C15-23 19-11 19 0c0 11-4 23-19 31C-15 23-19 11-19 0c0-11 4-23 19-31z"/>
+      <path stroke-width="3.4" d="M0-14v28"/>
+      <path stroke-width="3.2" d="M-6.2-8h12.4M-6.2-1.5h12.4M-6.2 5h12.4"/>
+    </g>
+    <circle cx="58" cy="110" r="25" stroke-width="5"/>
+    <polygon points="58.00,100.00 67.51,106.91 63.88,118.09 52.12,118.09 48.49,106.91" fill="#000" stroke="none"/>
+    <path stroke-width="3.6" d="M58.00 100.00L58.00 89.00 M67.51 106.91L78.16 103.45 M63.88 118.09L70.46 127.15 M52.12 118.09L45.54 127.15 M48.49 106.91L37.84 103.45"/>
+    <circle cx="112" cy="128" r="23" stroke-width="5"/>
+    <path stroke-width="4" d="M102 112c-8 7-8 25 0 32"/>
+    <path stroke-width="4" d="M122 112c8 7 8 25 0 32"/>
+  </g>
+
+</svg>
