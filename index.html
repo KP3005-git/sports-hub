@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-accent="blue" data-mode="dark" data-theme-pref="dark">
+<html lang="en" data-title="blue" data-scope="app">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -8,30 +8,22 @@
 <meta name="apple-mobile-web-app-title" content="Sports Hub">
 <meta name="application-name" content="Sports Hub">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#05080f">
+<meta name="theme-color" content="#000000">
 <script>
 (function(){
   var ok={blue:1,gold:1,purdue:1,crimson:1,emerald:1,purple:1};
-  var theme={accent:'blue',mode:'dark'};
+  var theme={accent:'blue',scope:'app'};
   try{
     var saved=JSON.parse(localStorage.getItem('sportsHub.theme')||'null');
     if(saved&&ok[saved.accent]) theme.accent=saved.accent;
-    if(saved&&(saved.mode==='dark'||saved.mode==='light'||saved.mode==='system')) theme.mode=saved.mode;
+    if(saved&&(saved.scope==='title'||saved.scope==='app')) theme.scope=saved.scope;
+    else if(saved&&saved.accent) theme.scope='app';
   }catch(e){}
-  var mode=theme.mode;
-  if(mode==='system'){
-    var light=false;
-    try{ light=matchMedia('(prefers-color-scheme: light)').matches; }catch(e){}
-    mode=light?'light':'dark';
-  }
   var h=document.documentElement;
-  h.setAttribute('data-accent', theme.accent);
-  h.setAttribute('data-mode', mode);
-  h.setAttribute('data-theme-pref', theme.mode);
+  h.setAttribute('data-title', theme.accent);
+  h.setAttribute('data-scope', theme.scope);
   var meta=document.querySelector('meta[name="theme-color"]');
-  if(meta) meta.setAttribute('content', mode==='light'?'#f4f6fb':'#05080f');
-  var bar=document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
-  if(bar) bar.setAttribute('content', mode==='light'?'default':'black-translucent');
+  if(meta) meta.setAttribute('content','#000000');
 })();
 </script>
 <meta name="format-detection" content="telephone=no">
@@ -41,52 +33,42 @@
 <title>Sports Hub · Scores &amp; Picks</title>
 <style>
 :root{
-  --bg:#05080f;--navy:#0b1426;--card:#101c33;--line:#1d2c4a;
+  --bg:#000000;--navy:#0B0D12;--card:#161b24;--line:#343c4e;
   --txt:#e8edf7;--mut:#8a98b5;
   --green:#18c46b;--red:#ff3b4e;--amber:#ff9f1a;--blue:#4c8dff;
   --ok:var(--green);--bad:var(--red);--warn:var(--amber);--court:#ff8a3d;--dng:#ff8b97;--blue-line:var(--blue);
-  --header:rgba(5,8,15,.94);--header-solid:#05080f;--spot:#13244a;
-  --grad-1:#132447;--grad-2:#0b1426;--fav-grad:#17284d;
-  --input:#08101f;--chip:#0f1d38;--hover:#13244a;--th:#0d1830;
-  --row-hover:#13213d;--row-wash:rgba(255,255,255,.03);
-  --scrim:rgba(2,5,12,.78);--tip:#13244a;
-  --reorder:rgba(11,20,38,.97);--hair:rgba(255,255,255,.05);
-  --leg:rgba(0,0,0,.25);--live:#2f4c86;--wpa:#2a3a5c;
+  --header:rgba(0,0,0,.94);--header-solid:#000000;--spot:#10141c;
+  --grad-1:#12161e;--grad-2:#000000;--fav-grad:#121820;
+  --input:#0B0D12;--chip:#12161e;--hover:#1c2433;--th:#10141c;
+  --row-hover:#1c2433;--row-wash:rgba(255,255,255,.04);
+  --scrim:rgba(0,0,0,.82);--tip:#161b24;
+  --reorder:rgba(0,0,0,.96);--hair:rgba(255,255,255,.06);
+  --leg:rgba(0,0,0,.35);--live:#243656;--wpa:#1c2433;
   --mark-ring:#fff;
   --accent-fill:#2563EB;--accent-ink:#fff;--accent-rgb:37 99 235;
-  --line-dark:#2563EB;--on-dark:#9EBAFF;--line-light:#1E4FD8;--on-light:#1E40AF;
-  --gold:var(--line-dark);--gold2:var(--on-dark);
+  --gold:#2563EB;--gold2:#9EBAFF;
+  --title:#9EBAFF;--title-rgb:158 186 255;
   color-scheme:dark;
 }
-html[data-accent="blue"]{--accent-fill:#2563EB;--accent-ink:#fff;--accent-rgb:37 99 235;--line-dark:#2563EB;--on-dark:#9EBAFF;--line-light:#1E4FD8;--on-light:#1E40AF}
-html[data-accent="gold"]{--accent-fill:#ffc61a;--accent-ink:#1a1300;--accent-rgb:255 198 26;--line-dark:#ffc61a;--on-dark:#ffdf6b;--line-light:#7A5600;--on-light:#7A5600}
-html[data-accent="purdue"]{--accent-fill:#CFB991;--accent-ink:#1a1408;--accent-rgb:207 185 145;--line-dark:#CFB991;--on-dark:#E7D7B1;--line-light:#5C4A1F;--on-light:#5C4A1F}
-html[data-accent="crimson"]{--accent-fill:#E11D48;--accent-ink:#fff;--accent-rgb:225 29 72;--line-dark:#E11D48;--on-dark:#FECDD3;--line-light:#9F1239;--on-light:#9F1239}
-html[data-accent="emerald"]{--accent-fill:#047857;--accent-ink:#fff;--accent-rgb:4 120 87;--line-dark:#34D399;--on-dark:#6EE7B7;--line-light:#047857;--on-light:#047857}
-html[data-accent="purple"]{--accent-fill:#7C3AED;--accent-ink:#fff;--accent-rgb:124 58 237;--line-dark:#7C3AED;--on-dark:#DDD6FE;--line-light:#5B21B6;--on-light:#5B21B6}
-html[data-mode="dark"]{--gold:var(--line-dark);--gold2:var(--on-dark);color-scheme:dark}
-html[data-mode="light"]{
-  --bg:#f4f6fb;--navy:#fff;--card:#fff;--line:#d5dce8;--txt:#101828;--mut:#3e4d68;
-  --header:rgba(255,255,255,.94);--header-solid:#f4f6fb;--spot:#d5e2fb;
-  --grad-1:#e8eefc;--grad-2:#fff;--fav-grad:#e7eeff;
-  --input:#fff;--chip:#eef2f8;--hover:#e7eef8;--th:#eef2f8;
-  --row-hover:#e8eef8;--row-wash:rgba(16,24,40,.04);
-  --scrim:rgba(16,24,40,.42);--tip:#fff;
-  --reorder:rgba(255,255,255,.97);--hair:rgba(16,24,40,.08);
-  --leg:rgba(16,24,40,.04);--live:#1d4ed8;--wpa:#d5deea;
-  --mark-ring:#101828;
-  --ok:#047857;--bad:#b91c1c;--warn:#b45309;--court:#c2410c;--dng:#9f1239;--blue-line:#1d4ed8;
-  --gold:var(--line-light);--gold2:var(--on-light);
-  color-scheme:light;
-}
-html[data-mode="light"] .wpa{color:var(--txt)}
+html[data-title="blue"]{--title:#9EBAFF;--title-rgb:158 186 255}
+html[data-title="gold"]{--title:#ffc61a;--title-rgb:255 198 26}
+html[data-title="purdue"]{--title:#CFB991;--title-rgb:207 185 145}
+html[data-title="crimson"]{--title:#F43F5E;--title-rgb:244 63 94}
+html[data-title="emerald"]{--title:#34D399;--title-rgb:52 211 153}
+html[data-title="purple"]{--title:#A78BFA;--title-rgb:167 139 250}
+html[data-scope="app"][data-title="blue"]{--accent-fill:#2563EB;--accent-ink:#fff;--accent-rgb:37 99 235;--gold:#2563EB;--gold2:#9EBAFF}
+html[data-scope="app"][data-title="gold"]{--accent-fill:#ffc61a;--accent-ink:#1a1300;--accent-rgb:255 198 26;--gold:#ffc61a;--gold2:#ffdf6b}
+html[data-scope="app"][data-title="purdue"]{--accent-fill:#CFB991;--accent-ink:#1a1408;--accent-rgb:207 185 145;--gold:#CFB991;--gold2:#E7D7B1}
+html[data-scope="app"][data-title="crimson"]{--accent-fill:#E11D48;--accent-ink:#fff;--accent-rgb:225 29 72;--gold:#E11D48;--gold2:#FECDD3}
+html[data-scope="app"][data-title="emerald"]{--accent-fill:#047857;--accent-ink:#fff;--accent-rgb:4 120 87;--gold:#34D399;--gold2:#6EE7B7}
+html[data-scope="app"][data-title="purple"]{--accent-fill:#7C3AED;--accent-ink:#fff;--accent-rgb:124 58 237;--gold:#7C3AED;--gold2:#DDD6FE}
 *{box-sizing:border-box}
 html{background:var(--bg)}
 body{margin:0;min-height:100vh;background:radial-gradient(1200px 600px at 50% -200px,var(--spot) 0%,var(--bg) 60%) no-repeat var(--bg);color:var(--txt);font:15px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
 a{color:var(--gold2)}
 header{position:sticky;top:0;z-index:20;background:var(--header);backdrop-filter:blur(6px);border-bottom:2px solid var(--gold)}
 .hbar{padding:10px 16px 6px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;max-width:1240px;margin:0 auto}
-.brand{display:flex;align-items:center;gap:8px;font-weight:900;letter-spacing:3px;font-size:26px;color:var(--gold2);text-shadow:0 0 14px rgb(var(--accent-rgb) / .45);font-style:italic}
+.brand{display:flex;align-items:center;gap:8px;font-weight:900;letter-spacing:3px;font-size:26px;color:var(--title);text-shadow:0 0 14px rgb(var(--title-rgb) / .45);font-style:italic}
 .brand .mark{width:30px;height:30px;border-radius:22%;overflow:hidden;box-shadow:0 0 0 1px var(--mark-ring);flex:none}
 .brand .mark svg{width:100%;height:100%;display:block}
 .brand small{font-size:11px;letter-spacing:2px;color:var(--mut);font-style:normal;font-weight:700;margin-left:4px}
@@ -324,8 +306,8 @@ tr.injmine td{background:rgb(var(--accent-rgb) / .07)}
 .ancard .row2{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin-top:4px}.ancard .row2 b{font-size:13px;color:var(--txt);margin:0;display:inline}
 
 /* ===== MONITOR (landscape TV board) ===== */
-html.mon-on,html.mon-on body{overflow:hidden;background:#05080f;color-scheme:dark}
-#monboard{--bg:#05080f;--navy:#0b1426;--card:#101c33;--line:#1d2c4a;--txt:#e8edf7;--mut:#8a98b5;--input:#08101f;--chip:#0f1d38;--hover:#13244a;--th:#0d1830;--row-hover:#13213d;--row-wash:rgba(255,255,255,.03);--leg:rgba(0,0,0,.25);--live:#2f4c86;--wpa:#2a3a5c;--hair:rgba(255,255,255,.05);--ok:#18c46b;--bad:#ff3b4e;--warn:#ff9f1a;--court:#ff8a3d;--dng:#ff8b97;--blue-line:#4c8dff;--gold:var(--line-dark);--gold2:var(--on-dark);color-scheme:dark;position:fixed;inset:0;z-index:90;background:#05080f;color:#f4f7ff;display:flex;flex-direction:column;gap:8px;
+html.mon-on,html.mon-on body{overflow:hidden;background:#000000;color-scheme:dark}
+#monboard{color-scheme:dark;position:fixed;inset:0;z-index:90;background:#000000;color:#f4f7ff;display:flex;flex-direction:column;gap:8px;
   padding:max(10px,env(safe-area-inset-top)) max(28px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(28px,env(safe-area-inset-left))}
 #monboard[hidden]{display:none}
 .monbar{display:flex;align-items:center;gap:10px;min-height:36px}
@@ -2692,51 +2674,45 @@ function importData(obj, mode){
   DATA = next; saveData(); return n;
 }
 
-// ---------------- THEME (accent + light/dark; key sportsHub.theme) ----------------
+// ---------------- THEME (title color + where it applies; key sportsHub.theme) ----------------
 const THEME_KEY='sportsHub.theme';
 const THEME_ACCENTS=['blue','gold','purdue','crimson','emerald','purple'];
 function themeRead(){
-  let t={accent:'blue',mode:'dark'};
+  let t={accent:'blue',scope:'app'};
   try{
     const p=JSON.parse(localStorage.getItem(THEME_KEY)||'null');
     if(p&&THEME_ACCENTS.includes(p.accent)) t.accent=p.accent;
-    if(p&&(p.mode==='dark'||p.mode==='light'||p.mode==='system')) t.mode=p.mode;
+    if(p&&(p.scope==='title'||p.scope==='app')) t.scope=p.scope;
+    else if(p&&p.accent) t.scope='app';
   }catch(e){}
   return t;
 }
-function themeResolved(mode){
-  if(mode==='system'){ try{ return matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'; }catch(e){ return 'dark'; } }
-  return mode==='light'?'light':'dark';
-}
 function themeApply(t, save){
-  const mode=themeResolved(t.mode);
   const h=document.documentElement;
-  h.setAttribute('data-accent', t.accent);
-  h.setAttribute('data-mode', mode);
-  h.setAttribute('data-theme-pref', t.mode);
+  h.setAttribute('data-title', t.accent);
+  h.setAttribute('data-scope', t.scope==='title'?'title':'app');
   const meta=document.querySelector('meta[name="theme-color"]');
-  if(meta) meta.setAttribute('content', mode==='light'?'#f4f6fb':'#05080f');
-  const bar=document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
-  if(bar) bar.setAttribute('content', mode==='light'?'default':'black-translucent');
-  if(save){ try{ localStorage.setItem(THEME_KEY, JSON.stringify({accent:t.accent, mode:t.mode})); }catch(e){} }
+  if(meta) meta.setAttribute('content','#000000');
+  if(save){ try{ localStorage.setItem(THEME_KEY, JSON.stringify({accent:t.accent, scope:h.getAttribute('data-scope')})); }catch(e){} }
   document.querySelectorAll('[data-theme-accent]').forEach(b=>{ const on=b.getAttribute('data-theme-accent')===t.accent; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on?'true':'false'); });
-  document.querySelectorAll('[data-theme-mode]').forEach(b=>{ const on=b.getAttribute('data-theme-mode')===t.mode; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on?'true':'false'); });
+  document.querySelectorAll('[data-theme-scope]').forEach(b=>{ const on=b.getAttribute('data-theme-scope')===h.getAttribute('data-scope'); b.classList.toggle('on', on); b.setAttribute('aria-pressed', on?'true':'false'); });
 }
 
 // ---------------- SETTINGS VIEW ----------------
 function renderSettings(view){
   const S=DATA.settings, F=DATA.fantasy;
-  const accent=document.documentElement.getAttribute('data-accent')||'blue';
-  const mode=document.documentElement.getAttribute('data-theme-pref')||'dark';
+  const accent=document.documentElement.getAttribute('data-title')||'blue';
+  const scope=document.documentElement.getAttribute('data-scope')||'app';
   const sw=(id,name,hex)=>`<button type="button" class="themesw${accent===id?' on':''}" data-theme-accent="${id}" aria-pressed="${accent===id?'true':'false'}"><i style="--sw:${hex}" aria-hidden="true"></i>${name}</button>`;
-  const md=(id,name)=>`<button type="button" class="themesw${mode===id?' on':''}" data-theme-mode="${id}" aria-pressed="${mode===id?'true':'false'}">${name}</button>`;
+  const sc=(id,name)=>`<button type="button" class="themesw${scope===id?' on':''}" data-theme-scope="${id}" aria-pressed="${scope===id?'true':'false'}">${name}</button>`;
   view.innerHTML = `<h2>⚙️ Settings</h2>
   <div class="setgrid">
-    <div class="panel"><h3>🎨 Theme</h3>
-      <p class="note">Accent color and light or dark surfaces. Deep Blue is the default. Saved on this device.</p>
-      <div class="themerow" role="group" aria-label="Accent">${sw('blue','Deep Blue','#2563EB')}${sw('gold','Gold','#ffc61a')}${sw('purdue','Purdue','#CFB991')}${sw('crimson','Crimson','#E11D48')}${sw('emerald','Emerald','#047857')}${sw('purple','Purple','#7C3AED')}</div>
-      <div class="themerow" role="group" aria-label="Appearance">${md('dark','Dark')}${md('light','Light')}${md('system','Match system')}</div>
-      <p class="note">Monitor mode stays a dark board. Match system follows this device.</p>
+    <div class="panel"><h3>🎨 Title color</h3>
+      <p class="note">Pages stay black. Deep Blue is the default. Saved on this device.</p>
+      <div class="themerow" role="group" aria-label="Title color">${sw('blue','Deep Blue','#2563EB')}${sw('gold','Gold','#ffc61a')}${sw('purdue','Purdue','#CFB991')}${sw('crimson','Crimson','#E11D48')}${sw('emerald','Emerald','#34D399')}${sw('purple','Purple','#7C3AED')}</div>
+      <div class="note" style="font-weight:800;margin-top:8px">Apply color to</div>
+      <div class="themerow" role="group" aria-label="Apply color to">${sc('title','Title only')}${sc('app','Whole app')}</div>
+      <p class="note">Title only recolors the SPORTS HUB name. Whole app also uses that color for tabs, buttons, borders, and the monitor board.</p>
     </div>
     <div class="panel"><h3>⭐ My Teams</h3><p class="note">Search ESPN's team lists. Favorites get pinned to the top of each league tab, highlighted in the accent color, and show up in the My Teams view.</p>
       ${LGS.map(lg=>`<div style="margin:10px 0"><div class="note" style="font-weight:800;color:var(--gold2)">${LG[lg].icon} ${esc(LG[lg].name)}</div>
@@ -3343,7 +3319,7 @@ document.addEventListener('click', async ev=>{
   const t=ev.target, a=k=>{ const el=t.closest(`[data-${k}]`); return el?el.dataset[k.replace(/-([a-z])/g,(m,c)=>c.toUpperCase())]:null; };
   let v;
   if((v=a('theme-accent'))!==null){ if(!THEME_ACCENTS.includes(v)) return; const th=themeRead(); th.accent=v; themeApply(th,true); return; }
-  if((v=a('theme-mode'))!==null){ if(v!=='dark'&&v!=='light'&&v!=='system') return; const th=themeRead(); th.mode=v; themeApply(th,true); return; }
+  if((v=a('theme-scope'))!==null){ if(v!=='title'&&v!=='app') return; const th=themeRead(); th.scope=v; themeApply(th,true); return; }
   if((v=a('tab'))!==null) return go(v);
   if((v=a('mon'))!==null){ monAction(v); return; }
   if((v=a('monpin'))!==null){ pref.set('monitor.pin', v); pref.set('monitor.follow','pin'); return render(); }
@@ -3462,7 +3438,6 @@ document.addEventListener('visibilitychange', ()=>{
 });
 
 // ---------------- INIT ----------------
-try{ matchMedia('(prefers-color-scheme: light)').addEventListener('change', ()=>{ const th=themeRead(); if(th.mode==='system') themeApply(th,false); }); }catch(e){}
 DATA = loadData();
 go(parseHash() || pref.get('tab','mine'));
 syncSheet().then(()=>{ if(TAB==='bets' && !$('#slipform')) render(); });
