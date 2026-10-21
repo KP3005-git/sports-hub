@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" role="img">
+  <title>Sports Hub icon option B, bold three-sport cluster</title>
+
+  <rect width="180" height="180" fill="#000"/>
+  <g fill="#fff" stroke="#000" stroke-linejoin="round">
+    <circle cx="90" cy="56" r="38" stroke-width="8"/>
+    <circle cx="50" cy="126" r="34" stroke-width="8"/>
+    <g transform="translate(128 122) rotate(-24)">
+      <path stroke-width="8" d="M0-40C18-30 26-14 26 0c0 14-8 30-26 40C-18 30-26 14-26 0c0-14 8-30 26-40z"/>
+    </g>
+  </g>
+  <defs>
+    <clipPath id="b-bb"><circle cx="90" cy="56" r="34"/></clipPath>
+  </defs>
+  <g fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round">
+    <g clip-path="url(#b-bb)">
+      <path stroke-width="7" d="M90 26c12 14 12 46 0 60"/>
+      <path stroke-width="7" d="M58 50c14 12 50 12 64-4"/>
+    </g>
+    <polygon points="50.00,111.00 64.27,121.36 58.82,138.14 41.18,138.14 35.73,121.36" fill="#000" stroke="none"/>
+    <g transform="translate(128 122) rotate(-24)">
+      <path stroke-width="7" d="M0-22v44"/>
+    </g>
+  </g>
+
+</svg>
