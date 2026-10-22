@@ -135,6 +135,8 @@ html.touch .rbtn::after{content:"";position:absolute;inset:-8px}
 .row.favt .nm{color:var(--gold2)}
 .pos{color:var(--gold2);font-size:13px;margin-left:3px}
 .foot{display:flex;justify-content:space-between;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:var(--mut);border-top:1px solid var(--line);padding-top:6px}
+.g.manual .foot{flex-wrap:wrap;row-gap:6px}
+.g.manual .links{display:inline-flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:flex-end}
 .foot .st{font-weight:800;color:var(--txt)}
 .foot .st.l{color:var(--ok)}
 .foot .addslip{background:none;border:1px solid var(--line);color:var(--gold2);border-radius:6px;font-size:11px;padding:1px 6px;cursor:pointer;font-weight:800}
@@ -531,6 +533,15 @@ const MY_FANTASY = { leagueUrl:'', roster:[] };   // roster item: {name, athlete
 // Google Sheet that is the source of truth for bets (Blitz writes it, the hub reads it).
 // Must be shared "Anyone with the link → Viewer". Change it in Settings → Google Sheet.
 const SHEET_ID = '18Rr-vtGEaRRzV4UbiD0_vOWC929ZBlms7TMdE0NvYFU';
+// Games ESPN's scoreboard omits (exhibitions). One object per game; the CBB tab pins a card on that date.
+// Links are opened in a new tab — do not fetch them (the box score has no CORS).
+const MANUAL_GAMES = [{
+  id:'pur-pfw-20261022', lg:'cbb', start:'2026-10-22T19:00:00-04:00',
+  away:{name:'Purdue', short:'PUR', espnId:2509},
+  home:{name:'Purdue Fort Wayne', short:'PFW', espnId:2870},
+  label:'Exhibition', venue:'Allen County War Memorial Coliseum, Fort Wayne', tv:'B1G+',
+  links:[{label:'Live box score', url:'https://purduesports.com/boxscore/16888'}]
+}];
 // Fantasy scoring presets. Yahoo defaults per help.yahoo.com/kb/default-league-settings-fantasy-football-sln6489.html
 // (checked Oct 2026): half-PPR, 1 pt / 25 pass yds, 4 per pass TD, -1 INT, 1 pt / 10 rush+rec yds, 6 per TD, 2-pt 2, fumble lost -2,
 // FG 0-39 3 / 40-49 4 / 50+ 5, PAT 1; DEF: sack 1, INT 2, FR 2, TD 6, safety 2, block 2, PA 0=10,1-6=7,7-13=4,14-20=1,21-27=0,28-34=-1,35+=-4.
@@ -1789,6 +1800,63 @@ document.addEventListener('dblclick', e=>{
   openGame(card.dataset.lg, card.dataset.ev);
 });
 
+// ---------------- MANUAL GAMES (not on ESPN's scoreboard) ----------------
+const MANUAL_SOON = 15*60*1000, MANUAL_LEN = 2.5*60*60*1000;
+function manualDateKey(start){ const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(start||'')); return m?m[1]+m[2]+m[3]:''; }
+function manualPhase(m, now){
+  now = now || new Date();
+  const start = new Date(m.start), t = +now - +start;
+  if(isNaN(t)) return {state:'pre', text:'Time TBD'};
+  if(t < -MANUAL_SOON){ const ms=-t, h=Math.floor(ms/3600000), min=Math.floor((ms%3600000)/60000); return {state:'pre', text:h?`Tips in ${h}h ${min}m`:`Tips in ${min}m`}; }
+  if(t < 0) return {state:'pre', text:'Starting soon'};
+  if(t < MANUAL_LEN) return {state:'in', text:'In progress, see live box score'};
+  return {state:'post', text:'Final, see box score'};
+}
+function manualOnSlate(m, lg, vs){
+  if(!m || m.lg!==lg) return false;
+  const start=new Date(m.start); if(isNaN(+start)) return false;
+  const L=LG[lg]; if(!L) return false;
+  if(L.mode!=='week') return manualDateKey(m.start)===vs.date;
+  const w=(vs.weeks||[])[vs.idx]; return !!(w && start>=w.start && start<w.end);
+}
+const teamKey = s=>String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+function manualSideHit(side, espn){
+  if(!side || !espn) return false;
+  if(side.espnId!=null && side.espnId!=='' && espn.id && String(side.espnId)===String(espn.id)) return true;
+  const name=teamKey(side.name);
+  if(name && [teamKey(espn.name), teamKey(espn.full)].includes(name)) return true;
+  const short=teamKey(side.short);
+  return !!(short && teamKey(espn.abbr)===short);
+}
+const espnHasManual = (games,m)=>games.some(g=>(manualSideHit(m.away,g.away)&&manualSideHit(m.home,g.home))||(manualSideHit(m.away,g.home)&&manualSideHit(m.home,g.away)));
+function manualLogo(side, lg){
+  if(!side || side.espnId==null || side.espnId==='') return '';
+  return LG[lg]&&LG[lg].college ? `https://a.espncdn.com/i/teamlogos/ncaa/500/${side.espnId}.png` : '';
+}
+function manualFavIds(m){
+  const ids=new Set();
+  [m.away,m.home].forEach(s=>{ const id=s&&s.espnId!=null?String(s.espnId):''; if(!id) return;
+    if(LGS.some(l=>(DATA.myTeams[l]||[]).some(t=>String(t.id)===id))) ids.add(id); });
+  return ids;
+}
+function manualAsGame(m){
+  const ph=manualPhase(m), id=s=>s&&s.espnId!=null?String(s.espnId):'';
+  return {state:ph.state, lg:m.lg, date:new Date(m.start), sit:null, home:{id:id(m.home), rank:null, score:null}, away:{id:id(m.away), rank:null, score:null}};
+}
+function manualCardHTML(m){
+  const lg=m.lg, start=new Date(m.start), ph=manualPhase(m), favSet=manualFavIds(m);
+  const side=s=>({id:s&&s.espnId!=null?String(s.espnId):'', abbr:s.short||'', name:s.name||'', logo:manualLogo(s,lg), score:null, rank:null, record:''});
+  const g={lg, state:ph.state, home:side(m.home), away:side(m.away)};
+  const links=(m.links||[]).filter(l=>l&&l.url).map(l=>`<a class="btn sm pri" href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">${esc(l.label||'Box score')}</a>`).join('');
+  return `<div class="g manual${ph.state==='in'?' live':''}${favSet.size?' fav':''}" data-manual="${esc(m.id)}">
+    <div class="lgtag"><span>${esc(m.label||'Exhibition')}</span><span>${esc(fmtTime(start))}</span></div>
+    ${teamRow(g,g.away,favSet)}${teamRow(g,g.home,favSet)}
+    ${m.venue?`<div class="sit">${esc(m.venue)}</div>`:''}
+    <div class="tags"><span class="badge b-n">${esc(m.label||'Exhibition')}</span></div>
+    <div class="foot"><span class="st ${ph.state==='in'?'l':''}">${ph.state==='in'?'● ':''}${esc(ph.text)}</span><span class="links">TV: ${esc(m.tv||'—')} ${links}</span></div>
+  </div>`;
+}
+
 // ---------------- LEAGUE VIEW ----------------
 function flattenWeeks(cal){
   const out=[];
@@ -1870,6 +1938,8 @@ async function renderLeague(lg, tok, view){
     return x.date-y.date;
   });
   const shown = ORD.apply(KEY_ALL, sorted, g=>g.id).filter(g=>FILTERS[F].f(g,ctx));
+  const manuals = (typeof MANUAL_GAMES!=='undefined'?MANUAL_GAMES:[]).filter(m=>manualOnSlate(m, lg, vs) && !espnHasManual(games, m));
+  const manualHTML = manuals.filter(m=>FILTERS[F].f(manualAsGame(m), ctx)).map(manualCardHTML).join('');
   // A saved filter (e.g. Live or Mine, kept in localStorage across visits) can hide pregame games that Blitz has picks on — say so instead of hiding them silently.
   const pickHidden = F==='all' ? [] : games.filter(g=>g.state!=='post' && !FILTERS[F].f(g,ctx) && betsForEvent(DATA.recommendations, g.id).length);
   const pickNote = pickHidden.length ? `<div class="brwarn" id="pickhidden">🎯 ${esc(whoHas(pickHidden.flatMap(g=>betsForEvent(DATA.recommendations, g.id))))} picks on ${pickHidden.length} upcoming/live game${pickHidden.length>1?'s':''} hidden by the <b>${esc(FILTERS[F].lbl)}</b> filter: ${pickHidden.map(g=>`<button type="button" class="btn sm" data-gd="${esc(g.id)}" data-lg="${esc(lg)}">${esc(g.away.abbr)} @ ${esc(g.home.abbr)} · ${betsForEvent(DATA.recommendations, g.id).length} 🎯</button>`).join(' ')} <button type="button" class="btn sm pri" data-f="all">Show all games</button></div>` : '';
@@ -1902,11 +1972,11 @@ async function renderLeague(lg, tok, view){
     ${favList.length?`<h2>⭐ My ${esc(L.short)} Teams</h2><div class="grid" id="favgrid" ${sortAttrs(KEY_FAV, favList.map(t=>'team:'+t.id))}>${featured}</div>`:''}
     ${ffPanel}
     <h2>${L.icon} ${esc(L.mode==='week'?'All '+(lg==='cfb'?'FBS ':'')+'games':'All games')}</h2>
-    ${games.length?filt+pickNote+`<div class="grid" id="all" ${sortAttrs(KEY_ALL, sorted.map(g=>g.id))}>${shown.map(g=>withSid(card(g),g.id)).join('')||'<div class="empty">No games in this filter.</div>'}</div>`:`<div class="empty">${emptyHTML}</div>`}`;
+    ${(games.length||manuals.length)?filt+pickNote+`<div class="grid" id="all" ${sortAttrs(KEY_ALL, sorted.map(g=>g.id))}>${manualHTML}${shown.map(g=>withSid(card(g),g.id)).join('')||(!manualHTML?'<div class="empty">No games in this filter.</div>':'')}</div>`:`<div class="empty">${emptyHTML}</div>`}`;
   const n={in:0,pre:0,post:0}; games.forEach(g=>n[g.state]++);
   $('#cnt').textContent = `${L.short}: ${games.length} games · ${n.in} live · ${n.pre} upcoming · ${n.post} final`;
   updateLiveBadges();
-  setRefresh(games, ()=>render());
+  setRefresh(games.concat(manuals.map(m=>({state:manualPhase(m).state, date:new Date(m.start)}))), ()=>render());
   if(lg==='nfl') ffBadgePoints(games, tok);
 
   // async fills: favorite team bye/next cards and player cards
