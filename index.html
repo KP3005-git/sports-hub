@@ -2967,6 +2967,27 @@ const MON_PANELS = [
 ];
 const MON = { on:false, force:false, hold:false, pool:[], games:[], gi:0, pi:0, panels:['score'], sums:new Map(), prev:new Map(), flash:null, flashUntil:0, rot:null, fallback:false, err:'', ctx:null, wake:null, wakeNote:'', playedClip:'' };
 function monInterval(){ const n=+pref.get('monitor.interval','12'); return [8,12,20].includes(n)?n:12; }
+function monPins(){
+  const raw=pref.get('monitor.pins','');
+  if(raw){
+    try{ const arr=JSON.parse(raw); if(Array.isArray(arr)) return arr.map(String).filter(x=>x.includes('|')); }catch(_){}
+    return [];
+  }
+  const one=pref.get('monitor.pin','');
+  if(one && String(one).includes('|')){
+    pref.set('monitor.pins', JSON.stringify([one]));
+    pref.set('monitor.pin','');
+    return [one];
+  }
+  return [];
+}
+function monSavePins(list){
+  const clean=[];
+  (list||[]).forEach(x=>{ x=String(x||''); if(x.includes('|') && !clean.includes(x)) clean.push(x); });
+  pref.set('monitor.pins', JSON.stringify(clean));
+  pref.set('monitor.pin','');
+  return clean;
+}
 function monEnabled(){
   let ids; try{ ids=JSON.parse(pref.get('monitor.panels','')||'null'); }catch(_){ ids=null; }
   const all=MON_PANELS.map(p=>p.id);
@@ -3050,7 +3071,7 @@ function monNext(){
   MON.pi++;
   if(MON.pi>=MON.panels.length){
     MON.pi=0;
-    if(MON.games.length>1 && pref.get('monitor.follow','rotate')!=='pin') MON.gi=(MON.gi+1)%MON.games.length;
+    if(MON.games.length>1) MON.gi=(MON.gi+1)%MON.games.length;
     const ng=MON.games[MON.gi];
     monEnsureSum(ng).then(()=>{ if(TAB!=='monitor') return; MON.panels=ng?monPanelsFor(ng):['score']; MON.pi=0; monPaint(); monArmRotation(); }).catch(()=>{ monPaint(); monArmRotation(); });
     return;
@@ -3301,7 +3322,7 @@ function monSetupHTML(){
       </div>
       <div class="filters">
         <button type="button" class="btn ${follow!=='pin'?'pri':''}" data-monfollow="rotate">Rotate live games</button>
-        <button type="button" class="btn ${follow==='pin'?'pri':''}" data-monfollow="pin">Pinned game</button>
+        <button type="button" class="btn ${follow==='pin'?'pri':''}" data-monfollow="pin">Pinned games${monPins().length?` (${monPins().length})`:''}</button>
       </div>
       <div class="monchecks">${MON_PANELS.map(p=>`<label><input type="checkbox" class="monpanel" data-panel="${p.id}" ${on.has(p.id)?'checked':''}> ${esc(p.label)}</label>`).join('')}</div>
       <p class="note">Clips plays the newest public MP4 from that game’s ESPN summary (<span class="note">links.source</span> on espnmedia-cdn), muted and inline. Login-gated streams are ignored. The panel hides when a game has no such clip.</p>
@@ -3311,7 +3332,7 @@ function monSetupHTML(){
 }
 function monPaintSetup(){
   const list=$('#monlist'); if(!list || !MON.ctx) return;
-  const follow=pref.get('monitor.follow','rotate'), pin=pref.get('monitor.pin','');
+  const follow=pref.get('monitor.follow','rotate'), pins=monPins();
   const games=MON.choices||[];
   list.innerHTML = games.length ? games.map(g=>{
     const pr=monPriority(g, MON.ctx);
@@ -3321,13 +3342,23 @@ function monPaintSetup(){
     if(pn.length) tags.push('⭐ '+pn.join(', '));
     if(betsForEvent(DATA.recommendations,g.id).length) tags.push('🎯 picks');
     if(betsForEvent(DATA.placedBets,g.id).length) tags.push('🎟️ bet');
-    const key=g.lg+'|'+g.id, pinned=pin===key;
+    const key=g.lg+'|'+g.id, pinned=pins.includes(key);
     const st=g.state==='in'?'LIVE':g.state==='post'?'FINAL':'UPCOMING';
     return `<div class="mongame"><div class="nm">${esc(LG[g.lg].short)} · ${esc(g.away.abbr)} ${g.away.score??''} @ ${esc(g.home.abbr)} ${g.home.score??''} <span class="badge ${g.state==='in'?'b-g':'b-n'}">${st}</span> ${tags.map(t=>`<span class="note">${esc(t)}</span>`).join(' ')}<div class="note">${esc(statusTxt(g))}${pr?` · priority ${pr}`:''}</div></div><button type="button" class="btn sm ${pinned?'pri':''}" data-monpin="${esc(key)}">${pinned?'Pinned':'Pin'}</button></div>`;
   }).join('') : `<div class="empty">${esc(MON.err||'No games found.')}</div>`;
   const foot=$('#monfoot');
-  if(foot) foot.textContent = MON.fallback ? 'Nothing is live. The board will use the recent games above and label them FINAL or UPCOMING — not simulated.' : `Following ${MON.games.length} live game${MON.games.length===1?'':'s'}${follow==='pin'?' (pinned).':' (rotating).'}`;
-  document.querySelectorAll('[data-monfollow]').forEach(b=>b.classList.toggle('pri', (b.dataset.monfollow==='pin')===(follow==='pin')));
+  const nPins=pins.length, nFollow=MON.games.length;
+  if(foot){
+    if(follow==='pin' && nPins) foot.textContent=`Following ${nFollow} pinned game${nFollow===1?'':'s'}`;
+    else if(follow==='pin') foot.textContent='No pinned games. The board is showing the first available game.';
+    else if(MON.fallback) foot.textContent='Nothing is live. The board will use the recent games above and label them FINAL or UPCOMING — not simulated.';
+    else foot.textContent=`Following ${nFollow} live game${nFollow===1?'':'s'} (rotating).`;
+  }
+  document.querySelectorAll('[data-monfollow]').forEach(b=>{
+    const pinBtn=b.dataset.monfollow==='pin';
+    b.classList.toggle('pri', pinBtn===(follow==='pin'));
+    if(pinBtn) b.textContent=nPins?`Pinned games (${nPins})`:'Pinned games';
+  });
 }
 async function monLoad(tok){
   MON.ctx = MON.ctx || await monContext();
@@ -3346,12 +3377,16 @@ async function monLoad(tok){
   MON.choices=(live.length?live:recent.length?recent:rest.slice(0,8).concat(soon)).map(x=>x.g);
   if(!live.length && !MON.choices.length) MON.choices=soon.map(x=>x.g);
   const follow=pref.get('monitor.follow','rotate');
-  const pin=pref.get('monitor.pin','');
+  const pins=monPins();
   let games;
   if(follow==='pin'){
-    const g = pin ? await monResolvePin(pin) : (MON.choices[0]||null);
-    if(tok!==TOKEN) return;
-    games = g ? [g] : MON.choices.slice(0,1);
+    const resolved=[];
+    for(const key of pins){
+      const g=await monResolvePin(key);
+      if(tok!==TOKEN) return;
+      if(g && !resolved.some(x=>x.lg===g.lg && x.id===g.id)) resolved.push(g);
+    }
+    games = resolved.length ? resolved : MON.choices.slice(0,1);
   } else games = (live.length?live.map(x=>x.g):MON.choices).slice(0,8);
   const same=MON.games.length===games.length && games.every((g,i)=>MON.games[i] && MON.games[i].id===g.id && MON.games[i].lg===g.lg);
   MON.games=games;
@@ -3366,7 +3401,8 @@ async function monLoad(tok){
   MON.panels=cur?monPanelsFor(cur):['score'];
   if(MON.pi>=MON.panels.length) MON.pi=0;
   const nLive=live.length;
-  $('#cnt').textContent=`Monitor · ${nLive?nLive+' live':'no live games'} · ${follow==='pin'?'pinned':'rotating'}`;
+  const pinNote=follow==='pin'?(pins.length?`following ${MON.games.length} pinned`:'pinned'):'rotating';
+  $('#cnt').textContent=`Monitor · ${nLive?nLive+' live':'no live games'} · ${pinNote}`;
   monPaintSetup();
   monApplyMode();
   setRefresh(MON.games, ()=>{ if(document.hidden){ if(TAB==='monitor') monScheduleHidden(); return; } if(TAB==='monitor') monRefresh(); });
@@ -3405,7 +3441,15 @@ document.addEventListener('click', async ev=>{
   if((v=a('theme-scope'))!==null){ if(v!=='title'&&v!=='app') return; const th=themeRead(); th.scope=v; themeApply(th,true); return; }
   if((v=a('tab'))!==null) return go(v);
   if((v=a('mon'))!==null){ monAction(v); return; }
-  if((v=a('monpin'))!==null){ pref.set('monitor.pin', v); pref.set('monitor.follow','pin'); return render(); }
+  if((v=a('monpin'))!==null){
+    if(!v.includes('|')) return;
+    const pins=monPins(), i=pins.indexOf(v);
+    if(i>=0) pins.splice(i,1); else pins.push(v);
+    monSavePins(pins);
+    if(i<0 && pins.length===1) pref.set('monitor.follow','pin');
+    else if(!pins.length) pref.set('monitor.follow','rotate');
+    return render();
+  }
   if((v=a('monfollow'))!==null){ pref.set('monitor.follow', v); return render(); }
   if(a('reorder')){ setReorder(!REORDER); return; }
   if(t.id==='rostermodal' || t.closest('[data-rosterclose]')){ closeRoster(); return; }
