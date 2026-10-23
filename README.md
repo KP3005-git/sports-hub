@@ -57,7 +57,7 @@ These seed objects are only read the first time the page opens in a browser. Aft
 **Fantasy (Yahoo)** (Settings → Fantasy): paste your Yahoo league link and add your roster players. The hub looks up each player's NFL team from ESPN, or you can pick the team by hand. NFL games with your players get a blue **FF: names** badge. This does **not** log into Yahoo. A live Yahoo roster sync would need Yahoo OAuth (a developer app and sign-in), which could be added later.
 
 ## Bets: the Google Sheet is the source of truth
-**Bet log sheet:** [Sports Hub – Bet Log](https://docs.google.com/spreadsheets/d/18Rr-vtGEaRRzV4UbiD0_vOWC929ZBlms7TMdE0NvYFU/edit), with tabs **Placed**, **Recommendations** and **README**.
+**Recommendations** and **README**.
 - Blitz (football analyst), Court (basketball analyst) or you add one row per bet. Each time the Bets tab opens or refreshes, the hub reads both tabs and grades them. A bar shows **🟢 Synced from Google Sheet · time**.
 - **The sheet must be shared as "Anyone with the link → Viewer"** (Share → General access). Never give the link edit access. Until it's shared, the hub shows "Couldn't reach the Google Sheet… showing cached copy".
 - If you're offline or the sheet can't be reached, the hub falls back to the last synced copy.
