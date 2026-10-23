@@ -2043,7 +2043,7 @@ async function renderMine(tok, view){
 const decOdds = a=>{ a=+a; return a>0 ? 1+a/100 : 1+100/Math.abs(a); };
 const validOdds = a=>Number.isFinite(+a) && Math.abs(+a)>=100;
 const fmtOdds = a=>a==null||a===''?'—':(+a>0?'+':'')+(+a);
-const MARKETS = {moneyline:'Moneyline', spread:'Spread', total:'Total', prop:'Prop'};
+const MARKETS = {moneyline:'Moneyline', spread:'Spread', total:'Total', prop:'Prop'}; // player_* and other FanDuel names become prop in parseLegs
 const BETTYPES = {moneyline:'Moneyline', spread:'Spread', total:'Total', parlay:'Parlay', prop:'Prop'};
 const VERDICTS = ['Consider','Wait','Pass'];
 const LEGEV = new Map(); // eventId -> normalized event fetched for grading
@@ -2635,12 +2635,24 @@ function gvizRows(d){
 const sNum = v=>{ if(v==null||v==='') return null; const n=parseFloat(String(v).replace(/[$,+\s]/g,'')); return Number.isFinite(n)?n:null; };
 const sStr = v=>v==null?'':String(v).trim();
 const sBool = v=>v===true||/^(true|yes|y|1|x)$/i.test(sStr(v));
+// Sheet writers (FanDuel / SGP) send player_points, anytime_td, and similar. Those are props:
+// market becomes "prop", and the original name is kept on propType. selection is left as written.
+const PROP_ALIASES = new Set(['anytime_td','first_td','yards','receptions','passing_yards','rushing_yards','receiving_yards']);
+function normalizeLegMarket(l){
+  const raw=sStr(l.market||'moneyline').toLowerCase().replace(/[\s-]+/g,'_');
+  if(raw==='prop' || raw.startsWith('player_') || PROP_ALIASES.has(raw)){
+    if(raw!=='prop' && !l.propType) l.propType=raw;
+    l.market='prop';
+  } else l.market=raw;
+  return l;
+}
 function parseLegs(v){
   const t=sStr(v); if(!t) return [];
-  if(t.startsWith('[')||t.startsWith('{')){ const j=JSON.parse(t); return (Array.isArray(j)?j:[j]).map(l=>({league:sStr(l.league||'cfb').toLowerCase(), eventId:l.eventId!=null&&l.eventId!==''?String(l.eventId):null, market:sStr(l.market||'moneyline').toLowerCase(), selection:sStr(l.selection), selectionName:sStr(l.selectionName), line:sNum(l.line), odds:sNum(l.odds), game:sStr(l.game), date:sStr(l.date)||undefined, manual:l.manual?sStr(l.manual).toLowerCase():null, athleteId:l.athleteId!=null&&l.athleteId!==''?String(l.athleteId):undefined, propType:sStr(l.propType)||undefined})); }
-  // shorthand: league|eventId|market|selection|line|legOdds ; ...
-  return t.split(';').map(x=>x.trim()).filter(Boolean).map(seg=>{ const f=seg.split('|').map(x=>x.trim());
+  let legs;
+  if(t.startsWith('[')||t.startsWith('{')){ const j=JSON.parse(t); legs=(Array.isArray(j)?j:[j]).map(l=>({league:sStr(l.league||'cfb').toLowerCase(), eventId:l.eventId!=null&&l.eventId!==''?String(l.eventId):null, market:sStr(l.market||'moneyline').toLowerCase(), selection:sStr(l.selection), selectionName:sStr(l.selectionName), line:sNum(l.line), odds:sNum(l.odds), game:sStr(l.game), date:sStr(l.date)||undefined, manual:l.manual?sStr(l.manual).toLowerCase():null, athleteId:l.athleteId!=null&&l.athleteId!==''?String(l.athleteId):undefined, propType:sStr(l.propType)||undefined})); }
+  else legs=t.split(';').map(x=>x.trim()).filter(Boolean).map(seg=>{ const f=seg.split('|').map(x=>x.trim());
     return {league:(f[0]||'cfb').toLowerCase(), eventId:f[1]||null, market:(f[2]||'moneyline').toLowerCase(), selection:f[3]||'', selectionName:'', line:sNum(f[4]), odds:sNum(f[5]), game:'', manual:null}; });
+  return legs.map(normalizeLegMarket);
 }
 function rowToBet(r, kind){
   const id=sStr(r.id); if(!id) throw new Error('missing id');
