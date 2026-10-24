@@ -75,6 +75,7 @@ html[data-scope="title"][data-title="purple"]{--accent-fill:#7C3AED;--accent-ink
 html[data-scope="title"] .themesw.on{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
 html[data-scope="title"] .mondots span.on{box-shadow:0 0 8px rgb(var(--tint-rgb) / .55)}
 html[data-scope="title"] .brsep{border-color:var(--gold)}
+html[data-scope="title"] .row .ml.fav,html[data-scope="title"] .gdwho .ml.fav,html[data-scope="title"] .mongame .note .ml.fav,html[data-scope="title"] .monmeta .ml.fav{color:var(--txt)}
 *{box-sizing:border-box}
 html{background:var(--bg)}
 body{margin:0;min-height:100vh;background:radial-gradient(1200px 600px at 50% -200px,var(--spot) 0%,var(--bg) 60%) no-repeat var(--bg);color:var(--txt);font:15px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
@@ -131,6 +132,8 @@ html.touch .rbtn::after{content:"";position:absolute;inset:-8px}
 .row .rk{color:var(--gold2);font-size:11px;font-weight:800;margin-right:3px}
 .row .rec{color:var(--mut);font-size:11px;margin-left:4px;font-weight:400}
 .row .sc{font-weight:900;font-size:20px;min-width:30px;text-align:right;font-variant-numeric:tabular-nums}
+.row .ml,.gdwho .ml,.mongame .note .ml{flex:none;font-size:12px;font-weight:700;color:var(--mut);font-variant-numeric:tabular-nums;white-space:nowrap}
+.row .ml.fav,.gdwho .ml.fav,.mongame .note .ml.fav,.monmeta .ml.fav{font-weight:800;color:var(--gold2)}
 .row.lose .sc,.row.lose .nm{color:var(--mut)}
 .row.favt .nm{color:var(--gold2)}
 .pos{color:var(--gold2);font-size:13px;margin-left:3px}
@@ -636,6 +639,71 @@ async function getJSON(url, maxAge=0){
 // ---------------- GAME NORMALIZATION ----------------
 // Works for scoreboard events, team-schedule events and summary headers.
 const LIVE_NAMES = new Set(['STATUS_IN_PROGRESS','STATUS_HALFTIME','STATUS_END_PERIOD','STATUS_END_OF_REGULATION','STATUS_OVERTIME','STATUS_FIRST_HALF','STATUS_SECOND_HALF','STATUS_DELAYED','STATUS_RAIN_DELAY','STATUS_SUSPENDED_IN_PROGRESS']);
+// ESPN scoreboard odds[] use moneyline.home/away.close.odds (string, sometimes only .open).
+// Older feeds and summary pickcenter use homeTeamOdds.moneyLine / awayTeamOdds.moneyLine (number).
+// player_* sheet markets are unrelated; this is only the game-card price.
+function mlNumber(v){
+  if(v==null || v==='') return null;
+  if(typeof v==='number') return Number.isFinite(v) && Math.abs(v)>=100 ? v : null;
+  const s=String(v).trim().replace(/,/g,'');
+  if(!s) return null;
+  const n=parseFloat(s.replace(/^\+/,''));
+  return Number.isFinite(n) && Math.abs(n)>=100 ? n : null;
+}
+function mlSide(node){
+  if(node==null || node==='') return null;
+  if(typeof node!=='object') return mlNumber(node);
+  const close=node.close, open=node.open;
+  const pick=o=>o && (o.odds!=null?o.odds:o.moneyLine!=null?o.moneyLine:o.moneyline);
+  return mlNumber(pick(close)) ?? mlNumber(node.odds!=null?node.odds:node.moneyLine!=null?node.moneyLine:node.moneyline) ?? mlNumber(pick(open));
+}
+function mlPack(home, away){
+  if(home==null && away==null) return null;
+  const fav = home!=null && away!=null && home!==away ? (home<away?'home':'away') : null;
+  return {home:home??null, away:away??null, fav};
+}
+function mlFromOddsObj(o){
+  if(!o || typeof o!=='object') return null;
+  const raw=o.moneyline&&typeof o.moneyline==='object' ? o.moneyline : (o.moneyLine&&typeof o.moneyLine==='object' ? o.moneyLine : null);
+  let home=raw?mlSide(raw.home):null, away=raw?mlSide(raw.away):null;
+  const ho=o.homeTeamOdds||{}, ao=o.awayTeamOdds||{};
+  if(home==null) home=mlSide(ho.moneyLine!=null?ho.moneyLine:ho.moneyline!=null?ho.moneyline:(ho.close||ho.open));
+  if(away==null) away=mlSide(ao.moneyLine!=null?ao.moneyLine:ao.moneyline!=null?ao.moneyline:(ao.close||ao.open));
+  return mlPack(home, away);
+}
+function mlFromList(list){
+  const arr=Array.isArray(list)?list:(list&&typeof list==='object'?[list]:[]);
+  for(const o of arr){ const m=mlFromOddsObj(o); if(m) return m; }
+  return null;
+}
+const fmtMl = n=>{ const v=Math.round(+n); return (v>0?'+':'')+v; };
+function mlSpan(g, side){
+  const ml=g&&g.ml; if(!ml || ml[side]==null) return '';
+  const fav=ml.fav===side;
+  return `<span class="ml${fav?' fav':''}" title="${fav?'Favorite to win':''}">${esc(fmtMl(ml[side]))}</span>`;
+}
+async function ensureMoneyline(g){
+  if(!g || g.ml) return g&&g.ml||null;
+  try{
+    const d=await summary(g.lg, g.id);
+    const comp=(((d.header||{}).competitions)||[])[0]||{};
+    g.ml = mlFromList(d.pickcenter) || mlFromList(comp.odds) || null;
+  }catch(_){}
+  return g.ml||null;
+}
+function paintMoneyline(g){
+  if(!g||!g.ml) return;
+  document.querySelectorAll(`.g[data-ev="${g.id}"]`).forEach(card=>{
+    const rows=[...card.children].filter(el=>el.classList&&el.classList.contains('row'));
+    if(rows.length<2) return;
+    [['away',rows[0]],['home',rows[1]]].forEach(([side,row])=>{
+      const html=mlSpan(g, side); if(!html) return;
+      const old=row.querySelector(':scope > .ml');
+      if(old) old.outerHTML=html;
+      else { const sc=row.querySelector(':scope > .sc'); if(sc) sc.insertAdjacentHTML('beforebegin', html); }
+    });
+  });
+}
 function normSide(c, lg){
   const t = c.team||{};
   let sc = c.score; if(sc && typeof sc==='object') sc = sc.displayValue ?? sc.value;
@@ -666,7 +734,8 @@ function normEvent(e, lg){
     home:normSide(homeC,lg), away:normSide(awayC,lg), tv:tv||'—', neutral:!!c.neutralSite,
     sit: sit?{dd:sit.downDistanceText||'', rz:!!sit.isRedZone, poss:sit.possession?String(sit.possession):null, last:(sit.lastPlay&&sit.lastPlay.text)||'',
       yardLine:sit.yardLine, distance:sit.distance, down:sit.down, possessionText:sit.possessionText||'', yardsToEndzone:sit.yardsToEndzone}:null,
-    note:(c.notes&&c.notes[0]&&c.notes[0].headline)||'' };
+    note:(c.notes&&c.notes[0]&&c.notes[0].headline)||'',
+    ml:mlFromList(c.odds) };
 }
 function snapToEvent(leg){ // stored final snapshot -> minimal normalized event
   const f = leg.final; const side = x=>({id:x.id,abbr:x.abbr,name:x.name,full:x.name,logo:x.logo||(LG[leg.league]&&LG[leg.league].college?`https://a.espncdn.com/i/teamlogos/ncaa/500/${x.id}.png`:''),score:x.score,rank:null,record:'',winner:false});
@@ -716,6 +785,7 @@ function teamRow(g, s, favs){
   return `<div class="row ${lose?'lose':''} ${fav?'favt':''}">
     ${s.logo?`<img src="${esc(s.logo)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`:'<span style="width:24px"></span>'}
     <div class="nm">${s.rank?`<span class="rk">${s.rank}</span>`:''}${fav?'⭐ ':''}${esc(s.name)}${poss?'<span class="pos" title="Possession">🏈</span>':''}<span class="rec">${esc(s.record)}</span></div>
+    ${mlSpan(g, s===g.home?'home':'away')}
     ${s.id?`<button type="button" class="rbtn" data-roster="${esc(g.lg)}|${esc(s.id)}" title="Roster · ${esc(s.full||s.name)}">Roster</button>`:''}
     <div class="sc">${g.state==='pre'||s.score==null?'':s.score}</div>
   </div>`;
@@ -974,6 +1044,7 @@ async function summary(lg, evId){
 async function summaryEvent(lg, evId){
   const d = await summary(lg, evId); const h=d.header; if(!h) return null;
   const g = normEvent(Object.assign({}, h, {date:h.competitions[0].date}), lg);
+  if(!g.ml){ const ml=mlFromList(d.pickcenter); if(ml) g.ml=ml; }
   if(d.situation) g.sit = {dd:d.situation.downDistanceText||'', rz:!!d.situation.isRedZone, poss:d.situation.possession?String(d.situation.possession):null};
   if(g.tv==='—'){ const b=(h.competitions[0].broadcasts||[]).map(x=>x.media&&x.media.shortName).filter(Boolean); if(b.length) g.tv=b.join(', '); }
   return g;
@@ -1745,7 +1816,7 @@ async function openGame(lg, id, opts={}){
     if(opts.refresh) JC.delete(API+LG[lg].path+'/summary?event='+id);
     const d = await summary(lg, id); const g = await summaryEvent(lg, id); if(GD!==me) return;
     if(!g){ $('#gdbody').innerHTML='<div class="empty">Game details unavailable.</div>'; return; }
-    const prev=EVSTORE.get(g.id); if(prev&&prev.sit&&!g.sit) g.sit=prev.sit;
+    const prev=EVSTORE.get(g.id); if(prev&&prev.sit&&!g.sit) g.sit=prev.sit; if(prev&&prev.ml&&!g.ml) g.ml=prev.ml;
     LEGEV.set(g.id, g);   // lets gradeLeg() grade Blitz's picks / your bets on this game from the fresh summary
     const h=d.header||{}, c=(h.competitions||[])[0]||{};
     const ls = side=>{ const x=(c.competitors||[]).find(k=>k.homeAway===side)||{}; return (x.linescores||[]).map(l=>l.displayValue??l.value); };
@@ -1756,7 +1827,7 @@ async function openGame(lg, id, opts={}){
     const vids=(d.videos||[]).map(v=>hlFromSummary(v,lg,g)).filter(Boolean);
     (HL.items||[]).filter(x=>x.eventId===id).forEach(x=>{ if(!vids.some(v=>v.id===x.id)) vids.push(x); });
     const groups=gdPlays(d, lg), sit=gdSituation(d, lg, g, groups);
-    const side=t=>`<div class="gdteam">${t.logo?`<img src="${esc(t.logo)}" alt="">`:''}<div class="gdwho"><b>${t.rank?'#'+t.rank+' ':''}${esc(t.full||t.name)}${sit&&sit.poss&&sit.poss.id===t.id&&isFootball(lg)?' <span title="Possession">🏈</span>':''}</b><span class="note">${esc(t.record||'')}</span>${t.id?`<button type="button" class="btn sm" data-roster="${esc(lg)}|${esc(t.id)}">Roster</button>`:''}</div><div class="gdsc">${t.score??''}</div></div>`;
+    const side=t=>`<div class="gdteam">${t.logo?`<img src="${esc(t.logo)}" alt="">`:''}<div class="gdwho"><b>${t.rank?'#'+t.rank+' ':''}${esc(t.full||t.name)}${sit&&sit.poss&&sit.poss.id===t.id&&isFootball(lg)?' <span title="Possession">🏈</span>':''} ${mlSpan(g, t===g.home?'home':'away')}</b><span class="note">${esc(t.record||'')}</span>${t.id?`<button type="button" class="btn sm" data-roster="${esc(lg)}|${esc(t.id)}">Roster</button>`:''}</div><div class="gdsc">${t.score??''}</div></div>`;
     // keep scroll position + open drive/period groups across refreshes
     const modal=$('#gdmodal'), st=modal?modal.scrollTop:0, pbpEl=$('#gdpbp'), pst=pbpEl?pbpEl.scrollTop:0;
     const openKeys = pbpEl ? new Set([...pbpEl.querySelectorAll('details[open]')].map(x=>x.dataset.gk)) : null;
@@ -1977,13 +2048,15 @@ async function renderLeague(lg, tok, view){
   $('#cnt').textContent = `${L.short}: ${games.length} games · ${n.in} live · ${n.pre} upcoming · ${n.post} final`;
   updateLiveBadges();
   setRefresh(games.concat(manuals.map(m=>({state:manualPhase(m).state, date:new Date(m.start)}))), ()=>render());
+  const mlNeed=games.filter(g=>!g.ml);
+  if(mlNeed.length) Promise.all(mlNeed.map(ensureMoneyline)).then(()=>{ if(tok!==TOKEN || TAB!==lg) return; mlNeed.forEach(paintMoneyline); });
   if(lg==='nfl') ffBadgePoints(games, tok);
 
   // async fills: favorite team bye/next cards and player cards
   favList.filter(t=>!games.find(x=>involves(x,t.id))).forEach(async t=>{
     try{ const tg=await teamGames(lg,t.id); if(tok!==TOKEN) return; const el=document.getElementById(`fx-${lg}-${t.id}`); if(!el) return;
       const why = L.mode==='week' ? 'BYE / no game this week' : 'No game today';
-      if(tg.next) el.outerHTML = withSid(gameCard(tg.next,{favs, extraTags:`<span class="badge b-n">${why} · next up</span>`}), 'team:'+t.id);
+      if(tg.next){ if(!tg.next.ml) await ensureMoneyline(tg.next); if(tok!==TOKEN) return; el.outerHTML = withSid(gameCard(tg.next,{favs, extraTags:`<span class="badge b-n">${why} · next up</span>`}), 'team:'+t.id); }
       else el.innerHTML = DH+`<div class="row"><div class="nm">⭐ ${esc(t.name)}</div></div><div class="foot">${why} · no upcoming games scheduled${tg.last?` · last: ${esc(tg.last.away.abbr)} ${tg.last.away.score} @ ${esc(tg.last.home.abbr)} ${tg.last.home.score}`:''} ${rosterBtn(lg,t.id)}</div>`;
     }catch(_){}
   });
@@ -2024,7 +2097,7 @@ async function renderMine(tok, view){
       let html;
       try{
         const tg = await teamGames(lg,t.id); const g = tg.cur||tg.next;
-        if(g){ all.push(g); remember([g]);
+        if(g){ if(!g.ml) await ensureMoneyline(g); if(tok!==TOKEN) return; all.push(g); remember([g]);
           const lastTxt = tg.last && tg.last!==g ? `<div class="note" style="margin-top:4px">Last: ${esc(tg.last.away.abbr)} ${tg.last.away.score??''} @ ${esc(tg.last.home.abbr)} ${tg.last.home.score??''} · ${esc(tg.last.detail)} (${esc(fmtDay(tg.last.date))})</div>` : '';
           html = gameCard(g,{showLg:true, extraTags:`<span class="badge ${g.state==='in'?'b-g':'b-n'}">${g.state==='in'?'LIVE NOW':g===tg.cur?'TODAY':'NEXT GAME'}</span>`}).replace(/<\/div>\s*$/, lastTxt+'</div>');
         } else html = `<div class="g fav"><div class="lgtag"><span>${LG[lg].icon} ${LG[lg].short}</span></div><div class="row"><div class="nm">⭐ ${esc(t.name)}</div></div><div class="foot">No upcoming games (off-season)${tg.last?` · last: ${esc(tg.last.away.abbr)} ${tg.last.away.score} @ ${esc(tg.last.home.abbr)} ${tg.last.home.score}`:''} ${rosterBtn(lg,t.id)}</div></div>`;
@@ -3177,7 +3250,7 @@ async function monEnsureSum(g){
   const d=await summary(g.lg, g.id);
   try{
     const sg=await summaryEvent(g.lg, g.id);
-    if(sg){ const keep=g.lg, sit=g.sit; Object.assign(g, sg); g.lg=keep; if(!g.sit && sit) g.sit=sit; LEGEV.set(g.id, g); remember([g]); }
+    if(sg){ const keep=g.lg, sit=g.sit, prevMl=g.ml; Object.assign(g, sg); g.lg=keep; if(!g.sit && sit) g.sit=sit; if(!g.ml && prevMl) g.ml=prevMl; LEGEV.set(g.id, g); remember([g]); }
   }catch(_){}
   MON.sums.set(key, d);
   try{ injAddSummary(g.lg, d); }catch(_){}
@@ -3205,7 +3278,7 @@ function monScoreHTML(g){
   const leadA=g.away.score!=null && g.home.score!=null && g.away.score>g.home.score;
   const leadH=g.away.score!=null && g.home.score!=null && g.home.score>g.away.score;
   const poss=id=>g.state==='in' && g.sit && g.sit.poss===id;
-  const side=(t, lead)=>`<div><div class="monname">${t.logo?`<img class="monlogo" src="${esc(t.logo)}" alt=""> `:''}${esc(t.abbr||t.name)}${poss(t.id)?' <span class="monposs" title="Possession">●</span>':''}</div><div class="monpts${lead?' lead':''}">${t.score??'–'}</div><div class="monmeta">${esc(t.name)}</div></div>`;
+  const side=(t, lead)=>`<div><div class="monname">${t.logo?`<img class="monlogo" src="${esc(t.logo)}" alt=""> `:''}${esc(t.abbr||t.name)}${poss(t.id)?' <span class="monposs" title="Possession">●</span>':''}</div><div class="monpts${lead?' lead':''}">${t.score??'–'}</div><div class="monmeta">${esc(t.name)} ${mlSpan(g, t===g.home?'home':'away')}</div></div>`;
   const tag = g.state==='post' ? 'FINAL' : g.state==='pre' ? 'UPCOMING' : 'LIVE';
   const dd = isFootball(g.lg) && g.sit && g.sit.dd ? g.sit.dd : '';
   const ball = poss(g.away.id)?g.away.abbr+' ball':poss(g.home.id)?g.home.abbr+' ball':'';
@@ -3356,7 +3429,8 @@ function monPaintSetup(){
     if(betsForEvent(DATA.placedBets,g.id).length) tags.push('🎟️ bet');
     const key=g.lg+'|'+g.id, pinned=pins.includes(key);
     const st=g.state==='in'?'LIVE':g.state==='post'?'FINAL':'UPCOMING';
-    return `<div class="mongame"><div class="nm">${esc(LG[g.lg].short)} · ${esc(g.away.abbr)} ${g.away.score??''} @ ${esc(g.home.abbr)} ${g.home.score??''} <span class="badge ${g.state==='in'?'b-g':'b-n'}">${st}</span> ${tags.map(t=>`<span class="note">${esc(t)}</span>`).join(' ')}<div class="note">${esc(statusTxt(g))}${pr?` · priority ${pr}`:''}</div></div><button type="button" class="btn sm ${pinned?'pri':''}" data-monpin="${esc(key)}">${pinned?'Pinned':'Pin'}</button></div>`;
+    const mlNote=(g.ml&&(g.ml.away!=null||g.ml.home!=null))?` · ${mlSpan(g,'away')}${g.ml.away!=null&&g.ml.home!=null?' / ':''}${mlSpan(g,'home')}`:'';
+    return `<div class="mongame"><div class="nm">${esc(LG[g.lg].short)} · ${esc(g.away.abbr)} ${g.away.score??''} @ ${esc(g.home.abbr)} ${g.home.score??''} <span class="badge ${g.state==='in'?'b-g':'b-n'}">${st}</span> ${tags.map(t=>`<span class="note">${esc(t)}</span>`).join(' ')}<div class="note">${esc(statusTxt(g))}${pr?` · priority ${pr}`:''}${mlNote}</div></div><button type="button" class="btn sm ${pinned?'pri':''}" data-monpin="${esc(key)}">${pinned?'Pinned':'Pin'}</button></div>`;
   }).join('') : `<div class="empty">${esc(MON.err||'No games found.')}</div>`;
   const foot=$('#monfoot');
   const nPins=pins.length, nFollow=MON.games.length;
@@ -3416,6 +3490,8 @@ async function monLoad(tok){
   const pinNote=follow==='pin'?(pins.length?`following ${MON.games.length} pinned`:'pinned'):'rotating';
   $('#cnt').textContent=`Monitor · ${nLive?nLive+' live':'no live games'} · ${pinNote}`;
   monPaintSetup();
+  const mlNeed=(MON.choices||[]).filter(g=>!g.ml);
+  if(mlNeed.length) Promise.all(mlNeed.map(ensureMoneyline)).then(()=>{ if(tok!==TOKEN || TAB!=='monitor') return; monPaintSetup(); if(MON.on) monPaint(); });
   monApplyMode();
   setRefresh(MON.games, ()=>{ if(document.hidden){ if(TAB==='monitor') monScheduleHidden(); return; } if(TAB==='monitor') monRefresh(); });
 }
