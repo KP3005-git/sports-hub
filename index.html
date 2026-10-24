@@ -700,7 +700,7 @@ function paintMoneyline(g){
       const html=mlSpan(g, side); if(!html) return;
       const old=row.querySelector(':scope > .ml');
       if(old) old.outerHTML=html;
-      else { const sc=row.querySelector(':scope > .sc'); if(sc) sc.insertAdjacentHTML('beforebegin', html); }
+      else { const nm=row.querySelector(':scope > .nm'); if(nm) nm.insertAdjacentHTML('afterend', html); }
     });
   });
 }
