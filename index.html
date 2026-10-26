@@ -76,6 +76,7 @@ html[data-scope="title"] .themesw.on{border-color:var(--gold);box-shadow:0 0 0 1
 html[data-scope="title"] .mondots span.on{box-shadow:0 0 8px rgb(var(--tint-rgb) / .55)}
 html[data-scope="title"] .brsep{border-color:var(--gold)}
 html[data-scope="title"] .row .ml.fav,html[data-scope="title"] .gdwho .ml.fav,html[data-scope="title"] .mongame .note .ml.fav,html[data-scope="title"] .monmeta .ml.fav{color:var(--txt)}
+html[data-scope="title"] .proptag{background:transparent;color:var(--txt);border:1px solid var(--line)}
 *{box-sizing:border-box}
 html{background:var(--bg)}
 body{margin:0;min-height:100vh;background:radial-gradient(1200px 600px at 50% -200px,var(--spot) 0%,var(--bg) 60%) no-repeat var(--bg);color:var(--txt);font:15px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
@@ -259,6 +260,14 @@ body.modal-on{overflow:hidden}
 .glbar select{max-width:100%}
 .glchart{margin:4px 0 10px}
 .glchart svg{width:100%;height:72px;display:block}
+.glpick{border:1px solid var(--line);border-radius:10px;background:var(--card);padding:8px 10px;margin:0 0 10px;color:var(--txt)}
+.glpickh{font-size:11px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--mut);margin:0 0 6px}
+.glpickrow+.glpickrow{margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
+.glpickmain{font-size:14px;margin:4px 0 2px;color:var(--txt)}
+.glpick .note{color:var(--mut)}
+.glcmp{font-size:12px;color:var(--txt);margin-top:3px}
+.propleg{display:inline-block;margin-left:6px;font-size:10px;font-weight:800;letter-spacing:.2px;color:var(--mut);border:1px solid var(--line);border-radius:999px;padding:1px 6px;vertical-align:middle}
+.proptag{display:inline-block;margin-left:6px;font-size:9px;font-weight:900;letter-spacing:.5px;padding:0 5px;border-radius:999px;vertical-align:1px;background:var(--accent-fill);color:var(--accent-ink);line-height:1.6}
 .glscroll{overflow:auto;max-height:min(62vh,640px);border:1px solid var(--line);border-radius:10px;-webkit-overflow-scrolling:touch}
 table.gl{border-collapse:separate;border-spacing:0;font-size:12px;width:max-content;min-width:100%;font-variant-numeric:tabular-nums}
 table.gl th,table.gl td{padding:6px 8px;white-space:nowrap;border-bottom:1px solid var(--line);text-align:right;background:var(--navy);color:var(--txt)}
@@ -2799,7 +2808,9 @@ async function syncSheet(force, maxAge=20000){
       mergeSheet('placed',placed); mergeSheet('rec',recs);
       DATA.sheetSync={ok:true, at:tried, tried, placed:placed.length, recs:recs.length, warnings, error:null};
     }catch(e){ DATA.sheetSync=Object.assign({}, st, {ok:false, tried, error:e.message}); }
-    saveData(); SYNCING=null; try{ refreshPickChips(); }catch(_){ } return DATA.sheetSync;
+    saveData(); SYNCING=null; try{ refreshPickChips(); }catch(_){ }
+    try{ if(typeof refreshOpenRosterProps==='function') refreshOpenRosterProps(); }catch(_){ }
+    return DATA.sheetSync;
   })();
   return SYNCING;
 }
@@ -3016,14 +3027,234 @@ function rosterHit(p, q){
   if(!q) return true;
   return [p.name, p.jersey, p.pos, p.posName, p.college, p.year, p.height, p.weight].join(' ').toLowerCase().includes(q);
 }
-function rosterCard(p, lg, teamId){
+// Logged player props (read-only). Sheet rows stay the source; nothing here writes back.
+const PROP_SETTLED = new Set(['won','lost','push','void','cashout']);
+const PROP_STAT_LABEL = {pts:'Points', reb:'Rebounds', ast:'Assists', stl:'Steals', blk:'Blocks', to:'Turnovers', rec:'Receptions', passyds:'Passing yards', rushyds:'Rushing yards', recyds:'Receiving yards', '3pm':'Threes', pra:'PRA', rushrec:'Rush + rec yards', td:'Touchdowns'};
+function propNorm(s){
+  return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()
+    .replace(/\b(jr|sr|ii|iii|iv|v)\b/g,'').replace(/[^a-z ]/g,'').replace(/\s+/g,' ').trim();
+}
+function propNameHit(playerName, text){
+  const n=propNorm(playerName); if(!n) return false;
+  return (' '+propNorm(text)+' ').includes(' '+n+' ');
+}
+function propEvent(leg){
+  const id=leg&&leg.eventId!=null&&leg.eventId!==''?String(leg.eventId):'';
+  if(!id) return null;
+  if(LEGEV.has(id)) return LEGEV.get(id);
+  if(EVSTORE.has(id)) return EVSTORE.get(id);
+  const games=(VS[leg.league]&&VS[leg.league].games)||[];
+  return games.find(g=>String(g.id)===id)||null;
+}
+function propTeamHit(team, text){
+  const blob=' '+propNorm(text)+' ';
+  const full=propNorm((team&&(team.name||team.full))||'');
+  const abbr=propNorm((team&&team.abbr)||'');
+  if(full && blob.includes(' '+full+' ')) return true;
+  if(abbr && abbr.length>=2 && blob.includes(' '+abbr+' ')) return true;
+  return false;
+}
+function legMatchesPlayer(leg, player, lg, team){
+  if(!leg || leg.market!=='prop' || !player) return false;
+  if(lg && leg.league && leg.league!==lg) return false;
+  const blob=(leg.selection||'')+' '+(leg.selectionName||'');
+  const pt=String(leg.propType||'').toLowerCase();
+  if(pt.startsWith('team_') || /team[_\s-]*total/.test(pt) || /\bteam\s+(points|total|totals)\b/i.test(blob)) return false;
+  if(leg.athleteId){ if(String(leg.athleteId)!==String(player.id)) return false; }
+  else if(!propNameHit(player.name, blob)) return false;
+  if(!leg.athleteId && team && (team.id||team.name||team.abbr)){
+    const ev=propEvent(leg);
+    if(ev && team.id){
+      const ids=[ev.home&&ev.home.id, ev.away&&ev.away.id].map(x=>String(x||''));
+      if(!ids.includes(String(team.id))) return false;
+    } else if(leg.game && (team.name||team.abbr||team.full)){
+      if(!propTeamHit(team, leg.game)) return false;
+    }
+  }
+  return true;
+}
+function propToday(){
+  try{ return new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()); }
+  catch(_){ return isoDay(new Date()); }
+}
+function legUpcoming(leg, bet){
+  if(bet && bet.resultOverride && PROP_SETTLED.has(String(bet.resultOverride).toLowerCase())) return false;
+  if(leg && leg.manual && PROP_SETTLED.has(String(leg.manual).toLowerCase())) return false;
+  const ev=propEvent(leg);
+  if(ev && ev.state==='post') return false;
+  if(ev && (ev.state==='pre' || ev.state==='in')) return true;
+  const day=String((leg&&leg.date)||(bet&&bet.date)||'').slice(0,10);
+  if(/^\d{4}-\d{2}-\d{2}$/.test(day)) return day>=propToday();
+  return false;
+}
+function playerPendingProps(player, lg, team){
+  if(!player || !DATA) return [];
+  const out=[];
+  ['recommendations','placedBets'].forEach(key=>{
+    (DATA[key]||[]).forEach(bet=>{
+      const multi=(bet.legs||[]).length>1 || bet.betType==='parlay';
+      (bet.legs||[]).forEach(leg=>{
+        if(!legMatchesPlayer(leg, player, lg, team)) return;
+        if(!legUpcoming(leg, bet)) return;
+        out.push({bet, leg, multi});
+      });
+    });
+  });
+  return out;
+}
+async function warmPropEvents(){
+  const today=propToday(), seen=new Set(), legs=[];
+  ['recommendations','placedBets'].forEach(key=>{
+    (DATA[key]||[]).forEach(bet=>{
+      if(bet.resultOverride && PROP_SETTLED.has(String(bet.resultOverride).toLowerCase())) return;
+      (bet.legs||[]).forEach(leg=>{
+        if(!leg || leg.market!=='prop' || !leg.eventId || propEvent(leg)) return;
+        if(leg.manual && PROP_SETTLED.has(String(leg.manual).toLowerCase())) return;
+        const day=String(leg.date||bet.date||'').slice(0,10);
+        if(/^\d{4}-\d{2}-\d{2}$/.test(day) && day<today) return;
+        const id=String(leg.eventId); if(seen.has(id)) return; seen.add(id); legs.push(leg);
+      });
+    });
+  });
+  const batch=legs.slice(0, 8);
+  await Promise.race([
+    Promise.all(batch.map(async l=>{ try{ const g=await summaryEvent(l.league, l.eventId); if(g) LEGEV.set(String(l.eventId), g); }catch(_){ } })),
+    new Promise(r=>setTimeout(r, 8000))
+  ]);
+}
+function refreshOpenRosterProps(){
+  if(!RST || !RST.data || $('#plog')) return;
+  warmPropEvents().then(()=>{ if(RST && RST.data && !$('#plog')) paintRoster(); }).catch(()=>{});
+}
+function propStatKey(leg){
+  const t=(String(leg.propType||'')+' '+(leg.selection||'')+' '+(leg.selectionName||'')).toLowerCase().replace(/[\s-]+/g,'_');
+  if(/rush.+rec|rec.+rush|rush_rec/.test(t)) return 'rushrec';
+  if(/pra|points_rebounds_assists|pts_reb_ast/.test(t)) return 'pra';
+  if(/pass(ing)?_yards|passingyards|pass_yds/.test(t)) return 'passyds';
+  if(/rush(ing)?_yards|rushingyards/.test(t)) return 'rushyds';
+  if(/receiv(ing)?_yards|receivingyards/.test(t)) return 'recyds';
+  if(/reception/.test(t)) return 'rec';
+  if(/three|3pt|3_point|threes/.test(t)) return '3pm';
+  if(/rebound/.test(t)) return 'reb';
+  if(/assist/.test(t)) return 'ast';
+  if(/steal/.test(t)) return 'stl';
+  if(/block/.test(t)) return 'blk';
+  if(/turnover/.test(t)) return 'to';
+  if(/anytime_td|first_td|touchdown|\btds?\b/.test(t)) return 'td';
+  if(/point|player_points|\bpts\b/.test(t)) return 'pts';
+  return '';
+}
+function propSide(leg){
+  const t=' '+(String(leg.propType||'')+' '+(leg.selection||'')+' '+(leg.selectionName||'')).toLowerCase().replace(/[_-]+/g,' ')+' ';
+  if(/\bunder\b/.test(t)) return 'under';
+  const line=+leg.line;
+  if(/\d+\s*\+/.test(String(leg.selection||'')+' '+String(leg.selectionName||'')) && Number.isFinite(line) && Math.abs(line-Math.round(line))<1e-6) return 'plus';
+  return 'over';
+}
+function propHit(value, line, side){
+  if(value==null || !Number.isFinite(line)) return false;
+  if(side==='under') return value<line;
+  if(side==='plus') return value>=line;
+  return value>line;
+}
+function propLabel(leg){
+  const key=propStatKey(leg), name=PROP_STAT_LABEL[key], side=propSide(leg), line=leg.line;
+  if(!name) return leg.selectionName||leg.selection||'Prop';
+  if(side==='plus' && line!=null && line!=='') return `${name} ${line}+`;
+  if(line==null || line==='') return name;
+  return `${name} ${side==='under'?'Under':'Over'} ${line}`;
+}
+function propWhen(bet, leg){
+  const ev=propEvent(leg);
+  const notes=String((bet&&bet.notes)||'');
+  const tm=notes.match(/(\d{1,2}:\d{2}\s*[AP]M(?:\s*ET)?)/i);
+  const et={timeZone:'America/New_York'};
+  if(ev && ev.date && !isNaN(+ev.date)){
+    const day=fmt(ev.date, Object.assign({weekday:'short',month:'short',day:'numeric'}, et));
+    const clock=tm?tm[1]:fmt(ev.date, Object.assign({hour:'numeric',minute:'2-digit',timeZoneName:'short'}, et));
+    return `${day} · ${clock}`;
+  }
+  const d=String((leg&&leg.date)||(bet&&bet.date)||'').slice(0,10);
+  const day=/^\d{4}-\d{2}-\d{2}$/.test(d)?fmt(new Date(d+'T12:00:00'),{weekday:'short',month:'short',day:'numeric',timeZone:'America/New_York'}):'';
+  return [day, tm?tm[1]:''].filter(Boolean).join(' · ');
+}
+function propGameText(leg, bet, team){
+  const ev=propEvent(leg);
+  let game=leg.game||'';
+  if(ev && team && team.id){
+    const hid=ev.home&&String(ev.home.id), aid=ev.away&&String(ev.away.id), tid=String(team.id);
+    const opp=hid===tid?ev.away:aid===tid?ev.home:null;
+    if(opp) game=(hid===tid?'vs ':'at ')+(opp.abbr||opp.name||'');
+  }
+  return [game, propWhen(bet, leg)].filter(Boolean).join(' · ');
+}
+function glStatCol(cols, h){ return (cols||[]).find(c=>c.h===h && c.idx && c.idx.length===1)||null; }
+function rowStat(row, cols, key){
+  const cell=h=>{ const c=glStatCol(cols, h); return c?glNum(glCell(row.stats, c)):null; };
+  if(key==='pts') return cell('PTS');
+  if(key==='reb') return cell('REB');
+  if(key==='ast') return cell('AST');
+  if(key==='stl') return cell('STL');
+  if(key==='blk') return cell('BLK');
+  if(key==='to') return cell('TO');
+  if(key==='rec') return cell('REC');
+  if(key==='passyds' || key==='recyds') return cell('YDS');
+  if(key==='rushyds') return cell('RYDS')!=null?cell('RYDS'):cell('YDS');
+  if(key==='3pm') return cell('3PT');
+  if(key==='pra'){ const p=cell('PTS'), r=cell('REB'), a=cell('AST'); if(p==null&&r==null&&a==null) return null; return (p||0)+(r||0)+(a||0); }
+  if(key==='rushrec'){
+    if(glStatCol(cols,'REC')){ const y=cell('YDS'), ry=cell('RYDS'); if(y==null&&ry==null) return null; return (y||0)+(ry||0); }
+    return cell('RYDS')!=null?cell('RYDS'):cell('YDS');
+  }
+  if(key==='td'){ const vals=['TD','RTD'].map(cell).filter(v=>v!=null); return vals.length?vals.reduce((a,b)=>a+b,0):null; }
+  return null;
+}
+function propChartSpec(cols, leg){
+  const key=propStatKey(leg), name=PROP_STAT_LABEL[key];
+  if(!key || !name) return null;
+  const has=h=>!!glStatCol(cols, h);
+  const ok=key==='pts'?has('PTS'):key==='reb'?has('REB'):key==='ast'?has('AST'):key==='stl'?has('STL'):key==='blk'?has('BLK'):key==='to'?has('TO'):key==='rec'?has('REC'):key==='3pm'?has('3PT'):key==='pra'?(has('PTS')&&has('REB')&&has('AST')):key==='passyds'||key==='recyds'?has('YDS'):key==='rushyds'?(has('RYDS')||has('YDS')):key==='rushrec'?(has('YDS')||has('RYDS')):key==='td'?(has('TD')||has('RTD')):false;
+  if(!ok) return null;
+  const line=+leg.line;
+  return {label:name+' by game', value:r=>rowStat(r, cols, key), line:Number.isFinite(line)?line:null};
+}
+function propCompare(rows, cols, leg){
+  const key=propStatKey(leg), line=+leg.line, side=propSide(leg);
+  if(!key || !Number.isFinite(line)) return '';
+  const vals=(rows||[]).map(r=>rowStat(r, cols, key)).filter(v=>v!=null);
+  if(!vals.length) return '';
+  const avg=a=>a.reduce((s,v)=>s+v,0)/a.length;
+  const f=n=>(Math.round(n*10)/10).toFixed(1);
+  const hit=a=>a.filter(v=>propHit(v, line, side)).length;
+  const a5=vals.slice(0, Math.min(5, vals.length));
+  const word=side==='under'?'Under '+(line):side==='plus'?line+'+':'Over '+line;
+  let s=`${word} hit ${hit(a5)} of last ${a5.length}`;
+  if(vals.length>5){ const a10=vals.slice(0, Math.min(10, vals.length)); s+=`, ${hit(a10)} of last ${a10.length}`; }
+  s+=`. Last ${a5.length} avg ${f(avg(a5))} · season avg ${f(avg(vals))}`;
+  return s;
+}
+function glPicksHTML(props, rows, cols, team){
+  if(!props.length) return '';
+  const rowsHTML=props.map(({bet, leg, multi})=>{
+    const odds=leg.odds!=null?leg.odds:bet.odds;
+    const stake=bet.kind==='placed' && bet.stake>0 ? 'Stake '+money(bet.stake) : 'Recommended'+(bet.verdict?' · '+bet.verdict:'');
+    const cmp=propCompare(rows, cols, leg);
+    return `<div class="glpickrow">${analystTag(analystOf(bet))}${multi?' <span class="propleg">Leg of SGP/parlay</span>':''}<div class="glpickmain"><b>${esc(propLabel(leg))}</b> <span class="note">${esc(fmtOdds(odds))} · ${esc(stake)}</span></div><div class="note">${esc(propGameText(leg, bet, team))}</div>${cmp?`<div class="glcmp">${esc(cmp)}</div>`:''}</div>`;
+  }).join('');
+  return `<section class="glpick" aria-label="Picks Desk"><div class="glpickh">Picks Desk</div>${rowsHTML}</section>`;
+}
+function rosterCard(p, lg, team){
+  const teamId=team&&typeof team==='object'?team.id:team;
+  const teamObj=team&&typeof team==='object'?team:{id:teamId||''};
   const inj=injBadge(injFind(lg,{id:p.id, name:p.name, teamId}));
   const who=[p.jersey?('#'+p.jersey):'', p.pos].filter(Boolean).join(' · ');
   const facts=[p.height, p.weight, p.year, p.college].filter(Boolean).join(' · ');
   const photo=p.headshot?`<img src="${esc(p.headshot)}" alt="" loading="lazy" onerror="this.remove()">`:'';
-  return `<article class="rcard" data-rid="${esc(p.id)}"${p.id?` data-plog="${esc(p.id)}" role="button" tabindex="0"`:''}><div class="rphoto"><span class="ph" aria-hidden="true">${esc(rosterInitials(p.name))}</span>${photo}</div>
+  const nprop=playerPendingProps(p, lg, teamObj).length;
+  const tag=nprop?`<span class="proptag" title="${nprop} logged prop${nprop===1?'':'s'}">PROP</span>`:'';
+  return `<article class="rcard" data-rid="${esc(p.id)}"${p.id?` data-plog="${esc(p.id)}" role="button" tabindex="0"`:''}${nprop?' data-prop="1"':''}><div class="rphoto"><span class="ph" aria-hidden="true">${esc(rosterInitials(p.name))}</span>${photo}</div>
     <div class="pn">${esc(p.name)}</div>
-    <div class="meta">${esc(who||'—')}${inj?' '+inj:''}</div>
+    <div class="meta">${esc(who||'—')}${inj?' '+inj:''}${tag}</div>
     ${facts?`<div class="meta">${esc(facts)}</div>`:''}</article>`;
 }
 function paintRoster(q){
@@ -3031,7 +3262,7 @@ function paintRoster(q){
   const {lg, data}=RST, query=String(q==null?($('#rosterq')&&$('#rosterq').value)||'':q).trim().toLowerCase();
   const shown=data.groups.map(g=>({...g, items:g.items.filter(p=>rosterHit(p, query))})).filter(g=>g.items.length);
   const n=shown.reduce((a,g)=>a+g.items.length,0);
-  const list=shown.length?shown.map(g=>`<section class="rgroup">${g.label?`<h3 class="gdh">${esc(g.label)} <span class="note">${g.items.length}</span></h3>`:''}<div class="rgrid">${g.items.map(p=>rosterCard(p, lg, data.team.id)).join('')}</div></section>`).join('')
+  const list=shown.length?shown.map(g=>`<section class="rgroup">${g.label?`<h3 class="gdh">${esc(g.label)} <span class="note">${g.items.length}</span></h3>`:''}<div class="rgrid">${g.items.map(p=>rosterCard(p, lg, data.team)).join('')}</div></section>`).join('')
     : `<div class="empty">No players match${query?' “'+esc(query)+'”':''}.</div>`;
   const count=`${esc(LG[lg].short)}${data.season?' · '+esc(String(data.season)):''} · ${n} player${n===1?'':'s'}${query&&n!==data.n?' of '+data.n:''}`;
   if(!$('#rosterq')){
@@ -3140,15 +3371,22 @@ function glChartCol(cols, pos){
 }
 function glChartSVG(rows, spec){
   if(!spec) return '';
-  const nums=rows.map(r=>glNum(glCell(r.stats, spec.col))).filter(v=>v!=null).reverse();
+  const read=spec.value?spec.value:(spec.col?r=>glNum(glCell(r.stats, spec.col)):null);
+  if(!read) return '';
+  const nums=rows.map(read).filter(v=>v!=null).reverse();
   if(nums.length<2) return '';
-  const min=Math.min(...nums), max=Math.max(...nums), span=(max-min)||1, w=320, h=64, pad=6;
+  const line=spec.line!=null && Number.isFinite(+spec.line)?+spec.line:null;
+  let min=Math.min(...nums), max=Math.max(...nums);
+  if(line!=null){ min=Math.min(min, line); max=Math.max(max, line); }
+  const span=(max-min)||1, w=320, h=64, pad=6;
   const pts=nums.map((v,n)=>{
-    const x=pad+(nums.length===1?0:(n/(nums.length-1))*(w-pad*2));
+    const x=pad+(n/(nums.length-1))*(w-pad*2);
     const y=h-pad-((v-min)/span)*(h-pad*2);
     return x.toFixed(1)+','+y.toFixed(1);
   }).join(' ');
-  return `<div class="glchart"><div class="note">${esc(spec.label)}</div><svg viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(spec.label)}"><polyline points="${pts}" fill="none" stroke="var(--stroke)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg></div>`;
+  const yRef=line==null?'':(()=>{ const y=(h-pad-((line-min)/span)*(h-pad*2)).toFixed(1); return `<line class="glref" x1="${pad}" y1="${y}" x2="${w-pad}" y2="${y}" stroke="var(--txt)" stroke-width="1.25" stroke-dasharray="4 3"/>`; })();
+  const aria=spec.label+(line!=null?' · line '+line:'');
+  return `<div class="glchart"><div class="note">${esc(spec.label)}</div><svg viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(aria)}"><polyline points="${pts}" fill="none" stroke="var(--stroke)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>${yRef}</svg></div>`;
 }
 function espnPlayerURL(lg, id){ return `https://www.espn.com/${LG[lg].espnSlug}/player/_/id/${encodeURIComponent(id)}`; }
 function glURL(lg, id, season){
@@ -3162,6 +3400,11 @@ function rosterPlayer(id){
 }
 function paintPlayerLog(p, d, season){
   const cols=glCols(d, p.pos), rows=glRows(d), sum=glSummary(d);
+  const team=RST.data&&RST.data.team;
+  const props=playerPendingProps(p, RST.lg, team);
+  const picks=glPicksHTML(props, rows, cols, team);
+  let chartSpec=glChartCol(cols, p.pos);
+  if(props.length){ const alt=propChartSpec(cols, props[0].leg); if(alt) chartSpec=alt; }
   const sf=(d.filters||[]).find(f=>f.name==='season');
   const seasons=(sf&&sf.options)||[];
   const cur=season||(sf&&sf.value)||'';
@@ -3172,7 +3415,7 @@ function paintPlayerLog(p, d, season){
   const head=`<div class="glhead"><div class="rphoto"><span class="ph" aria-hidden="true">${esc(rosterInitials(p.name))}</span>${photo}</div><div><div class="rtitle">${esc(p.name)}</div><div class="note">${esc(who||LG[RST.lg].short)}</div></div></div>
     <div class="glbar"><button type="button" class="btn sm" data-plogback="1">← Roster</button>${sel}</div>`;
   if(!rows.length){
-    $('#rosterbody').innerHTML=head+`<div class="empty" id="plog">No game log available${p.name?' for '+esc(p.name):''}${cur&&cur!=='0'?' this season':''}.</div><p class="note">${link}</p>`;
+    $('#rosterbody').innerHTML=head+picks+`<div class="empty" id="plog">No game log available${p.name?' for '+esc(p.name):''}${cur&&cur!=='0'?' this season':''}.</div><p class="note">${link}</p>`;
     return;
   }
   const when=meta=>{
@@ -3189,7 +3432,7 @@ function paintPlayerLog(p, d, season){
   };
   const body=rows.map(r=>`<tr><td>${when(r.meta)}</td><td>${res(r.meta)}</td>${cols.map(c=>`<td>${esc(glCell(r.stats,c))}</td>`).join('')}</tr>`).join('');
   const foot=(label, stat, cls)=>stat?`<tr class="${cls}"><td>${esc(label)}</td><td></td>${cols.map(c=>`<td>${esc(glCell(stat.stats,c))}</td>`).join('')}</tr>`:'';
-  $('#rosterbody').innerHTML=head+glChartSVG(rows, glChartCol(cols, p.pos))+`<div class="glscroll" id="plog"><table class="gl"><thead><tr><th>Date</th><th>Result</th>${cols.map(c=>`<th>${esc(c.h)}</th>`).join('')}</tr></thead><tbody>${body}</tbody><tfoot>${foot('Totals', sum.total, 'glsum')}${foot('Averages', sum.avg, 'glavg')}</tfoot></table></div><p class="note">Game log from ESPN. ${link}</p>`;
+  $('#rosterbody').innerHTML=head+picks+glChartSVG(rows, chartSpec)+`<div class="glscroll" id="plog"><table class="gl"><thead><tr><th>Date</th><th>Result</th>${cols.map(c=>`<th>${esc(c.h)}</th>`).join('')}</tr></thead><tbody>${body}</tbody><tfoot>${foot('Totals', sum.total, 'glsum')}${foot('Averages', sum.avg, 'glavg')}</tfoot></table></div><p class="note">Game log from ESPN. ${link}</p>`;
 }
 async function openPlayerLog(id, season){
   if(!RST||!LG[RST.lg]) return;
@@ -3221,7 +3464,9 @@ async function openRoster(lg, id){
   } else $('#rosterbody').innerHTML='<div class="note">Loading roster…</div>';
   RST={lg, id, token, data:null};
   try{
-    const [data]=await Promise.all([rosterLoad(lg, id), injEnsure([lg])]);
+    const [data]=await Promise.all([rosterLoad(lg, id), injEnsure([lg]), syncSheet().catch(()=>null)]);
+    if(token!==RSTN) return;
+    await warmPropEvents();
     if(token!==RSTN) return;
     RST={lg, id, token, data};
     paintRoster('');
