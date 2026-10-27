@@ -568,11 +568,12 @@ const SHEET_ID = '18Rr-vtGEaRRzV4UbiD0_vOWC929ZBlms7TMdE0NvYFU';
 // Games ESPN's scoreboard omits (exhibitions). One object per game; the CBB tab pins a card on that date.
 // Links are opened in a new tab — do not fetch them (the box score has no CORS).
 const MANUAL_GAMES = [{
-  id:'pur-pfw-20261022', lg:'cbb', start:'2026-10-22T19:00:00-04:00',
+  id:'pur-uconn-20261027', lg:'cbb', start:'2026-10-27T19:00:00-04:00',
   away:{name:'Purdue', short:'PUR', espnId:2509},
-  home:{name:'Purdue Fort Wayne', short:'PFW', espnId:2870},
-  label:'Exhibition', venue:'Allen County War Memorial Coliseum, Fort Wayne', tv:'B1G+',
-  links:[{label:'Live box score', url:'https://purduesports.com/boxscore/16888'}]
+  home:{name:'Connecticut', short:'CONN', espnId:41, rank:4},
+  label:'Exhibition', venue:'PeoplesBank Arena, Hartford, Conn.',
+  watch:'UConnHuskies.com stream (PPV $9.95)', radio:'Purdue Global Radio Network',
+  links:[{label:'Live box score', url:'https://purduesports.com/boxscore/16868'}]
 }];
 // Fantasy scoring presets. Yahoo defaults per help.yahoo.com/kb/default-league-settings-fantasy-football-sln6489.html
 // (checked Oct 2026): half-PPR, 1 pt / 25 pass yds, 4 per pass TD, -1 INT, 1 pt / 10 rush+rec yds, 6 per TD, 2-pt 2, fumble lost -2,
@@ -1952,15 +1953,16 @@ function manualAsGame(m){
 }
 function manualCardHTML(m){
   const lg=m.lg, start=new Date(m.start), ph=manualPhase(m), favSet=manualFavIds(m);
-  const side=s=>({id:s&&s.espnId!=null?String(s.espnId):'', abbr:s.short||'', name:s.name||'', logo:manualLogo(s,lg), score:null, rank:null, record:''});
+  const side=s=>({id:s&&s.espnId!=null?String(s.espnId):'', abbr:s.short||'', name:s.name||'', logo:manualLogo(s,lg), score:null, rank:(s&&s.rank)||null, record:''});
   const g={lg, state:ph.state, home:side(m.home), away:side(m.away)};
   const links=(m.links||[]).filter(l=>l&&l.url).map(l=>`<a class="btn sm pri" href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">${esc(l.label||'Box score')}</a>`).join('');
+  const air=[m.watch?`Watch: ${esc(m.watch)}`:(m.tv?`TV: ${esc(m.tv)}`:''), m.radio?`Radio: ${esc(m.radio)}`:''].filter(Boolean).join(' · ');
   return `<div class="g manual${ph.state==='in'?' live':''}${favSet.size?' fav':''}" data-manual="${esc(m.id)}">
     <div class="lgtag"><span>${esc(m.label||'Exhibition')}</span><span>${esc(fmtTime(start))}</span></div>
     ${teamRow(g,g.away,favSet)}${teamRow(g,g.home,favSet)}
     ${m.venue?`<div class="sit">${esc(m.venue)}</div>`:''}
     <div class="tags"><span class="badge b-n">${esc(m.label||'Exhibition')}</span></div>
-    <div class="foot"><span class="st ${ph.state==='in'?'l':''}">${ph.state==='in'?'● ':''}${esc(ph.text)}</span><span class="links">TV: ${esc(m.tv||'—')} ${links}</span></div>
+    <div class="foot"><span class="st ${ph.state==='in'?'l':''}">${ph.state==='in'?'● ':''}${esc(ph.text)}</span><span class="links">${air} ${links}</span></div>
   </div>`;
 }
 
