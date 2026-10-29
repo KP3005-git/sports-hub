@@ -2075,7 +2075,7 @@ function teamNormGames(lg, id, events){
       oppId:oid, oppLg:lg, oppName:ot.shortDisplayName||ot.displayName||ot.abbreviation||'TBD', oppAbbr:ot.abbreviation||'',
       oppLogo:teamLogoURL(lg, oid, ot), oppRank:(rank>0&&rank<=25)?rank:null,
       usScore:teamScore(us), oppScore:teamScore(opp), win:!!(us&&us.winner),
-      tv:[...new Set(names)].join(', ')};
+      tv:[...new Set(names)].slice(0,2).join(', ')};
   }).filter(g=>g.date&&!isNaN(+g.date)).sort((a,b)=>a.date-b.date);
 }
 function teamRecItems(d){
