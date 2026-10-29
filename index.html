@@ -141,6 +141,37 @@ html.touch .rbtn::after{content:"";position:absolute;inset:-8px}
 .foot{display:flex;justify-content:space-between;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:var(--mut);border-top:1px solid var(--line);padding-top:6px}
 .g.manual .foot{flex-wrap:wrap;row-gap:6px}
 .g.manual .links{display:inline-flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:flex-end}
+button.tlogo{appearance:none;background:none;border:0;padding:0;margin:0;cursor:pointer;border-radius:8px;line-height:0;display:inline-flex;flex:none;position:relative}
+button.tlogo img{display:block;object-fit:contain}
+button.tlogo:hover,button.tlogo:focus-visible{box-shadow:0 0 0 2px var(--gold);outline:none}
+button.tlogo:active{transform:scale(.96)}
+html.touch button.tlogo::after{content:"";position:absolute;inset:-8px}
+#teammodal{z-index:55}
+#teammodal .mbox{max-width:720px}
+.thead{display:flex;gap:12px;align-items:center;padding-right:96px;margin:0 0 8px}
+.thead .tmark{width:64px;height:64px;object-fit:contain;flex:none}
+.trec{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.trec span{border:1px solid var(--line);border-radius:999px;padding:2px 8px;font-size:12px;color:var(--txt)}
+.tsec{margin:16px 0}
+.tsched{display:flex;flex-direction:column;gap:6px}
+.tgame{display:flex;gap:8px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--card);color:var(--txt)}
+.tgame .tmain{flex:1;min-width:0;background:none;border:0;color:inherit;font:inherit;text-align:left;padding:0;cursor:pointer}
+.tgame .tmain b{display:block;font-weight:800}
+.tgame img{width:28px;height:28px;object-fit:contain}
+.tnext{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
+.tw{color:var(--green);font-weight:800}.tloss{color:var(--red);font-weight:800}
+.tstats{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.tstat{background:var(--navy);border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-width:76px}
+.tstat b{display:block;font-size:16px;color:var(--txt);font-variant-numeric:tabular-nums}
+.tstat span{font-size:11px;color:var(--mut)}
+.tlead{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid var(--line);font-size:13px;color:var(--txt)}
+.tlead span{color:var(--mut);flex:none}
+.tnews{display:flex;flex-direction:column;gap:8px}
+.tnews a{display:flex;gap:8px;align-items:stretch;color:var(--txt);text-decoration:none;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--card)}
+.tnews img{width:96px;height:72px;object-fit:cover;flex:none;background:var(--navy)}
+.tnews b{display:block;font-size:14px;line-height:1.3}
+img.tmini{width:16px;height:16px;vertical-align:-3px}
+@media(max-width:640px){.thead .tmark{width:52px;height:52px}.tnews img{width:84px;height:64px}}
 .foot .st{font-weight:800;color:var(--txt)}
 .foot .st.l{color:var(--ok)}
 .foot .addslip{background:none;border:1px solid var(--line);color:var(--gold2);border-radius:6px;font-size:11px;padding:1px 6px;cursor:pointer;font-weight:800}
@@ -813,7 +844,7 @@ function teamRow(g, s, favs){
   const fav = favs && favs.has(s.id);
   const poss = g.sit && g.sit.poss && g.sit.poss===s.id && g.state==='in';
   return `<div class="row ${lose?'lose':''} ${fav?'favt':''}">
-    ${s.logo?`<img src="${esc(s.logo)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`:'<span style="width:24px"></span>'}
+    ${s.logo?teamLogoBtn(g.lg, s.id, s.logo):'<span style="width:24px"></span>'}
     <div class="nm">${s.rank?`<span class="rk">${s.rank}</span>`:''}${fav?'⭐ ':''}${esc(s.name)}${poss?'<span class="pos" title="Possession">🏈</span>':''}<span class="rec">${esc(s.record)}</span></div>
     ${mlSpan(g, s===g.home?'home':'away')}
     ${s.id?`<button type="button" class="rbtn" data-roster="${esc(g.lg)}|${esc(s.id)}" title="Roster · ${esc(s.full||s.name)}">Roster</button>`:''}
@@ -967,8 +998,9 @@ function parseHash(){
   if(FILTERS[h[0]]){ const lg=pref.get('lastLeague','cfb'); pref.set('filter.'+lg,h[0]); return lg; }   // Blitz-style #live
   return null;
 }
-function setHash(){ const h = LGS.includes(TAB) ? `#${TAB}/${filterFor(TAB)}` : '#'+TAB; if(location.hash!==h) history.replaceState(null,'',h); }
+function setHash(){ if($('#teammodal')) return; const h = LGS.includes(TAB) ? `#${TAB}/${filterFor(TAB)}` : '#'+TAB; if(location.hash!==h) history.replaceState(null,'',h); }
 function go(tab){
+  if(typeof closeTeam==='function') closeTeam({fromHash:true});
   if(typeof closeRoster==='function') closeRoster();
   if(typeof closeGame==='function') closeGame();
   if(tab!=='monitor' && typeof monLeave==='function') monLeave();
@@ -1137,7 +1169,7 @@ async function playerCardHTML(p){
   const showG = cur || tg.next;
   const gcard = showG ? gameCard(showG,{favs:new Set([String(info.team.id)]), extraTags:`<span class="badge b-gold">👑 ${esc(info.name)}</span>`}) : '<div class="note">No upcoming games on the schedule (off-season).</div>';
   return `<div class="g fav" data-player="${esc(p.id)}"><div class="pcard">${head}<div style="flex:1;min-width:0"><div class="pn">⭐ ${esc(info.name)} <span class="pt">${esc(info.pos)} ${info.jersey?esc(String(info.jersey).startsWith('#')?info.jersey:'#'+info.jersey):''}</span></div>
-    <div class="pt">${info.team.logo?`<img src="${esc(info.team.logo)}" style="width:16px;height:16px;vertical-align:-3px"> `:''}${esc(info.team.displayName)} <span class="note">(team from ESPN, live)</span></div><div class="tags">${badges}</div>
+    <div class="pt">${info.team.logo?teamLogoBtn(p.league, info.team.id, info.team.logo, 'tmini')+' ':''}${esc(info.team.displayName)} <span class="note">(team from ESPN, live)</span></div><div class="tags">${badges}</div>
     ${lineLbl?`<div style="margin-top:6px">${lineLbl}</div>`:''}${statHTML}</div></div>
     <div style="margin-top:8px">${showG?`<div class="note" style="margin-bottom:4px">${cur?(cur.state==='in'?'Playing now':'Today'):'Next game'}</div>`:''}${gcard}</div></div>`;
 }
@@ -1516,7 +1548,7 @@ function gdInjHTML(d, lg, g){
   }
   const row=e=>{ const mine=mineIds.has(e.id||normName(e.name));
     return `<div class="injrow" data-injaid="${esc(e.id)}"><div class="ih">${mine?'<span title="Your player">⭐</span>':''}<b>${esc(e.name)}</b><span class="note">${esc(e.pos)}</span>${injBadge(e)}${e.type?`<span>${esc(e.type)}${e.side?' ('+esc(e.side.toLowerCase())+')':''}</span>`:''}<span class="note">${e.date?'updated '+esc(injDay(e.date)):''}${e.ret?' · ESPN est. return '+esc(injDay(e.ret)):''}</span></div>${e.sc?`<div class="ic" title="${esc(e.lc||'')}">${esc(e.sc)}</div>`:''}</div>`; };
-  const html=sides.map(({tm,list})=>`<div class="injteam" data-injteam="${esc(tm.id)}"><h4>${tm.logo?`<img src="${esc(tm.logo)}" alt="">`:''}${esc(tm.full||tm.name)} <span class="note">${list.length} listed</span></h4>${list.length?list.map(row).join(''):'<div class="note">None listed by ESPN.</div>'}</div>`).join('');
+  const html=sides.map(({tm,list})=>`<div class="injteam" data-injteam="${esc(tm.id)}"><h4>${tm.logo?teamLogoBtn(lg, tm.id, tm.logo):''}${esc(tm.full||tm.name)} <span class="note">${list.length} listed</span></h4>${list.length?list.map(row).join(''):'<div class="note">None listed by ESPN.</div>'}</div>`).join('');
   const src=[sumT.size?'this game\'s ESPN summary (newest 5 per team)':'', c.at?`ESPN's ${LG[lg].short} injury report (updated ${injWhen(c.at)})`:''].filter(Boolean).join(' + ');
   return `${head}<div class="injteams">${html}</div><div class="note" style="margin-top:4px">From ${src}. Statuses are ESPN's latest${g.state==='post'?' and can postdate this game':''}; "Active" news notes are left out.</div>`;
 }
@@ -1602,7 +1634,7 @@ function injRefreshSoon(){ // after a fetch, patch whatever is on screen that sh
 // Everything comes from ESPN's game summary (+ the scoreboard's situation when we have it). Refreshes every 20 s while live.
 const GD_REFRESH_MS = 20000;
 let GD = null; // {lg, id, timer}
-function closeGame(){ if(GD&&GD.timer) clearTimeout(GD.timer); GD=null; const m=$('#gdmodal'); if(m) m.remove(); document.body.classList.remove('modal-on'); }
+function closeGame(){ if(GD&&GD.timer) clearTimeout(GD.timer); GD=null; const m=$('#gdmodal'); if(m) m.remove(); if(!$('#teammodal') && !$('#rostermodal')) document.body.classList.remove('modal-on'); }
 const isFootball = lg=>LG[lg]&&LG[lg].sport==='football';
 function gdPlays(d, lg){ // -> groups [{key, title, sub, score, plays:[{text,clock,period,scoring,away,home,type}]}] newest first
   const P = p=>({ id:String(p.id||''), text:p.text||p.shortDescription||(p.type&&p.type.text)||'', clock:(p.clock&&p.clock.displayValue)||'', period:(p.period&&p.period.number)||0,
@@ -1823,7 +1855,7 @@ function gdPlayersHTML(d, lg, g, groups){
         if(dnp.length) body += `<details class="pdnp"><summary>Did not play (${dnp.length})</summary>${dnp.map(a=>`${esc(a.athlete.shortName||a.athlete.displayName)}${a.reason?' <span class="note">('+esc(String(a.reason).toLowerCase())+')</span>':''}`).join(' · ')}</details>`; });
     }
     if(!body) body='<div class="note">No player stats for this team yet.</div>';
-    return `<div class="pteam" data-team="${side}" data-pcount="${ids.size}"><h4>${tm.logo?`<img src="${esc(tm.logo)}" alt="">`:''}${esc(tm.full||tm.name)} <span class="note">${ids.size} player${ids.size===1?'':'s'}</span>${dres?` <span class="badge b-gold" title="Your fantasy D/ST · ${esc(dres.line)}">⭐ D/ST ${dres.pts.toFixed(1)}</span>`:''}</h4>${body}</div>`;
+    return `<div class="pteam" data-team="${side}" data-pcount="${ids.size}"><h4>${tm.logo?teamLogoBtn(lg, tm.id, tm.logo):''}${esc(tm.full||tm.name)} <span class="note">${ids.size} player${ids.size===1?'':'s'}</span>${dres?` <span class="badge b-gold" title="Your fantasy D/ST · ${esc(dres.line)}">⭐ D/ST ${dres.pts.toFixed(1)}</span>`:''}</h4>${body}</div>`;
   }).join('');
   const tg = `<div class="filters" id="gdptm">${['away','home','both'].map(m=>`<button data-gdptm="${m}" class="${mode===m?'on':''}">${m==='both'?'Both':esc(m==='away'?g.away.abbr+' (away)':g.home.abbr+' (home)')}</button>`).join('')}</div>`;
   return `${head}${tg}<div class="pteams">${html}</div><div class="note" style="margin-top:4px">From ESPN's box score. Tap a column to sort, a player to see his plays${isFootball(lg)?' (football plays are matched by name in the play text, so a few can be missed)':''}.${lg==='nfl'&&(DATA.fantasy.roster||[]).length?' ⭐ = your fantasy roster (points use your ⚙️ scoring).':''}</div>`;
@@ -1841,6 +1873,7 @@ async function openGame(lg, id, opts={}){
   if(!GD || GD.id!==id){ closeGame(); GD={lg,id,timer:null};
     document.body.insertAdjacentHTML('beforeend', `<div id="gdmodal" class="modal"><div class="mbox" role="dialog" aria-modal="true" aria-label="Game details"><div class="mtop"><button class="btn sm mclose" data-gdclose="x" aria-label="Close">✕<span class="mcl"> Close</span></button></div><div id="gdbody"><div class="note">Loading game…</div></div></div></div>`);
     document.body.classList.add('modal-on'); GD.openedAt=Date.now(); }
+  if($('#teammodal') && $('#gdmodal')) $('#gdmodal').style.zIndex='70';
   const me=GD; if(me.timer){ clearTimeout(me.timer); me.timer=null; }
   try{
     if(opts.refresh) JC.delete(API+LG[lg].path+'/summary?event='+id);
@@ -1857,7 +1890,7 @@ async function openGame(lg, id, opts={}){
     const vids=(d.videos||[]).map(v=>hlFromSummary(v,lg,g)).filter(Boolean);
     (HL.items||[]).filter(x=>x.eventId===id).forEach(x=>{ if(!vids.some(v=>v.id===x.id)) vids.push(x); });
     const groups=gdPlays(d, lg), sit=gdSituation(d, lg, g, groups);
-    const side=t=>`<div class="gdteam">${t.logo?`<img src="${esc(t.logo)}" alt="">`:''}<div class="gdwho"><b>${t.rank?'#'+t.rank+' ':''}${esc(t.full||t.name)}${sit&&sit.poss&&sit.poss.id===t.id&&isFootball(lg)?' <span title="Possession">🏈</span>':''} ${mlSpan(g, t===g.home?'home':'away')}</b><span class="note">${esc(t.record||'')}</span>${t.id?`<button type="button" class="btn sm" data-roster="${esc(lg)}|${esc(t.id)}">Roster</button>`:''}</div><div class="gdsc">${t.score??''}</div></div>`;
+    const side=t=>`<div class="gdteam">${t.logo?teamLogoBtn(lg, t.id, t.logo):''}<div class="gdwho"><b>${t.rank?'#'+t.rank+' ':''}${esc(t.full||t.name)}${sit&&sit.poss&&sit.poss.id===t.id&&isFootball(lg)?' <span title="Possession">🏈</span>':''} ${mlSpan(g, t===g.home?'home':'away')}</b><span class="note">${esc(t.record||'')}</span>${t.id?`<button type="button" class="btn sm" data-roster="${esc(lg)}|${esc(t.id)}">Roster</button>`:''}</div><div class="gdsc">${t.score??''}</div></div>`;
     // keep scroll position + open drive/period groups across refreshes
     const modal=$('#gdmodal'), st=modal?modal.scrollTop:0, pbpEl=$('#gdpbp'), pst=pbpEl?pbpEl.scrollTop:0;
     const openKeys = pbpEl ? new Set([...pbpEl.querySelectorAll('details[open]')].map(x=>x.dataset.gk)) : null;
@@ -1897,6 +1930,7 @@ document.addEventListener('keydown', e=>{
   if(e.key!=='Escape') return;
   if($('#plog') && RST && RST.data){ paintRoster(''); return; }
   if($('#rostermodal')){ closeRoster(); return; }
+  if($('#teammodal')){ teamBack(); return; }
   if(typeof MON!=='undefined' && MON.on){ monExit(); return; }
   if(GD) closeGame();
 });
@@ -1964,6 +1998,237 @@ function manualCardHTML(m){
     <div class="tags"><span class="badge b-n">${esc(m.label||'Exhibition')}</span></div>
     <div class="foot"><span class="st ${ph.state==='in'?'l':''}">${ph.state==='in'?'● ':''}${esc(ph.text)}</span><span class="links">${air} ${links}</span></div>
   </div>`;
+}
+
+// ---------------- TEAM PAGE (logo tap) ----------------
+// Schedule and news: site.api.espn.com (CORS *). Record splits: sports.core.api.espn.com (CORS *).
+// The plain /teams/{id} document has no CORS header, so the header is built from the schedule payload.
+let TEAM=null, TEAMN=0, TEAM_PUSHED=0;
+const TEAM_CACHE=new Map();
+function teamFromHash(){
+  const m=/^team\/(cfb|cbb|nfl|nba)\/(\d+)$/.exec(decodeURIComponent(location.hash.slice(1)));
+  return m?{lg:m[1], id:m[2]}:null;
+}
+function teamLogoBtn(lg, id, src, imgCls){
+  if(!src) return '';
+  const img=`<img class="${imgCls||''}" src="${esc(src)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`;
+  if(!lg||id==null||id==='') return img;
+  return `<button type="button" class="tlogo" data-teampage="${esc(lg)}|${esc(id)}" aria-label="Open team page">${img}</button>`;
+}
+function teamLogoURL(lg, id, team){
+  if(team&&team.logo) return team.logo;
+  const logos=team&&team.logos;
+  if(Array.isArray(logos)&&logos.length) return logos[0].href||logos[0];
+  if(!id) return '';
+  if(LG[lg]&&LG[lg].college) return `https://a.espncdn.com/i/teamlogos/ncaa/500/${id}.png`;
+  return `https://a.espncdn.com/i/teamlogos/${lg}/500/${id}.png`;
+}
+function fmtET(d, withTime){
+  if(!(d instanceof Date)||isNaN(+d)) return '';
+  const et={timeZone:'America/New_York'};
+  const day=fmt(d, Object.assign({weekday:'short',month:'short',day:'numeric'}, et));
+  if(!withTime) return day;
+  return day+' · '+fmt(d, Object.assign({hour:'numeric',minute:'2-digit',timeZoneName:'short'}, et));
+}
+function teamScore(side){
+  const s=side&&side.score;
+  if(s==null||s==='') return null;
+  if(typeof s==='object') return s.displayValue!=null&&s.displayValue!==''?String(s.displayValue):null;
+  return String(s);
+}
+function teamCore(lg){ const p=LG[lg].path.split('/'); return {sport:p[0], league:p[1]}; }
+async function teamSchedule(lg, id){
+  const base=API+LG[lg].path+'/teams/'+encodeURIComponent(id)+'/schedule';
+  const first=await getJSON(base, 600000);
+  const year=(first.season&&first.season.year)||(first.requestedSeason&&first.requestedSeason.year);
+  let events=(first.events||[]).slice();
+  if(LG[lg].college || !events.length){
+    const extra=await Promise.all([2,3,1].map(st=>getJSON(base+'?season='+year+'&seasontype='+st, 600000).catch(()=>null)));
+    const seen=new Set(events.map(e=>String(e.id)));
+    extra.forEach(d=>((d&&d.events)||[]).forEach(e=>{ const k=String(e.id); if(!seen.has(k)){ seen.add(k); events.push(e); } }));
+    if(!events.length && year){
+      const prev=await getJSON(base+'?season='+(year-1)+'&seasontype=2', 600000).catch(()=>null);
+      events=(prev&&prev.events)||[];
+    }
+  }
+  return {meta:first, events, year};
+}
+function teamNormGames(lg, id, events){
+  return (events||[]).map(ev=>{
+    const comp=(ev.competitions&&ev.competitions[0])||{};
+    const comps=comp.competitors||[];
+    const us=comps.find(c=>String((c.team||{}).id)===String(id))||null;
+    const opp=comps.find(c=>c!==us)||null;
+    const ot=opp&&opp.team||{};
+    const st=(comp.status&&comp.status.type)||{};
+    let state='pre';
+    if(st.state==='in') state='in';
+    else if(st.state==='post'||st.completed) state='post';
+    const names=[];
+    (comp.broadcasts||[]).forEach(b=>{ (b.names||[]).forEach(n=>names.push(n)); if(b.media&&b.media.shortName) names.push(b.media.shortName); });
+    (comp.geoBroadcasts||[]).forEach(g=>{ if(g.media&&g.media.shortName) names.push(g.media.shortName); });
+    const oid=ot.id!=null?String(ot.id):'';
+    const rank=opp&&opp.curatedRank&&opp.curatedRank.current;
+    const timeOK=ev.timeValid!==false && comp.timeValid!==false;
+    return {id:String(ev.id||comp.id||''), date:new Date(comp.date||ev.date), state, timeOK, neutral:!!comp.neutralSite,
+      ha:comp.neutralSite?'vs':(us&&us.homeAway==='home'?'vs':'at'),
+      oppId:oid, oppLg:lg, oppName:ot.shortDisplayName||ot.displayName||ot.abbreviation||'TBD', oppAbbr:ot.abbreviation||'',
+      oppLogo:teamLogoURL(lg, oid, ot), oppRank:(rank>0&&rank<=25)?rank:null,
+      usScore:teamScore(us), oppScore:teamScore(opp), win:!!(us&&us.winner),
+      tv:[...new Set(names)].slice(0,2).join(', ')};
+  }).filter(g=>g.date&&!isNaN(+g.date)).sort((a,b)=>a.date-b.date);
+}
+function teamRecItems(d){
+  return ((d&&d.items)||[]).map(it=>({name:it.name||it.type||'', label:it.shortDisplayName||it.displayName||it.name||'', summary:it.summary||it.displayValue||'', stats:it.stats||[]}));
+}
+function teamStatChips(recs, statsDoc){
+  const overall=(recs||[]).find(r=>r.name==='overall'||r.name==='total')||recs[0];
+  const chips=[];
+  const take=(stats, names)=>{
+    (stats||[]).forEach(s=>{
+      const ab=s.abbreviation||s.name||'';
+      const label=s.displayName||ab;
+      if(!names.some(n=>n===ab||n===label||n===s.name)) return;
+      const v=s.displayValue;
+      if(v==null||v===''||v==='-'||v==='0'||v==='0.0') return;
+      if(!chips.some(c=>c.label===label)) chips.push({label, value:String(v)});
+    });
+  };
+  if(overall) take(overall.stats, ['PPG','OPP PPG','PTS/G','OPTS/G','DIFF']);
+  const cats=((statsDoc&&statsDoc.results&&statsDoc.results.stats&&statsDoc.results.stats.categories)||[]);
+  cats.forEach(c=>take(c.stats, ['Yards Per Game','Points Per Game','Opponent Points Per Game']));
+  return chips.slice(0,6);
+}
+function teamLeaders(doc){
+  const cats=((doc&&doc.leaders&&doc.leaders.categories)||[]);
+  const rank=c=>{ const n=String(c.displayName||c.name||'').toLowerCase();
+    if(/point/.test(n)&&!/extra|safety/.test(n)) return 0;
+    if(/pass/.test(n)) return 1; if(/rush/.test(n)) return 2; if(/receiv/.test(n)) return 3;
+    if(/rebound/.test(n)) return 4; if(/assist/.test(n)) return 5; if(/tackle/.test(n)) return 6;
+    return 9; };
+  return cats.slice().sort((a,b)=>rank(a)-rank(b)).map(c=>{
+    const top=(c.leaders||[])[0]; if(!top) return null;
+    const ath=top.athlete||{};
+    const name=ath.displayName||ath.fullName||ath.shortName||'';
+    if(!name) return null;
+    return {cat:c.displayName||c.name||'Leader', name, value:top.displayValue!=null?String(top.displayValue):''};
+  }).filter(Boolean).slice(0,4);
+}
+async function teamLoad(lg, id){
+  const key=lg+'|'+id;
+  if(TEAM_CACHE.has(key)) return TEAM_CACHE.get(key);
+  const sched=await teamSchedule(lg, id);
+  const meta=sched.meta||{}, t=meta.team||{};
+  const year=sched.year;
+  const core=teamCore(lg);
+  const recType=(meta.season&&meta.season.type&&meta.season.type!==1)?meta.season.type:2;
+  const recURL=`https://sports.core.api.espn.com/v2/sports/${core.sport}/leagues/${core.league}/seasons/${year}/types/${recType}/teams/${id}/record?lang=en`;
+  const statURL=API+LG[lg].path+'/teams/'+encodeURIComponent(id)+'/statistics'+(year?'?season='+year:'');
+  const leadURL=`https://site.web.api.espn.com/apis/site/v3/sports/${LG[lg].path}/leaders?team=${encodeURIComponent(id)}`;
+  const newsURL=API+LG[lg].path+'/news?team='+encodeURIComponent(id)+'&limit=8';
+  const [rec, stats, leaders, news]=await Promise.all([
+    getJSON(recURL, 600000).catch(()=>null),
+    getJSON(statURL, 600000).catch(()=>null),
+    getJSON(leadURL, 600000).catch(()=>null),
+    getJSON(newsURL, 600000).catch(()=>null)
+  ]);
+  const payload={
+    lg, id:String(id),
+    name:t.displayName||t.name||'Team', abbr:t.abbreviation||'',
+    logo:teamLogoURL(lg, id, t),
+    standing:t.standingSummary||'', recordSummary:t.recordSummary||'',
+    season:(meta.season&&(meta.season.displayName||meta.season.year))||'',
+    recs:teamRecItems(rec),
+    chips:teamStatChips(teamRecItems(rec), stats),
+    leaders:teamLeaders(leaders),
+    leaderSeason:(leaders&&leaders.requestedSeason&&(leaders.requestedSeason.displayName||leaders.requestedSeason.year))||'',
+    games:teamNormGames(lg, id, sched.events),
+    news:((news&&news.articles)||[]).slice(0,6).map(a=>{
+      const img=(a.images&&a.images[0]&&a.images[0].url)||'';
+      const href=a.links&&a.links.web&&a.links.web.href||'';
+      const dt=a.published?new Date(a.published):null;
+      return {headline:a.headline||a.description||'Story', img, href, when:dt&&!isNaN(dt)?fmt(dt,{month:'short',day:'numeric'}):''};
+    })
+  };
+  TEAM_CACHE.set(key, payload);
+  return payload;
+}
+function teamGameRow(g, nextId){
+  const when=(g.state==='post'||!g.timeOK)?fmtET(g.date, false):fmtET(g.date, true);
+  const tv=g.state!=='post'&&g.tv?g.tv:'';
+  const sc=g.usScore!=null&&g.oppScore!=null?`${g.usScore}–${g.oppScore}`:'';
+  let mark='';
+  if(g.state==='post'){
+    const tie=g.usScore!=null&&g.usScore===g.oppScore;
+    mark=tie?`<span class="note">T ${esc(sc)}</span>`:`<span class="${g.win?'tw':'tloss'}">${g.win?'W':'L'}${sc?' '+esc(sc):''}</span>`;
+  } else if(g.state==='in') mark='<span class="badge b-g">Live</span>';
+  else if(g.id===nextId) mark='<span class="badge b-n">Next</span>';
+  const open=g.state==='post'||g.state==='in';
+  const name=`${g.ha} ${g.oppRank?g.oppRank+' ':''}${g.oppName}`;
+  const main=open?`<button type="button" class="tmain" data-gd="${esc(g.id)}" data-lg="${esc(g.oppLg)}"><b>${esc(name)}</b><span class="note">${esc(when)}</span></button>`
+    :`<div class="tmain"><b>${esc(name)}</b><span class="note">${esc([when, tv].filter(Boolean).join(' · '))}</span></div>`;
+  return `<div class="tgame${g.id===nextId?' tnext':''}">${g.oppLogo?teamLogoBtn(g.oppLg, g.oppId, g.oppLogo):''}${main}${mark}</div>`;
+}
+function paintTeam(p){
+  const body=$('#teambody'); if(!body) return;
+  const overall=(p.recs||[]).find(r=>r.name==='overall'||r.name==='total');
+  const overallTxt=overall&&overall.summary||p.recordSummary||'';
+  const played=/^(\d+)-(\d+)/.exec(overallTxt);
+  const hasGames=played&&((+played[1])+(+played[2]))>0;
+  const splits=(p.recs||[]).filter(r=>/home|road|away|conf/i.test(r.name+' '+r.label)&&r.summary&&(hasGames||!/^0-0/.test(r.summary)));
+  const recChips=[overallTxt?`<span>Overall ${esc(overallTxt)}</span>`:'']
+    .concat(splits.map(r=>`<span>${esc(r.label||r.name)} ${esc(r.summary)}</span>`)).filter(Boolean).join('');
+  const games=p.games||[];
+  const done=games.filter(g=>g.state==='post');
+  const ahead=games.filter(g=>g.state!=='post');
+  const next=ahead[0];
+  const sched=!games.length?`<div class="empty">No schedule from ESPN for this season.</div>`
+    :`${done.length?`<h3 class="gdh">Results</h3><div class="tsched">${done.map(g=>teamGameRow(g,'')).join('')}</div>`:''}
+       ${ahead.length?`<h3 class="gdh">Upcoming</h3><div class="tsched">${ahead.map(g=>teamGameRow(g, next&&next.id)).join('')}</div>`:''}`;
+  const leaders=(p.leaders||[]).length?`<div>${p.leaders.map(l=>`<div class="tlead"><b>${esc(l.name)}</b><span>${esc(l.cat)}${l.value?' · '+esc(l.value):''}</span></div>`).join('')}</div>`:'';
+  const chips=(p.chips||[]).length?`<div class="tstats">${p.chips.map(c=>`<div class="tstat"><b>${esc(c.value)}</b><span>${esc(c.label)}</span></div>`).join('')}</div>`:'';
+  const stats=leaders||chips?`${leaders}${p.leaderSeason?`<div class="note">${esc(String(p.leaderSeason))}</div>`:''}${chips}`:`<div class="empty">No season stats from ESPN yet.</div>`;
+  const news=(p.news||[]).length?`<div class="tnews">${p.news.map(n=>`<a href="${esc(n.href||'#')}" ${n.href?'target="_blank" rel="noopener noreferrer"':''}>${n.img?`<img src="${esc(n.img)}" alt="" loading="lazy" onerror="this.remove()">`:''}<span><b>${esc(n.headline)}</b>${n.when?`<span class="note">${esc(n.when)}</span>`:''}</span></a>`).join('')}</div>`
+    :`<div class="empty">No recent team news from ESPN.</div>`;
+  body.innerHTML=`<div class="thead">${p.logo?`<img class="tmark" src="${esc(p.logo)}" alt="">`:''}<div><div class="rtitle">${esc(p.name)}</div><div class="note">${esc(LG[p.lg].short)}${p.season?' · '+esc(String(p.season)):''}${p.standing?' · '+esc(p.standing):''}</div></div></div>
+    <div class="glbar"><button type="button" class="btn sm" data-teamback="1">← Back</button><button type="button" class="btn sm pri" data-roster="${esc(p.lg)}|${esc(p.id)}">Roster</button></div>
+    ${recChips?`<div class="trec">${recChips}</div>`:`<p class="note">Record unavailable.</p>`}
+    <section class="tsec" aria-label="Schedule">${sched}</section>
+    <section class="tsec"><h3 class="gdh">Team stats</h3>${stats}</section>
+    <section class="tsec"><h3 class="gdh">News</h3>${news}</section>
+    <p class="note">Schedule, stats, and news from ESPN. Tap a finished game for details, or an opponent logo for that team.</p>`;
+}
+function closeTeam(opts={}){
+  TEAMN++; TEAM=null; const m=$('#teammodal'); if(m) m.remove();
+  if(!$('#gdmodal') && !$('#rostermodal')) document.body.classList.remove('modal-on');
+  if(!opts.fromHash && TEAM_PUSHED>0){ TEAM_PUSHED=0; history.back(); }
+}
+function teamBack(){
+  if(TEAM_PUSHED>0) history.back();
+  else { closeTeam({fromHash:true}); const h=LGS.includes(TAB)?`#${TAB}/${filterFor(TAB)}`:'#'+TAB; if(location.hash!==h) history.replaceState(null,'',h); }
+}
+async function openTeam(lg, id, opts={}){
+  if(!LG[lg]||!id) return;
+  id=String(id);
+  if(!opts.fromHash){
+    if(TEAM && TEAM.lg===lg && TEAM.id===id && $('#teammodal')) return;
+    TEAM_PUSHED++;
+    history.pushState({hubTeam:TEAM_PUSHED}, '', `#team/${lg}/${id}`);
+  }
+  const token=++TEAMN;
+  if(!$('#teammodal')){
+    document.body.insertAdjacentHTML('beforeend', `<div id="teammodal" class="modal"><div class="mbox" role="dialog" aria-modal="true" aria-label="Team"><div class="mtop"><button class="btn sm mclose" data-teamback="1" aria-label="Back">✕<span class="mcl"> Close</span></button></div><div id="teambody"><div class="note">Loading team…</div></div></div></div>`);
+    document.body.classList.add('modal-on');
+  } else $('#teambody').innerHTML='<div class="note">Loading team…</div>';
+  TEAM={lg, id, token};
+  try{
+    const payload=await teamLoad(lg, id);
+    if(token!==TEAMN || !TEAM) return;
+    paintTeam(payload);
+  }catch(e){
+    if(token!==TEAMN || !$('#teambody')) return;
+    $('#teambody').innerHTML=`<div class="glbar"><button type="button" class="btn sm" data-teamback="1">← Back</button></div><div class="empty">Could not load this team from ESPN (${esc(e.message)}).</div>`;
+  }
 }
 
 // ---------------- LEAGUE VIEW ----------------
@@ -2924,7 +3189,7 @@ function renderSettings(view){
     </div>
     <div class="panel"><h3>⭐ My Teams</h3><p class="note">Search ESPN's team lists. Favorites get pinned to the top of each league tab, highlighted, and show up in the My Teams view.</p>
       ${LGS.map(lg=>`<div style="margin:10px 0"><div class="note" style="font-weight:800;color:var(--gold2)">${LG[lg].icon} ${esc(LG[lg].name)}</div>
-        <div class="chips" style="margin:5px 0">${(DATA.myTeams[lg]||[]).map(t=>`<span class="chip">${t.logo?`<img src="${esc(t.logo)}" alt="">`:''}${esc(t.name)}<button data-rmteam="${lg}|${esc(t.id)}" title="Remove">✕</button></span>`).join('')||'<span class="note">none yet</span>'}</div>
+        <div class="chips" style="margin:5px 0">${(DATA.myTeams[lg]||[]).map(t=>`<span class="chip">${t.logo?teamLogoBtn(lg, t.id, t.logo):''}${esc(t.name)}<button data-rmteam="${lg}|${esc(t.id)}" title="Remove">✕</button></span>`).join('')||'<span class="note">none yet</span>'}</div>
         <input data-teamsearch="${lg}" placeholder="Add ${esc(LG[lg].short)} team…" style="width:100%"><div class="results" id="tr-${lg}"></div></div>`).join('')}
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><button class="btn sm" data-export="teams">⬇ Export teams JSON</button><button class="btn sm" data-import="merge">⬆ Import teams JSON</button><button class="btn sm dng" data-resetteams="1">Reset to file config</button></div>
     </div>
@@ -3268,7 +3533,7 @@ function paintRoster(q){
     : `<div class="empty">No players match${query?' “'+esc(query)+'”':''}.</div>`;
   const count=`${esc(LG[lg].short)}${data.season?' · '+esc(String(data.season)):''} · ${n} player${n===1?'':'s'}${query&&n!==data.n?' of '+data.n:''}`;
   if(!$('#rosterq')){
-    $('#rosterbody').innerHTML=`<div class="rhead">${data.team.logo?`<img src="${esc(data.team.logo)}" alt="">`:''}<div><div class="rtitle">${esc(data.team.name)}</div><div class="note" id="rostercount">${count}</div></div></div>
+    $('#rosterbody').innerHTML=`<div class="rhead">${data.team.logo?teamLogoBtn(lg, data.team.id, data.team.logo):''}<div><div class="rtitle">${esc(data.team.name)}</div><div class="note" id="rostercount">${count}</div></div></div>
       <input id="rosterq" type="search" placeholder="Search name, number, position…" aria-label="Filter roster" autocomplete="off">
       <div id="rosterlist">${list}</div>
       <p class="note">Roster and photos from ESPN. Tap a player for their game log. A player with no headshot keeps the initial. Injury badges use this hub's ESPN injury report (college reports are often empty).</p>`;
@@ -3455,7 +3720,7 @@ async function openPlayerLog(id, season){
 }
 function closeRoster(){
   RSTN++; RST=null; const m=$('#rostermodal'); if(m) m.remove();
-  if(!$('#gdmodal')) document.body.classList.remove('modal-on');
+  if(!$('#gdmodal') && !$('#teammodal')) document.body.classList.remove('modal-on');
 }
 async function openRoster(lg, id){
   if(!LG[lg]||!id) return;
@@ -3719,7 +3984,7 @@ function monScoreHTML(g){
   const leadA=g.away.score!=null && g.home.score!=null && g.away.score>g.home.score;
   const leadH=g.away.score!=null && g.home.score!=null && g.home.score>g.away.score;
   const poss=id=>g.state==='in' && g.sit && g.sit.poss===id;
-  const side=(t, lead)=>`<div><div class="monname">${t.logo?`<img class="monlogo" src="${esc(t.logo)}" alt=""> `:''}${esc(t.abbr||t.name)}${poss(t.id)?' <span class="monposs" title="Possession">●</span>':''}</div><div class="monpts${lead?' lead':''}">${t.score??'–'}</div><div class="monmeta">${esc(t.name)} ${mlSpan(g, t===g.home?'home':'away')}</div></div>`;
+  const side=(t, lead)=>`<div><div class="monname">${t.logo?teamLogoBtn(g.lg, t.id, t.logo, 'monlogo')+' ':''}${esc(t.abbr||t.name)}${poss(t.id)?' <span class="monposs" title="Possession">●</span>':''}</div><div class="monpts${lead?' lead':''}">${t.score??'–'}</div><div class="monmeta">${esc(t.name)} ${mlSpan(g, t===g.home?'home':'away')}</div></div>`;
   const tag = g.state==='post' ? 'FINAL' : g.state==='pre' ? 'UPCOMING' : 'LIVE';
   const dd = isFootball(g.lg) && g.sit && g.sit.dd ? g.sit.dd : '';
   const ball = poss(g.away.id)?g.away.abbr+' ball':poss(g.home.id)?g.home.abbr+' ball':'';
@@ -3775,7 +4040,7 @@ function monScoringHTML(g, d){
   const run=monScoreRun(ev);
   const rows=ev.slice(-8).reverse().map(p=>{
     const per=p.period?periodTxt({lg:g.lg, period:p.period}):'';
-    return `<div class="monplay sc"><b>${p.logo?`<img class="monslogo" src="${esc(p.logo)}" alt="">`:''}${esc(p.clock)}${per?'<span class="monmeta"> '+esc(per)+'</span>':''}</b><span>${p.kind?`<span class="badge b-gold">${esc(p.kind)}</span> `:''}${esc(p.text)}</span><span class="sc">${esc(g.away.abbr)} ${p.away??''}–${p.home??''} ${esc(g.home.abbr)}</span></div>`;
+    return `<div class="monplay sc"><b>${p.logo?teamLogoBtn(g.lg, p.teamId, p.logo, 'monslogo'):''}${esc(p.clock)}${per?'<span class="monmeta"> '+esc(per)+'</span>':''}</b><span>${p.kind?`<span class="badge b-gold">${esc(p.kind)}</span> `:''}${esc(p.text)}</span><span class="sc">${esc(g.away.abbr)} ${p.away??''}–${p.home??''} ${esc(g.home.abbr)}</span></div>`;
   }).join('');
   return `<div class="monkicker">Scoring summary${g.state==='in'?' · live':''}</div>${run?`<div class="monrun">${esc(run)}</div>`:''}${lines||''}${rows?`<div class="monplays">${rows}</div>`:'<div class="empty">No scoring plays yet.</div>'}`;
 }
@@ -3968,6 +4233,9 @@ document.addEventListener('click', async ev=>{
   let v;
   if((v=a('theme-accent'))!==null){ if(!THEME_ACCENTS.includes(v)) return; const th=themeRead(); th.accent=v; themeApply(th,true); return; }
   if((v=a('theme-scope'))!==null){ if(v!=='title'&&v!=='app') return; const th=themeRead(); th.scope=v; themeApply(th,true); return; }
+  if((v=a('teampage'))!==null){ ev.preventDefault(); ev.stopPropagation(); const [lg,id]=v.split('|'); return openTeam(lg, id); }
+  if((v=a('teamback'))!==null){ ev.preventDefault(); return teamBack(); }
+  if(t.id==='teammodal'){ teamBack(); return; }
   if((v=a('tab'))!==null) return go(v);
   if((v=a('mon'))!==null){ monAction(v); return; }
   if((v=a('monpin'))!==null){
@@ -4086,7 +4354,12 @@ $('#filein').addEventListener('change', async ev=>{
     const n=importData(obj, IMPORT_MODE); alert(`Imported: ${n.teams} teams, ${n.players} players, ${n.bets} bets, ${n.recs} recommendations.`); render();
   }catch(e){ alert('Import failed: '+e.message); }
 });
-window.addEventListener('hashchange', ()=>{ const t=parseHash(); if(t && t!==TAB) go(t); else if(t){ render(); } });
+window.addEventListener('hashchange', ()=>{
+  const tm=teamFromHash();
+  if(tm){ TEAM_PUSHED=(history.state&&history.state.hubTeam)||TEAM_PUSHED; openTeam(tm.lg, tm.id, {fromHash:true}); return; }
+  if($('#teammodal')){ TEAM_PUSHED=0; closeTeam({fromHash:true}); }
+  const t=parseHash(); if(t && t!==TAB) go(t); else if(t){ render(); }
+});
 document.addEventListener('visibilitychange', ()=>{
   if(document.hidden){
     if(TAB==='monitor'){ clearTimeout(RT); clearTimeout(MON.rot); MON.rot=null; monWakeSync(); }
@@ -4098,7 +4371,9 @@ document.addEventListener('visibilitychange', ()=>{
 
 // ---------------- INIT ----------------
 DATA = loadData();
+const startTeam=teamFromHash();
 go(parseHash() || pref.get('tab','mine'));
+if(startTeam){ history.replaceState({hubTeam:0}, '', '#team/'+startTeam.lg+'/'+startTeam.id); openTeam(startTeam.lg, startTeam.id, {fromHash:true}); }
 syncSheet().then(()=>{ if(TAB==='bets' && !$('#slipform')) render(); });
 // Even when nothing is live (score tabs don't auto-refresh), pick up new rows from Blitz while the page sits open: chips patch in place.
 setInterval(()=>{ if(!document.hidden && SHEET_BG_TABS.includes(TAB)) syncSheet(false, SHEET_BG_MS).catch(()=>{}); }, SHEET_BG_MS);
