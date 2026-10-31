@@ -77,6 +77,8 @@ html[data-scope="title"] .mondots span.on{box-shadow:0 0 8px rgb(var(--tint-rgb)
 html[data-scope="title"] .brsep{border-color:var(--gold)}
 html[data-scope="title"] .row .ml.fav,html[data-scope="title"] .gdwho .ml.fav,html[data-scope="title"] .mongame .note .ml.fav,html[data-scope="title"] .monmeta .ml.fav{color:var(--txt)}
 html[data-scope="title"] .b-cup{background:transparent;color:var(--txt);border-color:var(--line)}
+html[data-scope="title"] .g.watch{animation:none;box-shadow:0 0 0 1px var(--accent-fill)}
+html[data-scope="title"] .watchpill b{background:transparent;color:var(--txt);border:1px solid var(--line)}
 html[data-scope="title"] .proptag{background:transparent;color:var(--txt);border:1px solid var(--line)}
 *{box-sizing:border-box}
 html{background:var(--bg)}
@@ -124,6 +126,12 @@ h3{font-size:13px;letter-spacing:2px;color:var(--gold2);margin:16px 0 8px;text-t
 .g.fav{border:2px solid var(--gold);box-shadow:0 0 16px rgb(var(--tint-rgb) / .28);background:linear-gradient(135deg,var(--fav-grad),var(--card))}
 .g.ffg{border-color:var(--blue-line);box-shadow:0 0 12px rgba(76,141,255,.3)}
 .g.fav.ffg{border-color:var(--gold)}
+.g.watch{border-color:var(--accent-fill);box-shadow:0 0 0 1px var(--accent-fill),0 0 16px rgb(var(--accent-rgb) / .45);animation:watchglow 2.6s ease-in-out infinite}
+.g.fav.watch{border-color:var(--accent-fill)}
+@keyframes watchglow{0%,100%{box-shadow:0 0 0 1px var(--accent-fill),0 0 8px rgb(var(--accent-rgb) / .25)}50%{box-shadow:0 0 0 1px var(--accent-fill),0 0 18px rgb(var(--accent-rgb) / .55)}}
+@media (prefers-reduced-motion: reduce){.g.watch{animation:none}}
+.watchpill{display:flex;align-items:center;gap:8px;margin:0 0 6px;color:var(--txt);font-size:12px;font-weight:700;line-height:1.3}
+.watchpill b{background:var(--accent-fill);color:var(--accent-ink);border-radius:999px;padding:2px 8px;font-size:10px;letter-spacing:.6px;font-weight:900;flex:none}
 .g .lgtag{font-size:10px;letter-spacing:2px;color:var(--mut);font-weight:800;margin-bottom:4px;display:flex;justify-content:space-between}
 .row{display:flex;align-items:center;gap:8px;padding:3px 0}
 .row img{width:24px;height:24px;object-fit:contain}
@@ -416,6 +424,10 @@ html.mon-on,html.mon-on body{overflow:hidden;background:#000000;color-scheme:dar
 #monboard{color-scheme:dark;position:fixed;inset:0;z-index:90;background:#000000;color:#f4f7ff;display:flex;flex-direction:column;gap:8px;
   padding:max(10px,env(safe-area-inset-top)) max(28px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(28px,env(safe-area-inset-left))}
 #monboard[hidden]{display:none}
+#monboard.watch{box-shadow:inset 0 0 0 2px var(--accent-fill)}
+html[data-scope="title"] #monboard.watch{box-shadow:inset 0 0 0 1px var(--accent-fill)}
+#monstage>.watchpill{margin:0 0 8px}
+.mongame .watchpill{margin:0 0 4px}
 .monbar{display:flex;align-items:center;gap:10px;min-height:36px}
 .monbar .who{flex:1;min-width:0;font-weight:900;letter-spacing:.4px;font-size:clamp(14px,2.4vw,22px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .monwake{font-size:12px;font-weight:800;letter-spacing:.4px;color:#9fb0cc;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
@@ -765,6 +777,18 @@ function mlFromList(list){
   for(const o of arr){ const m=mlFromOddsObj(o); if(m) return m; }
   return null;
 }
+function spreadAbsFromList(list){
+  const arr=Array.isArray(list)?list:(list&&typeof list==='object'?[list]:[]);
+  for(const o of arr){
+    if(!o||typeof o!=='object') continue;
+    let n=o.spread!=null?parseFloat(o.spread):NaN;
+    if(!Number.isFinite(n)&&o.pointSpread!=null) n=parseFloat(o.pointSpread);
+    const h=o.homeTeamOdds||{};
+    if(!Number.isFinite(n)&&h.spread!=null) n=parseFloat(h.spread);
+    if(Number.isFinite(n)) return Math.abs(n);
+  }
+  return null;
+}
 const fmtMl = n=>{ const v=Math.round(+n); return (v>0?'+':'')+v; };
 function mlSpan(g, side){
   const ml=g&&g.ml; if(!ml || ml[side]==null) return '';
@@ -825,6 +849,7 @@ function normEvent(e, lg){
       yardLine:sit.yardLine, distance:sit.distance, down:sit.down, possessionText:sit.possessionText||'', yardsToEndzone:sit.yardsToEndzone}:null,
     note:(c.notes&&c.notes[0]&&c.notes[0].headline)||'',
     cup: lg==='nba' ? nbaCupFrom(e) : '',
+    spread:spreadAbsFromList(c.odds),
     ml:mlFromList(c.odds) };
 }
 function snapToEvent(leg){ // stored final snapshot -> minimal normalized event
@@ -863,6 +888,136 @@ function nbaCupFrom(e){
 function cupBadge(g){
   if(!g||!g.cup) return '';
   return `<span class="badge b-cup">${esc(g.cup)}</span>`;
+}
+// One suggested game per view. Live games sit above upcoming (floor 1000). Finals score null.
+// A new pick replaces the current one only when it leads by 15 or more, so the 30s refresh does not flicker.
+const WATCH_HOLD={};
+const WATCH_TEAMS={cfb:new Set(['2509']), cbb:new Set(['2509']), nba:new Set(['13'])};
+const NAT_TV=/^(ESPN2?|ABC|FOX|CBS|NBC|TNT|TBS|FS1|USA|NBA TV|NFL Network|NFLN|Peacock|Prime Video|Amazon|CBSSN|SEC Network|SECN|ACC Network|ACCN|BTN|Big Ten Network)$/i;
+function watchOn(){ return pref.get('watch.suggest','1')!=='0'; }
+function watchImp(o){ o=+o; if(!Number.isFinite(o)||Math.abs(o)<100) return null; return o<0?(-o)/((-o)+100):100/(o+100); }
+function watchRec(rec){ const m=/(\d+)\s*-\s*(\d+)/.exec(String(rec||'')); if(!m) return null; const w=+m[1], l=+m[2]; return (w+l)?w/(w+l):null; }
+function watchNational(g){ return String(g.tv||'').split(/,\s*/).some(p=>NAT_TV.test(p.trim())); }
+function watchOT(g){
+  const L=LG[g.lg]||{}, p=g.period||0;
+  if(/OT/i.test(g.detail||'')||g.statusName==='STATUS_OVERTIME') return true;
+  if(L.sport==='football') return p>4;
+  if(L.halves) return p>2;
+  return p>4;
+}
+function watchLate(g){
+  const L=LG[g.lg]||{}, p=g.period||0;
+  if(L.sport==='football') return p>=4;
+  if(L.halves) return p>=2;
+  return p>=4;
+}
+function watchPeriod(g){
+  const p=periodTxt(g);
+  if(!p) return 'late';
+  if(/half|OT/i.test(p)) return p;
+  return p+' quarter';
+}
+function watchParts(g){
+  if(!g||g.state==='post'||g.snap) return null;
+  const L=LG[g.lg]||{};
+  const reasons=[];
+  let score=0;
+  if(g.state==='in'){
+    score=1000;
+    const diff=Math.abs((g.home.score??0)-(g.away.score??0));
+    const fb=L.sport==='football';
+    const cap=fb?21:(L.halves?14:18);
+    let close=Math.max(0, cap-diff)*2;
+    if(watchLate(g)) close*=2;
+    if(watchOT(g)){ score+=close+40; reasons.push('Overtime'); }
+    else {
+      score+=close;
+      const per=watchPeriod(g);
+      if(watchLate(g) && diff<=(fb?8:6)) reasons.push('Close game, '+per);
+      else if(watchLate(g)) reasons.push(per.charAt(0).toUpperCase()+per.slice(1));
+      else if(diff<=(fb?7:8)) reasons.push('Close game');
+      else reasons.push('Live');
+    }
+  } else {
+    score=100;
+    const ml=g.ml;
+    if(ml&&ml.home!=null&&ml.away!=null){
+      const ih=watchImp(ml.home), ia=watchImp(ml.away);
+      if(ih!=null&&ia!=null){
+        const gap=Math.abs(ih-ia);
+        score+=Math.max(0, 50-gap*100);
+        if(gap<=0.08) reasons.push("Near pick'em");
+      }
+    }
+    if(g.spread!=null){
+      score+=Math.max(0, 16-g.spread*2);
+      if(g.spread<=3) reasons.push('Close spread');
+    }
+    const rh=watchRec(g.home.record), ra=watchRec(g.away.record);
+    if(rh!=null&&ra!=null){
+      score+=((rh+ra)/2)*30;
+      if(rh>=0.6&&ra>=0.6) reasons.push('Two strong records');
+    }
+    if(g.home.rank&&g.away.rank){ score+=18; reasons.push('Top-25 matchup'); }
+    else if(g.home.rank||g.away.rank) score+=6;
+    if(watchNational(g)){ score+=12; reasons.push('National TV'); }
+    if(g.cup){ score+=14; reasons.push('NBA Cup'); }
+    const fav=WATCH_TEAMS[g.lg];
+    if(fav&&(fav.has(g.home.id)||fav.has(g.away.id))){ score+=10; reasons.push(g.lg==='nba'?'Lakers':'Purdue'); }
+    if(!reasons.length) reasons.push('Best matchup on the board');
+  }
+  let reason=reasons[0];
+  if(reasons.includes('Overtime')) reason='Overtime';
+  else if(reasons.find(x=>x.startsWith('Close game'))) reason=reasons.find(x=>x.startsWith('Close game'));
+  else if(reasons.includes('Top-25 matchup')) reason='Top-25 matchup';
+  else if(reasons.includes("Near pick'em")) reason="Near pick'em";
+  else if(reasons.includes('NBA Cup')) reason='NBA Cup';
+  else if(reasons.includes('National TV')) reason='National TV';
+  else if(reasons.includes('Two strong records')) reason='Two strong records';
+  else if(reasons.includes('Lakers')) reason='Lakers';
+  else if(reasons.includes('Purdue')) reason='Purdue';
+  return {score, reason};
+}
+function suggestWatch(key, games, opts){
+  if(!watchOn()){ delete WATCH_HOLD[key]; return null; }
+  const rows=[];
+  (games||[]).forEach(g=>{ const p=watchParts(g); if(p) rows.push({id:String(g.id), lg:g.lg, score:p.score, reason:p.reason}); });
+  if(!rows.length){ delete WATCH_HOLD[key]; return null; }
+  rows.sort((a,b)=>b.score-a.score || (a.id<b.id?-1:a.id>b.id?1:0));
+  const best=rows[0];
+  const prev=WATCH_HOLD[key];
+  if(prev && !(opts&&opts.fresh)){
+    const cur=rows.find(r=>r.id===prev.id);
+    if(cur && best.id!==cur.id && best.score<cur.score+15){
+      WATCH_HOLD[key]={id:cur.id, score:cur.score, lined:!!prev.lined};
+      return cur;
+    }
+  }
+  WATCH_HOLD[key]={id:best.id, score:best.score, lined:!!(prev&&prev.id===best.id&&prev.lined)};
+  return best;
+}
+function watchSeal(key, games, pick){
+  const h=WATCH_HOLD[key];
+  if(!h||!pick) return pick;
+  const g=(games||[]).find(x=>String(x.id)===String(pick.id));
+  if(g && (g.state==='in' || (g.ml&&g.ml.home!=null&&g.ml.away!=null) || g.spread!=null)) h.lined=true;
+  return pick;
+}
+function watchMark(reason){ return `<div class="watchpill"><b>Watch this</b><span>${esc(reason)}</span></div>`; }
+function paintWatch(key, games, rootSel, opts){
+  const root=typeof rootSel==='string'?document.querySelector(rootSel):rootSel;
+  if(!root) return null;
+  root.querySelectorAll('.g.watch').forEach(el=>{ el.classList.remove('watch'); const p=el.querySelector(':scope > .watchpill'); if(p) p.remove(); });
+  const w=suggestWatch(key, games, opts);
+  if(!w) return null;
+  const el=root.querySelector(`.g[data-ev="${CSS.escape(w.id)}"]`);
+  if(!el) return watchSeal(key, games, w);
+  el.classList.add('watch');
+  const html=watchMark(w.reason);
+  const dh=el.querySelector(':scope > .dh');
+  if(dh) dh.insertAdjacentHTML('afterend', html);
+  else el.insertAdjacentHTML('afterbegin', html);
+  return watchSeal(key, games, w);
 }
 function statusTxt(g){
   if(g.state==='pre'){
@@ -2836,6 +2991,7 @@ async function renderLeague(lg, tok, view){
     ffPanel = `<h2>🏆 Fantasy</h2><div class="panel ffpanel">${url?`<a class="btn pri" href="${esc(url)}" target="_blank" rel="noopener">Open my Yahoo league ↗</a>`:'<span class="note">Add your Yahoo league link in ⚙️ Settings → Fantasy.</span>'}
       <div class="chips">${r.length?r.map(x=>`<span class="chip">${esc(x.name)} <span class="note">${esc(x.teamAbbr||'?')}</span></span>`).join(''):'<span class="note">No roster players yet — add them in Settings to get FF badges on games.</span>'}</div></div>`;
   }
+  const slate = slateGames(lg, games);
   view.innerHTML = `<div class="navbar">${nav}</div>
     ${playersHere.length?`<h2>👑 Favorite Players</h2><div class="grid" id="plgrid" ${sortAttrs(KEY_PL, playersAll.map(p=>'p:'+p.id))}>${playersHere.map(p=>withSid(`<div class="g" id="pl-${esc(p.id)}"><div class="note">Loading ${esc(p.name)}…</div></div>`,'p:'+p.id)).join('')}</div>`:''}
     ${favList.length?`<h2>⭐ My ${esc(L.short)} Teams</h2><div class="grid" id="favgrid" ${sortAttrs(KEY_FAV, favList.map(t=>'team:'+t.id))}>${featured}</div>`:''}
@@ -2848,8 +3004,10 @@ async function renderLeague(lg, tok, view){
   updateLiveBadges();
   setRefresh(games.concat(manuals.map(m=>({state:manualPhase(m).state, date:new Date(m.start)}))), ()=>render());
   fillSlate(lg, games, tok);
+  const watchFresh=()=>({fresh:!(WATCH_HOLD[lg]&&WATCH_HOLD[lg].lined)});
+  paintWatch(lg, slate, '#all', watchFresh());
   const mlNeed=games.filter(g=>!g.ml);
-  if(mlNeed.length) Promise.all(mlNeed.map(ensureMoneyline)).then(()=>{ if(tok!==TOKEN || TAB!==lg) return; mlNeed.forEach(paintMoneyline); });
+  if(mlNeed.length) Promise.all(mlNeed.map(ensureMoneyline)).then(()=>{ if(tok!==TOKEN || TAB!==lg) return; mlNeed.forEach(paintMoneyline); paintWatch(lg, slate, '#all', watchFresh()); });
   if(lg==='nfl') ffBadgePoints(games, tok);
 
   // async fills: favorite team bye/next cards and player cards
@@ -2910,6 +3068,7 @@ async function renderMine(tok, view){
   if(tok!==TOKEN) return;
   const n=all.filter(isLive).length;
   $('#cnt').textContent = `My Teams: ${sections.reduce((a,lg)=>a+DATA.myTeams[lg].length,0)} teams · ${players.length} players · ${n} live`;
+  paintWatch('mine', all, '#minegrid', {fresh:!(WATCH_HOLD.mine&&WATCH_HOLD.mine.lined)});
   setRefresh(all, ()=>render());
 }
 
@@ -3684,6 +3843,8 @@ function renderSettings(view){
       <div class="note" style="font-weight:800;margin-top:8px">Apply color to</div>
       <div class="themerow" role="group" aria-label="Apply color to">${sc('title','Title only')}${sc('app','Whole app')}</div>
       <p class="note">Title only colors the SPORTS HUB name, filled buttons, and chart lines. Other text, borders, and backgrounds stay gray. Whole app also uses that color for tabs, labels, borders, and highlights.</p>
+      <label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-weight:800"><input type="checkbox" id="setwatch" ${watchOn()?'checked':''}> Suggest a game to watch</label>
+      <p class="note">One score card per tab gets an accent outline and a “Watch this” label: the closest live game, or the best upcoming matchup. Finals are skipped. Saved on this device.</p>
     </div>
     <div class="panel"><h3>⭐ My Teams</h3><p class="note">Search ESPN's team lists. Favorites get pinned to the top of each league tab, highlighted, and show up in the My Teams view.</p>
       ${LGS.map(lg=>`<div style="margin:10px 0"><div class="note" style="font-weight:800;color:var(--gold2)">${LG[lg].icon} ${esc(LG[lg].name)}</div>
@@ -4454,7 +4615,7 @@ async function monEnsureSum(g){
   const d=await summary(g.lg, g.id);
   try{
     const sg=await summaryEvent(g.lg, g.id);
-    if(sg){ const keep=g.lg, sit=g.sit, prevMl=g.ml, prevCup=g.cup; Object.assign(g, sg); g.lg=keep; if(!g.sit && sit) g.sit=sit; if(!g.ml && prevMl) g.ml=prevMl; if(!g.cup && prevCup) g.cup=prevCup; LEGEV.set(g.id, g); remember([g]); }
+    if(sg){ const keep=g.lg, sit=g.sit, prevMl=g.ml, prevCup=g.cup, prevSpread=g.spread; Object.assign(g, sg); g.lg=keep; if(!g.sit && sit) g.sit=sit; if(!g.ml && prevMl) g.ml=prevMl; if(!g.cup && prevCup) g.cup=prevCup; if(g.spread==null && prevSpread!=null) g.spread=prevSpread; LEGEV.set(g.id, g); remember([g]); }
   }catch(_){}
   MON.sums.set(key, d);
   try{ injAddSummary(g.lg, d); }catch(_){}
@@ -4478,6 +4639,7 @@ function monLines(d, g){
     <tr><td>${esc(g.away.abbr)}</td>${Array.from({length:np},(_,i)=>`<td>${esc(la[i]??'')}</td>`).join('')}<td><b>${g.away.score??''}</b></td></tr>
     <tr><td>${esc(g.home.abbr)}</td>${Array.from({length:np},(_,i)=>`<td>${esc(lh[i]??'')}</td>`).join('')}<td><b>${g.home.score??''}</b></td></tr></table>`;
 }
+function monWatch(opts){ return watchSeal('monitor', MON.games||[], suggestWatch('monitor', MON.games||[], opts)); }
 function monScoreHTML(g){
   const leadA=g.away.score!=null && g.home.score!=null && g.away.score>g.home.score;
   const leadH=g.away.score!=null && g.home.score!=null && g.home.score>g.away.score;
@@ -4488,7 +4650,9 @@ function monScoreHTML(g){
   const ball = poss(g.away.id)?g.away.abbr+' ball':poss(g.home.id)?g.home.abbr+' ball':'';
   const sub = [ball, dd, g.sit&&g.sit.rz?'RED ZONE':''].filter(Boolean).join(' · ');
   const last = (g.sit&&g.sit.last)||'';
-  return `<div class="monkicker">${esc(LG[g.lg].short)} · ${tag}${g.state==='post'?' · not live':''}${g.cup?' '+cupBadge(g):''}</div>
+  const w=monWatch();
+  const pill=w && String(w.id)===String(g.id) && w.lg===g.lg ? watchMark(w.reason) : '';
+  return `${pill}<div class="monkicker">${esc(LG[g.lg].short)} · ${tag}${g.state==='post'?' · not live':''}${g.cup?' '+cupBadge(g):''}</div>
     <div class="monscore">${side(g.away, leadA)}<div><div class="monclk">${esc(g.state==='in'?statusTxt(g):g.state==='post'?(g.detail||'Final'):fmtTime(g.date))}</div><div class="monsub">${esc(sub)}</div></div>${side(g.home, leadH)}</div>${last?`<div class="monlast">${esc(last)}</div>`:''}`;
 }
 function monPlaysHTML(g, d){
@@ -4571,20 +4735,26 @@ function monPaint(){
   if(!MON.on) return;
   const g=MON.games[MON.gi];
   const who=$('#monwho'), stage=$('#monstage'), dots=$('#mondots');
+  const board=$('#monboard');
   if(!stage) return;
-  if(!g){ if(who) who.textContent='Monitor'; stage.innerHTML=`<div class="empty">${esc(MON.err||'No games on the scoreboard right now.')}</div>`; if(dots) dots.innerHTML=''; return; }
+  if(!g){ if(who) who.textContent='Monitor'; stage.innerHTML=`<div class="empty">${esc(MON.err||'No games on the scoreboard right now.')}</div>`; if(dots) dots.innerHTML=''; if(board) board.classList.remove('watch'); return; }
   const d=MON.sums.get(g.lg+'|'+g.id)||null;
   MON.panels=monPanelsFor(g);
   if(MON.pi>=MON.panels.length) MON.pi=0;
   const id=MON.panels[MON.pi];
   const stateLbl=g.state==='post'?'FINAL':g.state==='pre'?'UPCOMING':'LIVE';
-  if(MON.flash && MON.flashUntil>Date.now()){
+  const w=monWatch();
+  const show=!!(w && String(w.id)===String(g.id) && w.lg===g.lg);
+  const flashing=MON.flash && MON.flashUntil>Date.now();
+  if(board) board.classList.toggle('watch', show && !flashing);
+  if(flashing){
     const f=MON.flash;
     if(who) who.innerHTML=`${esc(f.kicker)}${f.sim?' <span class="monbanner">SIMULATED</span>':''}`;
     stage.innerHTML=`<div class="monflash"><div class="monkicker">${esc(f.kicker)}</div><div class="big">${esc(f.big)}</div><div class="sub">${esc(f.sub||'')}</div><div class="monmeta">${esc(f.who||'')}</div>${f.sim?'<div class="sim">SIMULATED</div>':''}</div>`;
   } else {
     if(who) who.innerHTML=`${esc(LG[g.lg].icon)} ${esc(g.away.abbr)} ${g.away.score??''} @ ${esc(g.home.abbr)} ${g.home.score??''} · ${esc(stateLbl)}${MON.fallback&&g.state!=='in'?'<span class="monbanner">NO LIVE GAMES</span>':''} <span class="monmeta">${esc(MON_PANELS.find(p=>p.id===id)?.label||'')}</span>`;
-    stage.innerHTML=monPanelHTML(id, g, d);
+    const panel=monPanelHTML(id, g, d);
+    stage.innerHTML=(show && id!=='score' ? watchMark(w.reason) : '')+panel;
   }
   if(dots) dots.innerHTML=MON.panels.map((p,i)=>`<span class="${i===MON.pi?'on':''}" title="${esc(MON_PANELS.find(x=>x.id===p)?.label||p)}"></span>`).join('');
   const vid=$('#monvideo');
@@ -4619,10 +4789,11 @@ function monSetupHTML(){
       <p class="note" id="monfoot"></p>
     </div>`;
 }
-function monPaintSetup(){
+function monPaintSetup(opts){
   const list=$('#monlist'); if(!list || !MON.ctx) return;
   const follow=pref.get('monitor.follow','rotate'), pins=monPins();
   const games=MON.choices||[];
+  const w=monWatch(opts);
   list.innerHTML = games.length ? games.map(g=>{
     const pr=monPriority(g, MON.ctx);
     const tags=[];
@@ -4634,7 +4805,8 @@ function monPaintSetup(){
     const key=g.lg+'|'+g.id, pinned=pins.includes(key);
     const st=g.state==='in'?'LIVE':g.state==='post'?'FINAL':'UPCOMING';
     const mlNote=(g.ml&&(g.ml.away!=null||g.ml.home!=null))?` · ${mlSpan(g,'away')}${g.ml.away!=null&&g.ml.home!=null?' / ':''}${mlSpan(g,'home')}`:'';
-    return `<div class="mongame"><div class="nm">${esc(LG[g.lg].short)} · ${esc(g.away.abbr)} ${g.away.score??''} @ ${esc(g.home.abbr)} ${g.home.score??''} <span class="badge ${g.state==='in'?'b-g':'b-n'}">${st}</span> ${g.cup?cupBadge(g):''} ${tags.map(t=>`<span class="note">${esc(t)}</span>`).join(' ')}<div class="note">${esc(statusTxt(g))}${pr?` · priority ${pr}`:''}${mlNote}</div></div><button type="button" class="btn sm ${pinned?'pri':''}" data-monpin="${esc(key)}">${pinned?'Pinned':'Pin'}</button></div>`;
+    const show=w && String(w.id)===String(g.id) && w.lg===g.lg;
+    return `<div class="mongame"><div class="nm">${show?watchMark(w.reason):''}${esc(LG[g.lg].short)} · ${esc(g.away.abbr)} ${g.away.score??''} @ ${esc(g.home.abbr)} ${g.home.score??''} <span class="badge ${g.state==='in'?'b-g':'b-n'}">${st}</span> ${g.cup?cupBadge(g):''} ${tags.map(t=>`<span class="note">${esc(t)}</span>`).join(' ')}<div class="note">${esc(statusTxt(g))}${pr?` · priority ${pr}`:''}${mlNote}</div></div><button type="button" class="btn sm ${pinned?'pri':''}" data-monpin="${esc(key)}">${pinned?'Pinned':'Pin'}</button></div>`;
   }).join('') : `<div class="empty">${esc(MON.err||'No games found.')}</div>`;
   const foot=$('#monfoot');
   const nPins=pins.length, nFollow=MON.games.length;
@@ -4693,9 +4865,10 @@ async function monLoad(tok){
   const nLive=live.length;
   const pinNote=follow==='pin'?(pins.length?`following ${MON.games.length} pinned`:'pinned'):'rotating';
   $('#cnt').textContent=`Monitor · ${nLive?nLive+' live':'no live games'} · ${pinNote}`;
-  monPaintSetup();
+  const watchFresh=()=>({fresh:!(WATCH_HOLD.monitor&&WATCH_HOLD.monitor.lined)});
+  monPaintSetup(watchFresh());
   const mlNeed=(MON.choices||[]).filter(g=>!g.ml);
-  if(mlNeed.length) Promise.all(mlNeed.map(ensureMoneyline)).then(()=>{ if(tok!==TOKEN || TAB!=='monitor') return; monPaintSetup(); if(MON.on) monPaint(); });
+  if(mlNeed.length) Promise.all(mlNeed.map(ensureMoneyline)).then(()=>{ if(tok!==TOKEN || TAB!=='monitor') return; monPaintSetup(watchFresh()); if(MON.on) monPaint(); });
   monApplyMode();
   setRefresh(MON.games, ()=>{ if(document.hidden){ if(TAB==='monitor') monScheduleHidden(); return; } if(TAB==='monitor') monRefresh(); });
 }
@@ -4836,6 +5009,7 @@ document.addEventListener('change', ev=>{
   if(t.id==='ffpreset'){ if(FANTASY_PRESETS[t.value]){ DATA.settings.fantasyScoring=Object.assign({},FANTASY_PRESETS[t.value].v); } DATA.settings.fantasyPreset=t.value; saveData(); return render(); }
   if(d.ffscore){ if(!t.isConnected) return; const n=parseFloat(t.value); if(!Number.isFinite(n)){ t.value=FSC()[d.ffscore]; return; } DATA.settings.fantasyScoring[d.ffscore]=n; DATA.settings.fantasyPreset='custom'; saveData(); $('#ffpreset').value='custom'; return; }
   if(t.id==='setsheet'){ let v=t.value.trim(); const m=/\/d\/([a-zA-Z0-9_-]{20,})/.exec(v); if(m) v=m[1]; DATA.settings.sheetId=v; DATA.sheetSync=null; saveData(); syncSheet(true).then(()=>render()); return; }
+  if(t.id==='setwatch'){ pref.set('watch.suggest', t.checked?'1':'0'); if(!t.checked) Object.keys(WATCH_HOLD).forEach(k=>delete WATCH_HOLD[k]); const m=$('#setmsg'); if(m) m.textContent=t.checked?'Game to watch is on.':'Game to watch is off.'; return; }
   if(t.id==='setbook'){ DATA.settings.defaultBook=t.value.trim()||'FanDuel'; saveData(); $('#setmsg').textContent='Saved default sportsbook.'; return; }
   if(t.id==='setunit'){ const n=parseFloat(t.value); DATA.settings.unitSize = n>0?n:null; saveData(); $('#setmsg').textContent='Saved unit size.'; return; }
 });
