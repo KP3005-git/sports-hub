@@ -4806,7 +4806,7 @@ function monPaintSetup(opts){
     const st=g.state==='in'?'LIVE':g.state==='post'?'FINAL':'UPCOMING';
     const mlNote=(g.ml&&(g.ml.away!=null||g.ml.home!=null))?` · ${mlSpan(g,'away')}${g.ml.away!=null&&g.ml.home!=null?' / ':''}${mlSpan(g,'home')}`:'';
     const show=w && String(w.id)===String(g.id) && w.lg===g.lg;
-    return `<div class="mongame">${show?watchMark(w.reason):''}<div class="nm">${esc(LG[g.lg].short)} · ${esc(g.away.abbr)} ${g.away.score??''} @ ${esc(g.home.abbr)} ${g.home.score??''} <span class="badge ${g.state==='in'?'b-g':'b-n'}">${st}</span> ${g.cup?cupBadge(g):''} ${tags.map(t=>`<span class="note">${esc(t)}</span>`).join(' ')}<div class="note">${esc(statusTxt(g))}${pr?` · priority ${pr}`:''}${mlNote}</div></div><button type="button" class="btn sm ${pinned?'pri':''}" data-monpin="${esc(key)}">${pinned?'Pinned':'Pin'}</button></div>`;
+    return `<div class="mongame"><div class="nm">${show?watchMark(w.reason):''}${esc(LG[g.lg].short)} · ${esc(g.away.abbr)} ${g.away.score??''} @ ${esc(g.home.abbr)} ${g.home.score??''} <span class="badge ${g.state==='in'?'b-g':'b-n'}">${st}</span> ${g.cup?cupBadge(g):''} ${tags.map(t=>`<span class="note">${esc(t)}</span>`).join(' ')}<div class="note">${esc(statusTxt(g))}${pr?` · priority ${pr}`:''}${mlNote}</div></div><button type="button" class="btn sm ${pinned?'pri':''}" data-monpin="${esc(key)}">${pinned?'Pinned':'Pin'}</button></div>`;
   }).join('') : `<div class="empty">${esc(MON.err||'No games found.')}</div>`;
   const foot=$('#monfoot');
   const nPins=pins.length, nFollow=MON.games.length;
