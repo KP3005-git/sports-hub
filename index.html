@@ -76,6 +76,7 @@ html[data-scope="title"] .themesw.on{border-color:var(--gold);box-shadow:0 0 0 1
 html[data-scope="title"] .mondots span.on{box-shadow:0 0 8px rgb(var(--tint-rgb) / .55)}
 html[data-scope="title"] .brsep{border-color:var(--gold)}
 html[data-scope="title"] .row .ml.fav,html[data-scope="title"] .gdwho .ml.fav,html[data-scope="title"] .mongame .note .ml.fav,html[data-scope="title"] .monmeta .ml.fav{color:var(--txt)}
+html[data-scope="title"] .b-cup{background:transparent;color:var(--txt);border-color:var(--line)}
 html[data-scope="title"] .proptag{background:transparent;color:var(--txt);border:1px solid var(--line)}
 *{box-sizing:border-box}
 html{background:var(--bg)}
@@ -113,6 +114,7 @@ h3{font-size:13px;letter-spacing:2px;color:var(--gold2);margin:16px 0 8px;text-t
 .leg .lt{font-weight:800;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:6px}
 .badge{font-size:11px;font-weight:900;letter-spacing:1px;padding:3px 8px;border-radius:999px;white-space:nowrap;display:inline-block}
 .b-g{background:var(--green);color:#03140a}.b-r{background:var(--red);color:#fff}.b-n{background:#2a3a5c;color:#cfd8ea}.b-gold{background:var(--accent-fill);color:var(--accent-ink)}.b-a{background:var(--amber);color:#1a0d00}.b-b{background:var(--blue);color:#fff}
+.b-cup{background:#3a3424;color:#E7D7B1;border:1px solid #8a7a55}
 .tstat{font-size:18px;font-weight:900;padding:6px 14px;border-radius:10px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px}
 .g{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px;position:relative}
@@ -822,6 +824,7 @@ function normEvent(e, lg){
     sit: sit?{dd:sit.downDistanceText||'', rz:!!sit.isRedZone, poss:sit.possession?String(sit.possession):null, last:(sit.lastPlay&&sit.lastPlay.text)||'',
       yardLine:sit.yardLine, distance:sit.distance, down:sit.down, possessionText:sit.possessionText||'', yardsToEndzone:sit.yardsToEndzone}:null,
     note:(c.notes&&c.notes[0]&&c.notes[0].headline)||'',
+    cup: lg==='nba' ? nbaCupFrom(e) : '',
     ml:mlFromList(c.odds) };
 }
 function snapToEvent(leg){ // stored final snapshot -> minimal normalized event
@@ -833,6 +836,33 @@ function periodTxt(g){
   const p=g.period, L=LG[g.lg]||{};
   if(L.halves) return p>2?(p===3?'OT':(p-2)+'OT'):['','1st Half','2nd Half'][p]||'';
   return p>4?(p===5?'OT':(p-4)+'OT'):['','1st','2nd','3rd','4th'][p]||'';
+}
+function nbaCupText(raw){
+  const t=String(raw||'').replace(/\s+/g,' ').trim();
+  if(!/nba\s*cup|emirates\s+nba\s+cup/i.test(t)) return '';
+  let rest=t.replace(/^emirates\s+/i,'').replace(/^nba\s*cup\b\s*/i,'').replace(/^[-–:]\s*/,'').trim();
+  rest=rest.replace(/\bquarterfinals\b/i,'Quarterfinal').replace(/\bsemifinals\b/i,'Semifinal');
+  rest=rest.replace(/\b(east|west)\s+group\s+([a-d])\b/i,(_, side, g)=>side.charAt(0).toUpperCase()+side.slice(1).toLowerCase()+' '+g.toUpperCase());
+  if(!rest || /^championship$/i.test(rest)) return 'NBA Cup · Championship';
+  return 'NBA Cup · '+rest;
+}
+function nbaCupFrom(e){
+  if(!e) return '';
+  const c=(e.competitions&&e.competitions[0])||{};
+  const bits=[];
+  (c.notes||[]).forEach(n=>{ if(n&&n.headline) bits.push(n.headline); });
+  if(e.gameNote) bits.push(e.gameNote);
+  const slug=e.season&&e.season.slug;
+  if(slug) bits.push(String(slug).replace(/-/g,' '));
+  const typ=c.type||{};
+  if(typ.text) bits.push(typ.text);
+  if(typ.name && /cup/i.test(String(typ.name))) bits.push(String(typ.name));
+  for(const b of bits){ const lab=nbaCupText(b); if(lab) return lab; }
+  return '';
+}
+function cupBadge(g){
+  if(!g||!g.cup) return '';
+  return `<span class="badge b-cup">${esc(g.cup)}</span>`;
 }
 function statusTxt(g){
   if(g.state==='pre'){
@@ -884,6 +914,7 @@ function gameCard(g, opts={}){
   const isFav = favs.has(g.home.id)||favs.has(g.away.id);
   let cls='g'+(g.state==='in'?' live':'')+(close?' close':'')+(up?' upset':'')+(isFav?' fav':'')+(opts.extraCls?' '+opts.extraCls:'');
   let tags='';
+  if(g.cup) tags+=cupBadge(g);
   if(up) tags+=`<span class="badge b-r">${up.final?'UPSET FINAL':'UPSET ALERT'}: ${esc(up.dog.abbr)} over ${up.fav.rank?'#'+up.fav.rank+' ':''}${esc(up.fav.abbr)}</span>`;
   if(close) tags+=`<span class="badge b-a">CLOSE GAME · ${esc(periodTxt(g).toUpperCase())}</span>`;
   if(g.sit && g.sit.rz && g.state==='in') tags+=`<span class="badge b-r">RED ZONE</span>`;
@@ -1012,7 +1043,8 @@ const FILTERS = {
   post: {lbl:'Final',    f:g=>g.state==='post'},
   alert:{lbl:'Alerts',   f:g=>!!(upsetInfo(g)||isClose(g)||(g.sit&&g.sit.rz&&isLive(g)))},
   top25:{lbl:'Top 25',   f:g=>!!(g.home.rank||g.away.rank), only:['cfb','cbb']},
-  mine: {lbl:'⭐ Mine',   f:(g,ctx)=>ctx.mine(g)}
+  mine: {lbl:'⭐ Mine',   f:(g,ctx)=>ctx.mine(g)},
+  cup: {lbl:'Cup', f:g=>!!g.cup, only:['nba']}
 };
 function filterFor(lg){ const f=pref.get('filter.'+lg,'all'); return FILTERS[f]&&(!FILTERS[f].only||FILTERS[f].only.includes(lg))?f:'all'; }
 function parseHash(){
@@ -1132,6 +1164,7 @@ async function summary(lg, evId){
 async function summaryEvent(lg, evId){
   const d = await summary(lg, evId); const h=d.header; if(!h) return null;
   const g = normEvent(Object.assign({}, h, {date:h.competitions[0].date}), lg);
+  if(!g.cup && h.gameNote) g.cup=nbaCupText(h.gameNote);
   if(!g.ml){ const ml=mlFromList(d.pickcenter); if(ml) g.ml=ml; }
   if(d.situation) g.sit = {dd:d.situation.downDistanceText||'', rz:!!d.situation.isRedZone, poss:d.situation.possession?String(d.situation.possession):null};
   if(g.tv==='—'){ const b=(h.competitions[0].broadcasts||[]).map(x=>x.media&&x.media.shortName).filter(Boolean); if(b.length) g.tv=b.join(', '); }
@@ -1905,7 +1938,7 @@ async function openGame(lg, id, opts={}){
     if(opts.refresh) JC.delete(API+LG[lg].path+'/summary?event='+id);
     const d = await summary(lg, id); const g = await summaryEvent(lg, id); if(GD!==me) return;
     if(!g){ $('#gdbody').innerHTML='<div class="empty">Game details unavailable.</div>'; return; }
-    const prev=EVSTORE.get(g.id); if(prev&&prev.sit&&!g.sit) g.sit=prev.sit; if(prev&&prev.ml&&!g.ml) g.ml=prev.ml;
+    const prev=EVSTORE.get(g.id); if(prev&&prev.sit&&!g.sit) g.sit=prev.sit; if(prev&&prev.ml&&!g.ml) g.ml=prev.ml; if(prev&&prev.cup&&!g.cup) g.cup=prev.cup;
     LEGEV.set(g.id, g);   // lets gradeLeg() grade Blitz's picks / your bets on this game from the fresh summary
     const h=d.header||{}, c=(h.competitions||[])[0]||{};
     const ls = side=>{ const x=(c.competitors||[]).find(k=>k.homeAway===side)||{}; return (x.linescores||[]).map(l=>l.displayValue??l.value); };
@@ -1926,7 +1959,7 @@ async function openGame(lg, id, opts={}){
     me.last = {d, lg, g, groups};
     injAddSummary(lg, d);
     const playersHTML = gdPlayersHTML(d, lg, g, groups);
-    $('#gdbody').innerHTML = `<div class="note">${esc(LG[lg].icon+' '+LG[lg].name)}${g.note?' · '+esc(g.note):''}</div>
+    $('#gdbody').innerHTML = `<div class="note">${esc(LG[lg].icon+' '+LG[lg].name)}${g.cup?' '+cupBadge(g):(g.note?' · '+esc(g.note):'')}</div>
       <div class="gdscore">${side(g.away)}${side(g.home)}</div>
       <div class="gdmeta"><span class="st ${g.state==='in'?'l':''}">${g.state==='in'?'● ':''}${esc(statusTxt(g))}</span> · ${esc(fmtDay(g.date))} ${esc(fmtTime(g.date))} · 📺 ${esc(g.tv)}${venue?' · '+esc(venue):''}${g.state==='in'?` · <span class="note" id="gdupd">updated ${esc(fmtTime(new Date()))} · refreshes every ${GD_REFRESH_MS/1000}s</span>`:''}</div>
       ${gdField(d, lg, g, groups)}
@@ -2101,7 +2134,8 @@ function teamNormGames(lg, id, events){
       oppId:oid, oppLg:lg, oppName:ot.shortDisplayName||ot.displayName||ot.abbreviation||'TBD', oppAbbr:ot.abbreviation||'',
       oppLogo:teamLogoURL(lg, oid, ot), oppRank:(rank>0&&rank<=25)?rank:null,
       usScore:teamScore(us), oppScore:teamScore(opp), win:!!(us&&us.winner),
-      tv:[...new Set(names)].slice(0,2).join(', ')};
+      tv:[...new Set(names)].slice(0,2).join(', '),
+      cup: lg==='nba' ? nbaCupFrom(ev) : ''};
   }).filter(g=>g.date&&!isNaN(+g.date)).sort((a,b)=>a.date-b.date);
 }
 function teamRecItems(d){
@@ -2191,8 +2225,9 @@ function teamGameRow(g, nextId){
   else if(g.id===nextId) mark='<span class="badge b-n">Next</span>';
   const open=g.state==='post'||g.state==='in';
   const name=`${g.ha} ${g.oppRank?g.oppRank+' ':''}${g.oppName}`;
-  const main=open?`<button type="button" class="tmain" data-gd="${esc(g.id)}" data-lg="${esc(g.oppLg)}"><b>${esc(name)}</b><span class="note">${esc(when)}</span></button>`
-    :`<div class="tmain"><b>${esc(name)}</b><span class="note">${esc([when, tv].filter(Boolean).join(' · '))}</span></div>`;
+  const cup=g.cup?` ${cupBadge(g)}`:'';
+  const main=open?`<button type="button" class="tmain" data-gd="${esc(g.id)}" data-lg="${esc(g.oppLg)}"><b>${esc(name)}</b><span class="note">${esc(when)}${cup}</span></button>`
+    :`<div class="tmain"><b>${esc(name)}</b><span class="note">${esc([when, tv].filter(Boolean).join(' · '))}${cup}</span></div>`;
   return `<div class="tgame${g.id===nextId?' tnext':''}">${g.oppLogo?teamLogoBtn(g.oppLg, g.oppId, g.oppLogo):''}${main}${mark}</div>`;
 }
 function paintTeam(p){
@@ -4419,7 +4454,7 @@ async function monEnsureSum(g){
   const d=await summary(g.lg, g.id);
   try{
     const sg=await summaryEvent(g.lg, g.id);
-    if(sg){ const keep=g.lg, sit=g.sit, prevMl=g.ml; Object.assign(g, sg); g.lg=keep; if(!g.sit && sit) g.sit=sit; if(!g.ml && prevMl) g.ml=prevMl; LEGEV.set(g.id, g); remember([g]); }
+    if(sg){ const keep=g.lg, sit=g.sit, prevMl=g.ml, prevCup=g.cup; Object.assign(g, sg); g.lg=keep; if(!g.sit && sit) g.sit=sit; if(!g.ml && prevMl) g.ml=prevMl; if(!g.cup && prevCup) g.cup=prevCup; LEGEV.set(g.id, g); remember([g]); }
   }catch(_){}
   MON.sums.set(key, d);
   try{ injAddSummary(g.lg, d); }catch(_){}
@@ -4453,7 +4488,7 @@ function monScoreHTML(g){
   const ball = poss(g.away.id)?g.away.abbr+' ball':poss(g.home.id)?g.home.abbr+' ball':'';
   const sub = [ball, dd, g.sit&&g.sit.rz?'RED ZONE':''].filter(Boolean).join(' · ');
   const last = (g.sit&&g.sit.last)||'';
-  return `<div class="monkicker">${esc(LG[g.lg].short)} · ${tag}${g.state==='post'?' · not live':''}</div>
+  return `<div class="monkicker">${esc(LG[g.lg].short)} · ${tag}${g.state==='post'?' · not live':''}${g.cup?' '+cupBadge(g):''}</div>
     <div class="monscore">${side(g.away, leadA)}<div><div class="monclk">${esc(g.state==='in'?statusTxt(g):g.state==='post'?(g.detail||'Final'):fmtTime(g.date))}</div><div class="monsub">${esc(sub)}</div></div>${side(g.home, leadH)}</div>${last?`<div class="monlast">${esc(last)}</div>`:''}`;
 }
 function monPlaysHTML(g, d){
@@ -4599,7 +4634,7 @@ function monPaintSetup(){
     const key=g.lg+'|'+g.id, pinned=pins.includes(key);
     const st=g.state==='in'?'LIVE':g.state==='post'?'FINAL':'UPCOMING';
     const mlNote=(g.ml&&(g.ml.away!=null||g.ml.home!=null))?` · ${mlSpan(g,'away')}${g.ml.away!=null&&g.ml.home!=null?' / ':''}${mlSpan(g,'home')}`:'';
-    return `<div class="mongame"><div class="nm">${esc(LG[g.lg].short)} · ${esc(g.away.abbr)} ${g.away.score??''} @ ${esc(g.home.abbr)} ${g.home.score??''} <span class="badge ${g.state==='in'?'b-g':'b-n'}">${st}</span> ${tags.map(t=>`<span class="note">${esc(t)}</span>`).join(' ')}<div class="note">${esc(statusTxt(g))}${pr?` · priority ${pr}`:''}${mlNote}</div></div><button type="button" class="btn sm ${pinned?'pri':''}" data-monpin="${esc(key)}">${pinned?'Pinned':'Pin'}</button></div>`;
+    return `<div class="mongame"><div class="nm">${esc(LG[g.lg].short)} · ${esc(g.away.abbr)} ${g.away.score??''} @ ${esc(g.home.abbr)} ${g.home.score??''} <span class="badge ${g.state==='in'?'b-g':'b-n'}">${st}</span> ${g.cup?cupBadge(g):''} ${tags.map(t=>`<span class="note">${esc(t)}</span>`).join(' ')}<div class="note">${esc(statusTxt(g))}${pr?` · priority ${pr}`:''}${mlNote}</div></div><button type="button" class="btn sm ${pinned?'pri':''}" data-monpin="${esc(key)}">${pinned?'Pinned':'Pin'}</button></div>`;
   }).join('') : `<div class="empty">${esc(MON.err||'No games found.')}</div>`;
   const foot=$('#monfoot');
   const nPins=pins.length, nFollow=MON.games.length;
