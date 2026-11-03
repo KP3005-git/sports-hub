@@ -625,7 +625,7 @@ html.reorder .reorderbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-i
    ===================================================================== */
 const MY_TEAMS = {
   cfb: [ {id:'2509', name:'Purdue Boilermakers', abbr:'PUR'} ],  // featured every week, ranked or not
-  cbb: [],   // e.g. {id:'2509', name:'Purdue Boilermakers', abbr:'PUR'}
+  cbb: [ {id:'2509', name:'Purdue Boilermakers', abbr:'PUR'} ],  // Purdue men's basketball
   nfl: [],   // e.g. {id:'11',   name:'Indianapolis Colts',  abbr:'IND'}
   nba: []    // e.g. {id:'11',   name:'Indiana Pacers',      abbr:'IND'}
 };
@@ -704,6 +704,8 @@ function loadData(){
 function normalizeData(d){
   const f = {schemaVersion:1, settings:Object.assign({},SETTINGS_DEFAULTS,d.settings||{},{fantasyScoring:Object.assign({},FANTASY_YAHOO,(d.settings||{}).fantasyScoring||{})}), myTeams:{cfb:[],cbb:[],nfl:[],nba:[]}, favoritePlayers:d.favoritePlayers||[], fantasy:Object.assign({leagueUrl:'',roster:[]},d.fantasy||{}), placedBets:d.placedBets||[], recommendations:d.recommendations||[], sheetSync:d.sheetSync||null};
   LGS.forEach(l=>{ f.myTeams[l] = (d.myTeams&&d.myTeams[l])||[]; });
+  // One-time: add Purdue men's basketball to My Teams for existing saved data (Nov 2026). Removing it later in Settings sticks.
+  try{ if(!localStorage.getItem('sportsHub.mig.cbbPurdue')){ if(!f.myTeams.cbb.some(t=>String(t.id)==='2509')) f.myTeams.cbb.push({id:'2509',name:'Purdue Boilermakers',abbr:'PUR'}); localStorage.setItem('sportsHub.mig.cbbPurdue','1'); try{ localStorage.setItem(KEY, JSON.stringify(f)); }catch(_){} } }catch(_){}
   return f;
 }
 function saveData(d=DATA){ try{ localStorage.setItem(KEY, JSON.stringify(d)); }catch(e){ showErr('Could not save to localStorage: '+e.message); } }
