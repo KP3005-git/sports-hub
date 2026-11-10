@@ -489,6 +489,9 @@ html[data-scope="title"] #monboard.watch{box-shadow:inset 0 0 0 1px var(--accent
 .mongame{display:flex;gap:8px;align-items:center;padding:8px 4px;border-bottom:1px solid var(--line)}
 .mongame .nm{flex:1;min-width:0;font-weight:800}
 .monlist{max-height:280px;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:0 8px;margin:8px 0}
+.monpins{margin:8px 0 4px}
+.monpins .mongame{padding:6px 0}
+.monpins .monpinact{margin-top:6px}
 
 /* ===== PHONE / TOUCH (Sports Hub mobile) ===== */
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
@@ -4440,6 +4443,28 @@ function monSavePins(list){
   pref.set('monitor.pin','');
   return clean;
 }
+// Drop pins that are off the scoreboard, and past-day games the board is no longer showing.
+// A game still listed below stays pinned. Today's live, upcoming, and final games stay even when the live list hides them.
+function monPrunePins(pool, shown){
+  const pins=monPins();
+  if(!pins.length) return pins;
+  const byKey=new Map((pool||[]).map(g=>[g.lg+'|'+g.id, g]));
+  const shownKeys=new Set((shown||[]).map(g=>g.lg+'|'+g.id));
+  const today=etYmd(new Date());
+  const keep=pins.filter(key=>{
+    const g=byKey.get(key);
+    if(!g) return false;
+    if(shownKeys.has(key) || g.state==='in') return true;
+    const day=etYmd(g.date);
+    if(day && today && day<today) return false;
+    return true;
+  });
+  if(keep.length!==pins.length){
+    monSavePins(keep);
+    if(!keep.length && pref.get('monitor.follow','rotate')==='pin') pref.set('monitor.follow','rotate');
+  }
+  return keep;
+}
 function monEnabled(){
   let ids; try{ ids=JSON.parse(pref.get('monitor.panels','')||'null'); }catch(_){ ids=null; }
   const all=MON_PANELS.map(p=>p.id);
@@ -4787,14 +4812,27 @@ function monSetupHTML(){
       </div>
       <div class="monchecks">${MON_PANELS.map(p=>`<label><input type="checkbox" class="monpanel" data-panel="${p.id}" ${on.has(p.id)?'checked':''}> ${esc(p.label)}</label>`).join('')}</div>
       <p class="note">Clips plays the newest public MP4 from that game’s ESPN summary (<span class="note">links.source</span> on espnmedia-cdn), muted and inline. Login-gated streams are ignored. The panel hides when a game has no such clip.</p>
+      <div id="monpins"></div>
       <div id="monlist" class="monlist"><div class="note">Loading scoreboards…</div></div>
       <p class="note" id="monfoot"></p>
     </div>`;
+}
+function monPinsHTML(pins){
+  if(!pins.length) return '';
+  const rows=pins.map(key=>{
+    const [lg,id]=key.split('|');
+    const g=(MON.pool||[]).find(x=>x.lg===lg && String(x.id)===String(id));
+    const label=g?`${LG[g.lg].short} · ${g.away.abbr} ${g.away.score??''} @ ${g.home.abbr} ${g.home.score??''}`:(`${LG[lg]?LG[lg].short:lg} · ${id}`);
+    const st=g?(g.state==='in'?'LIVE':g.state==='post'?'FINAL':g.state==='pre'?'UPCOMING':''):'';
+    return `<div class="mongame"><div class="nm">${esc(label)}${st?` <span class="badge ${g.state==='in'?'b-g':'b-n'}">${st}</span>`:''}</div><button type="button" class="btn sm" data-monpin="${esc(key)}">Unpin</button></div>`;
+  }).join('');
+  return `<div class="monpins"><div class="note" style="font-weight:800">Pinned</div><p class="note">Unpin a game here if it has left the list below. Games that drop off the slate are removed on their own.</p>${rows}<button type="button" class="btn sm monpinact" data-monclearpins="1">Clear all pins</button></div>`;
 }
 function monPaintSetup(opts){
   const list=$('#monlist'); if(!list || !MON.ctx) return;
   const follow=pref.get('monitor.follow','rotate'), pins=monPins();
   const games=MON.choices||[];
+  const pinBox=$('#monpins'); if(pinBox) pinBox.innerHTML=monPinsHTML(pins);
   const w=monWatch(opts);
   list.innerHTML = games.length ? games.map(g=>{
     const pr=monPriority(g, MON.ctx);
@@ -4840,6 +4878,7 @@ async function monLoad(tok){
   const recent=rest.filter(x=>Date.now()-x.g.date<48*3600e3);
   MON.choices=(live.length?live:recent.length?recent:rest.slice(0,8).concat(soon)).map(x=>x.g);
   if(!live.length && !MON.choices.length) MON.choices=soon.map(x=>x.g);
+  monPrunePins(MON.pool, MON.choices);
   const follow=pref.get('monitor.follow','rotate');
   const pins=monPins();
   let games;
@@ -4920,6 +4959,7 @@ document.addEventListener('click', async ev=>{
     else if(!pins.length) pref.set('monitor.follow','rotate');
     return render();
   }
+  if(a('monclearpins')){ monSavePins([]); pref.set('monitor.follow','rotate'); return render(); }
   if((v=a('monfollow'))!==null){ pref.set('monitor.follow', v); return render(); }
   if(a('reorder')){ setReorder(!REORDER); return; }
   if((v=a('plogback'))!==null){ if(RST&&RST.synthetic){ closeRoster(); return; } if(RST&&RST.data) paintRoster(''); return; }
