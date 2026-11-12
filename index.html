@@ -393,7 +393,11 @@ th.brsort{cursor:pointer;color:var(--gold2)}
 .pick{background:var(--card);border:1px solid var(--line);border-left:4px solid #2a3a5c;border-radius:10px;padding:8px 12px}
 .pick.v-consider{border-left-color:var(--ok)}.pick.v-wait{border-left-color:var(--warn)}.pick.mybet{border-left-color:var(--gold)}
 .pktop{display:flex;gap:6px 8px;align-items:center;flex-wrap:wrap}.pktop .note{margin-left:auto}
-.pkleg{display:flex;gap:6px 8px;align-items:center;flex-wrap:wrap;margin:6px 0 2px;font-size:14px}
+.pkleg{display:flex;gap:6px 8px;align-items:flex-start;flex-wrap:wrap;margin:8px 0 2px;font-size:15px}
+.pkbet{display:flex;flex:1;min-width:12em;gap:6px 10px;align-items:baseline;flex-wrap:wrap}
+.pkbet b{font-size:1.15em;font-weight:900;letter-spacing:.1px;line-height:1.25;color:var(--txt)}
+.pkodds{font-size:1.15em;font-weight:900;font-variant-numeric:tabular-nums;color:var(--txt)}
+.pkbook{font-size:.92em;font-weight:800;color:var(--gold2)}
 .pkmeta{font-size:12px;color:var(--mut)}.pkmeta b{color:var(--txt)}
 .pknotes{font-size:13px;margin-top:4px;line-height:1.4}
 .pkother{margin:4px 0 0;padding-left:18px;font-size:12px;color:var(--mut)}.pkother li{margin:2px 0}.pkother .badge{font-size:10px;padding:1px 6px}
@@ -472,6 +476,7 @@ html[data-scope="title"] #monboard.watch{box-shadow:inset 0 0 0 1px var(--accent
 #monboard .ldr img,#monboard .ldr .nohs{width:52px;height:52px}
 #monboard .pick{font-size:clamp(16px,2.3vw,24px)}
 #monboard .pkleg{font-size:clamp(18px,2.6vw,28px)}
+#monboard .pkbet b,#monboard .pkodds{font-size:1em}
 #monboard .injrow{font-size:clamp(16px,2.3vw,24px)}
 #monboard .empty{font-size:clamp(18px,2.6vw,28px);color:#f4f7ff;border-color:#3a4d73}
 #monboard .note{color:#d5deee;font-size:clamp(13px,1.8vw,18px)}
@@ -1771,10 +1776,11 @@ function gdInjHTML(d, lg, g){
   const src=[sumT.size?'this game\'s ESPN summary (newest 5 per team)':'', c.at?`ESPN's ${LG[lg].short} injury report (updated ${injWhen(c.at)})`:''].filter(Boolean).join(' + ');
   return `${head}<div class="injteams">${html}</div><div class="note" style="margin-top:4px">From ${src}. Statuses are ESPN's latest${g.state==='post'?' and can postdate this game':''}; "Active" news notes are left out.</div>`;
 }
-function propInjury(l){ // injury warning for a prop leg's player (athleteId from Blitz's leg, else the name before " O "/" U ")
+function propInjury(l){ // injury warning for a prop leg's player (athlete id, else the name on the leg — never the bare "over")
   if(!l || l.market!=='prop' || !LG[l.league]) return '';
-  const name=String(l.selection||l.selectionName||'').split(/\s+(?:[OU]|over|under)\s*[\d.]/i)[0].replace(/\s*\(ESPN athlete \d+\).*$/,'').trim();
-  const e=injFind(l.league, {id:l.athleteId?String(l.athleteId):'', name});
+  const name=propPlayerName(l), id=propAthleteId(l);
+  if(!name && !id) return '';
+  const e=injFind(l.league, {id, name});
   if(!e) return '';
   return `<div class="injwarn" data-propinj="${esc(e.id)}">⚠️ <b>${esc(e.name||name)}</b> is on ESPN's injury report: ${injBadge(e,{type:true})}${e.date?` <span class="note">updated ${esc(injDay(e.date))}</span>`:''}${e.sc?`<div class="ic">${esc(e.sc)}</div>`:''}</div>`;
 }
@@ -3087,7 +3093,7 @@ const VERDICTS = ['Consider','Wait','Pass'];
 const LEGEV = new Map(); // eventId -> normalized event fetched for grading
 
 function legEvent(leg){ if(leg.final) return snapToEvent(leg); return LEGEV.get(leg.eventId) || EVSTORE.get(leg.eventId) || null; }
-function selName(leg){ if(leg.market==='total') return (leg.selection==='under'?'Under':'Over')+(leg.line!=null?' '+leg.line:''); if(leg.market==='prop') return leg.selection||leg.selectionName||'Prop'; return (leg.selectionName||leg.selection)+(leg.market==='spread'&&leg.line!=null?' '+(leg.line>0?'+':'')+leg.line:'')+(leg.market==='moneyline'?' ML':''); }
+function selName(leg){ if(leg.market==='total') return (leg.selection==='under'?'Under':'Over')+(leg.line!=null?' '+leg.line:''); if(leg.market==='prop') return propBetTitle(leg); return (leg.selectionName||leg.selection)+(leg.market==='spread'&&leg.line!=null?' '+(leg.line>0?'+':'')+leg.line:'')+(leg.market==='moneyline'?' ML':''); }
 // Grade one leg. res: won|lost|push|pending|live|manual
 function gradeLeg(leg){
   if(leg.manual) return {res:leg.manual, badge:'MANUAL: '+leg.manual.toUpperCase(), cls:leg.manual==='won'?'b-g':leg.manual==='lost'?'b-r':'b-n'};
@@ -3209,7 +3215,12 @@ function legBadge(l){ // existing gradeLeg(); props stay manual
   if(r.badge==='LOADING') return '';
   return `<span class="badge ${r.cls}" title="${esc(r.note||'')}">${esc(r.badge)}</span>`;
 }
-const legMarket = l=>esc(MARKETS[l.market]||l.market)+(l.market==='prop'&&l.line!=null?' · line '+esc(l.line):'')+(l.odds!=null&&l.odds!==''?' · '+fmtOdds(l.odds):'');
+function pkBetLine(l, g, b){
+  const title=legLabel(l, g);
+  const odds=l.odds!=null&&l.odds!=='' ? l.odds : ((b.legs||[]).length===1 ? b.odds : null);
+  const book=b.book||'';
+  return `<div class="pkbet"><b>${esc(title)}</b>${odds!=null&&odds!==''?`<span class="pkodds">${esc(fmtOdds(odds))}</span>`:''}${book?`<span class="pkbook">${esc(book)}</span>`:''}</div>`;
+}
 function gdPickCard(b, id, g, mine){
   const legs = b.legs||[], hit = legs.filter(l=>evMatch(l,id)), rest = legs.filter(l=>!evMatch(l,id));
   const boosted = b.boosted || /boost/i.test(b.oddsNote||'');
@@ -3219,9 +3230,9 @@ function gdPickCard(b, id, g, mine){
     : `${analystTag(analystOf(b))} <span class="badge ${VCLS[b.verdict]||'b-n'}">${esc((b.verdict||'Consider').toUpperCase())}</span>`;
   return `<div class="pick ${mine?'mybet':'v-'+esc(String(b.verdict||'consider').toLowerCase())}" data-pick="${esc(b.id)}">
     <div class="pktop">${head}<b>${esc(BETTYPES[b.betType]||b.betType)}</b>${legs.length>1?` <span class="badge b-n">Parlay leg (${legs.length} legs, ${fmtOdds(b.odds)})</span>`:''}${gr?` <span class="badge ${gr.cls}" title="Whole ticket">${esc(!mine&&gr.status==='won'?'TICKET WON ✓':(/^TICKET/.test(gr.txt)?'':'TICKET · ')+gr.txt)}</span>`:''}<span class="note">${esc(b.date||'')}${b.source==='sheet'?' · 📄 sheet':' · hub only'}</span></div>
-    ${hit.map(l=>`<div class="pkleg"><b>${esc(legLabel(l,g))}</b><span class="note">${legMarket(l)}</span>${legBadge(l)}</div>${propInjury(l)}`).join('')}
-    ${rest.length?`<ul class="pkother">${rest.map(l=>{ const og=legEvent(l); return `<li>${esc(legLabel(l,og))} <span>· ${legMarket(l)}${l.game?' · '+esc(l.game):''}</span> ${legBadge(l)}${propInjury(l)}</li>`; }).join('')}</ul>`:''}
-    <div class="pkmeta">Odds <b>${fmtOdds(b.odds)}</b>${boosted?' <span class="badge b-gold">🚀 BOOSTED</span>':''} · ${esc(b.book||'—')}${mine&&b.stake!=null?` · Stake <b>${money(+b.stake)}</b>`:''}${b.oddsNote?` <span title="${esc(b.oddsNote)}">· ${esc(b.oddsNote.length>70?b.oddsNote.slice(0,70)+'…':b.oddsNote)}</span>`:''}</div>
+    ${hit.map(l=>`<div class="pkleg">${pkBetLine(l,g,b)}${legBadge(l)}</div>${propInjury(l)}`).join('')}
+    ${rest.length?`<ul class="pkother">${rest.map(l=>{ const og=legEvent(l); return `<li>${pkBetLine(l,og,b)} ${legBadge(l)}${l.game?`<span class="note">${esc(l.game)}</span>`:''}${propInjury(l)}</li>`; }).join('')}</ul>`:''}
+    <div class="pkmeta">${boosted?'<span class="badge b-gold">🚀 BOOSTED</span> ':''}${mine&&b.stake!=null?`Stake <b>${money(+b.stake)}</b> `:''}${legs.length>1?`Ticket <b>${fmtOdds(b.odds)}</b> `:''}${b.oddsNote?`<span title="${esc(b.oddsNote)}">${esc(b.oddsNote.length>90?b.oddsNote.slice(0,90)+'…':b.oddsNote)}</span>`:''}</div>
     ${b.notes?`<div class="pknotes">${esc(b.notes)}</div>`:''}
   </div>`;
 }
@@ -4088,12 +4099,53 @@ function propHit(value, line, side){
   if(side==='plus') return value>=line;
   return value>line;
 }
+const PROP_STAT_SHORT = {pts:'Pts', reb:'Reb', ast:'Ast', stl:'Stl', blk:'Blk', to:'TO', rec:'Rec', passyds:'Pass yds', rushyds:'Rush yds', recyds:'Rec yds', '3pm':'3PT', pra:'PRA', rushrec:'Rush+Rec', td:'TD'};
+function propAthleteId(leg){
+  if(leg&&leg.athleteId) return String(leg.athleteId);
+  const m=/\(ESPN athlete (\d+)\)/i.exec(String((leg&&leg.selectionName)||'')+' '+String((leg&&leg.selection)||''));
+  return m?m[1]:'';
+}
+function propPlayerName(leg){
+  if(!leg) return '';
+  const sn=String(leg.selectionName||'').trim();
+  let m=/^(.*?)\s*\(ESPN athlete \d+\)/i.exec(sn);
+  if(m && m[1].trim() && !/^(over|under)$/i.test(m[1].trim())) return m[1].trim();
+  const sel=String(leg.selection||'').trim();
+  if(sel && !/^(over|under|o|u)$/i.test(sel)){
+    const cut=sel.split(/\s+(?:O|U|over|under)\s*[\d.]/i)[0].replace(/\s*\(ESPN athlete \d+\).*$/i,'').trim();
+    if(cut && !/^(over|under)$/i.test(cut) && /[A-Za-z]/.test(cut)) return cut;
+  }
+  m=/^(.+?)\s+(?:points|rebounds|assists|steals|blocks|turnovers|threes|receptions|rushing|receiving|passing|yards)\b/i.exec(sn);
+  if(m){
+    const name=m[1].replace(/\s*\(ESPN athlete \d+\)/i,'').trim();
+    if(name && !/^(over|under)$/i.test(name)) return name;
+  }
+  return '';
+}
+function propCore(leg){
+  const stat=PROP_STAT_SHORT[propStatKey(leg)]||'';
+  const side=propSide(leg);
+  const line=leg.line;
+  const hasLine=line!=null && line!=='';
+  if(side==='plus' && hasLine) return stat?`${line}+ ${stat}`:`${line}+`;
+  const word=side==='under'?'Under':'Over';
+  if(hasLine && stat) return `${word} ${line} ${stat}`;
+  if(hasLine) return `${word} ${line}`;
+  if(stat) return `${word} ${stat}`;
+  return '';
+}
+function propBetTitle(leg){
+  const player=propPlayerName(leg), core=propCore(leg);
+  if(player && core) return `${player} · ${core}`;
+  if(core) return core;
+  const sn=String((leg&&leg.selectionName)||'').replace(/\s*\(ESPN athlete \d+\)/ig,'').trim();
+  if(sn && !/^(over|under)$/i.test(sn)) return sn;
+  const sel=String((leg&&leg.selection)||'').trim();
+  if(sel && !/^(over|under)$/i.test(sel)) return sel;
+  return 'Prop';
+}
 function propLabel(leg){
-  const key=propStatKey(leg), name=PROP_STAT_LABEL[key], side=propSide(leg), line=leg.line;
-  if(!name) return leg.selectionName||leg.selection||'Prop';
-  if(side==='plus' && line!=null && line!=='') return `${name} ${line}+`;
-  if(line==null || line==='') return name;
-  return `${name} ${side==='under'?'Under':'Over'} ${line}`;
+  return propCore(leg) || propBetTitle(leg);
 }
 function propWhen(bet, leg){
   const ev=propEvent(leg);
