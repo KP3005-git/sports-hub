@@ -404,6 +404,12 @@ th.brsort{cursor:pointer;color:var(--gold2)}
 .pkbook{font-size:.92em;font-weight:800;color:var(--gold2)}
 .pkmeta{font-size:12px;color:var(--mut)}.pkmeta b{color:var(--txt)}
 .pknotes{font-size:13px;margin-top:4px;line-height:1.4}
+.pkhitbtn{display:flex;gap:8px;align-items:flex-start;justify-content:space-between;width:100%;background:none;border:0;color:inherit;font:inherit;text-align:left;padding:2px 0;cursor:pointer}
+.pkhitbtn .pkbet{flex:1}
+.pkprog{display:block;margin-top:2px;font-size:12px;font-weight:700;color:var(--mut)}
+.pkhitmore{border-top:1px dashed var(--line);margin-top:6px;padding-top:6px;font-size:13px}
+.pkhitmore .legline{padding:4px 0;border-top:1px solid var(--line)}
+html.touch .pkhitbtn{min-height:44px}
 .ladderbox{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:0 0 12px;background:var(--card)}
 .ladderbox h3{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .ladderstat{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px;margin:8px 0}
@@ -1888,7 +1894,7 @@ async function renderInjuries(tok, view, force){
 }
 function injRefreshSoon(){ // after a fetch, patch whatever is on screen that shows injuries (no full re-render)
   myInjPatch();
-  if(GD && GD.last){ const {d,lg,g}=GD.last; const el=$('#gdinj'); if(el) el.innerHTML=gdInjHTML(d,lg,g); const pk=$('#gdpicks'); if(pk) pk.innerHTML=gdPicksHTML(g); gdPlayersRender(); }
+  if(GD && GD.last){ const {d,lg,g}=GD.last; const el=$('#gdinj'); if(el) el.innerHTML=gdInjHTML(d,lg,g); const pk=$('#gdpicks'); if(pk) pk.innerHTML=gdPicksHTML(g, d); gdPlayersRender(); }
 }
 
 // ---------------- GAME DETAIL MODAL ----------------
@@ -2170,7 +2176,7 @@ async function openGame(lg, id, opts={}){
       ${np?`<table class="ls"><tr><th></th>${Array.from({length:np},(_,i)=>`<th>${plbl(i)}</th>`).join('')}<th>T</th></tr><tr><td>${esc(g.away.abbr)}</td>${Array.from({length:np},(_,i)=>`<td>${esc(la[i]??'')}</td>`).join('')}<td><b>${g.away.score??''}</b></td></tr><tr><td>${esc(g.home.abbr)}</td>${Array.from({length:np},(_,i)=>`<td>${esc(lh[i]??'')}</td>`).join('')}<td><b>${g.home.score??''}</b></td></tr></table>`:''}
       <div class="toolrow">${g.state!=='post'?`<button class="addslip" data-addslip="${esc(g.id)}" data-lg="${lg}">+ slip</button>`:''}${espnLink?`<a class="btn sm" href="${esc(espnLink)}" target="_blank" rel="noopener noreferrer">Open on ESPN ↗</a>`:''}</div>
       <div id="gdladder">${ladderSectionHTML(g)}</div>
-      <div id="gdpicks">${gdPicksHTML(g)}</div>
+      <div id="gdpicks">${gdPicksHTML(g, d)}</div>
       <div id="gdinj">${gdInjHTML(d, lg, g)}</div>
       ${gdWinProb(d, g)}
       <div class="gdcols"><div>${gdLeaders(d, g)}</div><div>${gdTeamStats(d, g)}</div></div>
@@ -2185,7 +2191,7 @@ async function openGame(lg, id, opts={}){
     if(g.state==='in' || (g.state==='pre' && +g.date<=Date.now())) me.timer=setTimeout(()=>{ if(GD===me){ if(DRAG) return; openGame(lg,id,{refresh:true}); } }, GD_REFRESH_MS);
     me.data={groups:groups.length, state:g.state};
     { const c=INJ[lg]; if(!c || !c.tried || Date.now()-Date.parse(c.tried)>=(c.err?INJ_RETRY:INJ_TTL)) injEnsure([lg]).then(()=>{ if(GD===me) injRefreshSoon(); }); }
-    syncSheet().then(()=>gdLoadPickLegs(id)).then(()=>{ if(GD!==me) return; const el=$('#gdpicks'); if(el) el.innerHTML=gdPicksHTML(g); const lad=$('#gdladder'); if(lad) lad.innerHTML=ladderSectionHTML(g); }).catch(()=>{});   // throttled (20 s); picks update in place
+    syncSheet().then(()=>gdLoadPickLegs(id)).then(()=>{ if(GD!==me) return; const el=$('#gdpicks'); if(el) el.innerHTML=gdPicksHTML(g, me.last&&me.last.d); const lad=$('#gdladder'); if(lad) lad.innerHTML=ladderSectionHTML(g); }).catch(()=>{});   // throttled (20 s); picks update in place
   }catch(e){ if(GD===me) $('#gdbody').innerHTML=`<div class="empty">Could not load this game from ESPN (${esc(e.message)}).</div>`; }
 }
 document.addEventListener('keydown', e=>{
@@ -3254,13 +3260,200 @@ function legBadge(l){ // existing gradeLeg(); props stay manual
   if(r.badge==='LOADING') return '';
   return `<span class="badge ${r.cls}" title="${esc(r.note||'')}">${esc(r.badge)}</span>`;
 }
+const HIT_OPEN=new Set();
+function hitNum(n){ if(!Number.isFinite(+n)) return ''; const r=Math.round(+n*10)/10; return Math.abs(r-Math.round(r))<0.05?String(Math.round(r)):String(r); }
+function hitSheet(bet){
+  const o=String(bet&&bet.resultOverride||'').toLowerCase();
+  if(o==='won') return {chip:'Hit ✓', cls:'b-g', progress:'', detail:'', locked:true, sheet:true};
+  if(o==='lost') return {chip:'Miss', cls:'b-r', progress:'', detail:'', locked:true, sheet:true};
+  if(o==='push') return {chip:'Push', cls:'b-n', progress:'', detail:'', locked:true, sheet:true};
+  if(o==='void') return {chip:'Void', cls:'b-n', progress:'', detail:'', locked:true, sheet:true};
+  return null;
+}
+function hitLabelNum(labels, stats, names){
+  const labs=(labels||[]).map(x=>String(x||'').toUpperCase().replace(/\s+/g,''));
+  for(const name of names){
+    const i=labs.indexOf(name);
+    if(i<0 || !stats || stats[i]==null || stats[i]==='') continue;
+    const raw=String(stats[i]).replace(/,/g,'');
+    const made=/^(-?\d+(?:\.\d+)?)(?:\s*[-/]\s*\d+(?:\.\d+)?)?/.exec(raw);
+    if(made) return parseFloat(made[1]);
+  }
+  return null;
+}
+function hitPlayerName(leg){
+  return String(propPlayerName(leg)||'').replace(/\s+(?:over|under)\s*[\d.].*$/i,'').replace(/\s+[ou]\s*[\d.].*$/i,'').trim();
+}
+function hitFindAthlete(sum, leg){
+  const id=propAthleteId(leg), name=normName(hitPlayerName(leg));
+  const players=((sum&&sum.boxscore)||{}).players||[];
+  let byId=null, byName=null; const seen=new Set();
+  for(const side of players){
+    for(const cat of (side.statistics||[])){
+      for(const a of (cat.athletes||[])){
+        const ath=a.athlete||{};
+        const aid=String(ath.id||'');
+        if(id && aid===String(id)){ byId={a, cat, id:aid}; }
+        if(name && normName(ath.displayName||ath.shortName||'')===name){
+          const key=aid||ath.displayName;
+          if(!seen.has(key)){ seen.add(key); byName={a, cat, id:aid}; }
+        }
+      }
+    }
+  }
+  if(byId) return byId;
+  if(seen.size>1) return {ambiguous:true};
+  return byName;
+}
+function hitStat(sum, leg){
+  const key=propStatKey(leg);
+  if(!key) return {none:true};
+  const found=hitFindAthlete(sum, leg);
+  if(!found) return {missing:true};
+  if(found.ambiguous) return {missing:true};
+  const want={
+    pts:['PTS'], reb:['REB'], ast:['AST'], stl:['STL'], blk:['BLK'], to:['TO'],
+    '3pm':['3PT','3P','3PM'], rec:['REC'], passyds:['YDS'], rushyds:['YDS'], recyds:['YDS'], td:['TD']
+  };
+  const group={passyds:/pass/i, rushyds:/rush/i, recyds:/receiv|rec\b/i, rec:/receiv|rec\b/i};
+  const cats=[];
+  const players=((sum.boxscore||{}).players||[]);
+  for(const side of players){
+    for(const cat of (side.statistics||[])){
+      const a=(cat.athletes||[]).find(x=>x.athlete && String(x.athlete.id)===found.id);
+      if(!a) continue;
+      cats.push({cat, a});
+    }
+  }
+  if(!cats.length) return {missing:true};
+  const dnp=cats.every(x=>x.a.didNotPlay);
+  const pick=list=>{
+    const re=group[key];
+    const pool=re?list.filter(x=>re.test(String(x.cat.name||'')+' '+String(x.cat.text||''))):list;
+    for(const x of (pool.length?pool:[])){
+      const n=hitLabelNum(x.cat.labels||x.cat.names, x.a.stats, want[key]||[]);
+      if(n!=null) return {value:n, cat:x.cat, a:x.a};
+    }
+    return null;
+  };
+  if(key==='pra'){
+    const pts=pick([{cat:cats[0].cat, a:cats[0].a}].concat(cats));
+    const one=(k)=>{ const w={pts:['PTS'],reb:['REB'],ast:['AST']}[k]; for(const x of cats){ const n=hitLabelNum(x.cat.labels||x.cat.names, x.a.stats, w); if(n!=null) return n; } return null; };
+    const p=one('pts'), r=one('reb'), a=one('ast');
+    if(p==null||r==null||a==null) return {missing:true, a:cats[0].a, cat:cats[0].cat};
+    return {value:p+r+a, a:cats[0].a, cat:cats[0].cat, dnp};
+  }
+  if(key==='td' && /anytime|first_td|touchdown/.test(String(leg.propType||'')+' '+String(leg.selectionName||''))){
+    let tds=0, any=false;
+    for(const x of cats){
+      const n=hitLabelNum(x.cat.labels||x.cat.names, x.a.stats, ['TD']);
+      if(n!=null){ tds+=n; any=true; }
+    }
+    if(!any) return {missing:true, a:cats[0].a, cat:cats[0].cat};
+    return {value:tds, a:cats[0].a, cat:cats[0].cat, dnp};
+  }
+  const got=pick(cats);
+  if(!got) return {missing:true, a:cats[0].a, cat:cats[0].cat, dnp};
+  return Object.assign({dnp}, got);
+}
+function hitBoxLine(a, cat){
+  if(!a||!cat) return '';
+  const labels=cat.labels||cat.names||[], stats=a.stats||[];
+  const keep=['MIN','PTS','REB','AST','3PT','STL','BLK','TO','YDS','TD','REC','CAR','C/ATT'];
+  const bits=[];
+  labels.forEach((lab,i)=>{ const u=String(lab||'').toUpperCase(); if(keep.includes(u) && stats[i]!=null && stats[i]!=='') bits.push(u+' '+stats[i]); });
+  return bits.slice(0,6).join(' · ');
+}
+function hitCount(value, line, side, final){
+  const ln=+line;
+  if(value==null || !Number.isFinite(ln)) return null;
+  const over=side!=='under';
+  const cleared=side==='plus'?value>=ln:over?value>ln:false;
+  const busted=!over && value>ln;
+  if(cleared) return {chip:'Hit ✓', cls:'b-g', locked:true};
+  if(busted) return {chip:'Missed', cls:'b-r', locked:true};
+  if(final){
+    if(value===ln) return {chip:'Push', cls:'b-n', locked:true};
+    return over?{chip:'Miss', cls:'b-r', locked:true}:{chip:'Hit ✓', cls:'b-g', locked:true};
+  }
+  if(!over) return {chip:'Hitting', cls:'b-g', locked:false};
+  const more=Math.max(0, ln-value);
+  return {chip: more>0 && more<=30 ? 'Needs '+hitNum(more)+' more' : 'Not hitting', cls:'b-a', locked:false};
+}
+function hitAssess(leg, g, sum){
+  const blank={chip:'Pending', cls:'b-n', progress:'', detail:'', box:'', locked:false};
+  if(!leg) return blank;
+  const final=g&&g.state==='post';
+  const live=g&&g.state==='in';
+  const started=final||live;
+  if(!started) return blank;
+  if(leg.market==='prop'){
+    const st=hitStat(sum, leg);
+    const side=propSide(leg), line=leg.line, who=hitPlayerName(leg)||'Player', short=PROP_STAT_SHORT[propStatKey(leg)]||'';
+    const value=st&&st.value==null&&st.dnp?0:st&&st.value;
+    if(!propStatKey(leg) || !st || st.none || st.missing&&value==null || value==null){
+      return {chip:"Can't track live", cls:'b-n', progress:"Can't track live", detail:propCore(leg)||propBetTitle(leg), box:st&&st.a?hitBoxLine(st.a, st.cat):'', locked:false};
+    }
+    const cmp=hitCount(value, line, side, final);
+    const progress=`${who} ${hitNum(value)} / ${hitNum(line)}${short?' '+short:''}`;
+    return Object.assign({progress, detail:progress, box:hitBoxLine(st.a, st.cat)}, cmp||blank);
+  }
+  if(!g || g.home.score==null || g.away.score==null) return Object.assign({}, blank, {chip: started?"Can't track live":'Pending', progress: started?"Can't track live":''});
+  if(leg.market==='total'){
+    const tot=g.home.score+g.away.score, side=String(leg.selection||'over').toLowerCase()==='under'?'under':'over';
+    const cmp=hitCount(tot, leg.line, side, final);
+    const progress=`Total ${tot} / ${hitNum(leg.line)}`;
+    return Object.assign({progress, detail:progress, box:''}, cmp||blank);
+  }
+  const team=[g.home,g.away].find(t=>t&&String(t.id)===String(leg.selection));
+  if(!team) return {chip:"Can't track live", cls:'b-n', progress:"Can't track live", detail:'', box:'', locked:false};
+  const opp=team===g.home?g.away:g.home, diff=team.score-opp.score;
+  const lead=diff>0?`${team.abbr} leads by ${diff}`:diff<0?`${team.abbr} trails by ${-diff}`:`Tied ${team.score}–${opp.score}`;
+  if(leg.market==='spread'){
+    const metric=diff+(+leg.line||0);
+    let cmp;
+    if(final) cmp=metric>0?{chip:'Hit ✓', cls:'b-g', locked:true}:metric<0?{chip:'Miss', cls:'b-r', locked:true}:{chip:'Push', cls:'b-n', locked:true};
+    else if(metric>0) cmp={chip:'Hitting', cls:'b-g', locked:false};
+    else if(metric<0) cmp={chip:'Needs '+hitNum(-metric)+' more', cls:'b-a', locked:false};
+    else cmp={chip:'Not hitting', cls:'b-a', locked:false};
+    const progress=`${lead} (${(+leg.line>0?'+':'')+hitNum(leg.line)})`;
+    return Object.assign({progress, detail:progress, box:''}, cmp);
+  }
+  let cmp;
+  if(final) cmp=diff>0?{chip:'Hit ✓', cls:'b-g', locked:true}:diff<0?{chip:'Miss', cls:'b-r', locked:true}:{chip:'Push', cls:'b-n', locked:true};
+  else if(diff>0) cmp={chip:'Hitting', cls:'b-g', locked:false};
+  else cmp={chip:'Not hitting', cls:'b-r', locked:false};
+  return Object.assign({progress:lead, detail:lead+' · '+team.abbr+' ML', box:''}, cmp);
+}
+function hitChip(leg, g, sum, bet){
+  const sheet=(bet&&(bet.legs||[]).length<=1)?hitSheet(bet):null;
+  const live=hitAssess(leg, g, sum);
+  if(sheet){
+    const tracked=live.progress && live.progress!=="Can't track live";
+    return Object.assign({}, live, sheet, {progress:tracked?live.progress:'', detail:tracked?live.detail:(live.detail&&live.detail!=="Can't track live"?live.detail:''), box:tracked?live.box:live.box});
+  }
+  return live;
+}
+function hitMoreHTML(b, legs, g, sum){
+  const sheet=hitSheet(b);
+  const lines=legs.map(l=>{
+    const ev=evMatch(l, g&&g.id)?g:legEvent(l);
+    const useSum=ev&&g&&String(ev.id)===String(g.id)?sum:null;
+    const h=hitChip(l, ev, useSum, (b.legs||[]).length<=1?b:null);
+    const odds=l.odds!=null&&l.odds!==''?fmtOdds(l.odds):(b.odds!=null?fmtOdds(b.odds):'—');
+    const side=l.market==='prop'?propCore(l):l.market==='total'?(String(l.selection||'over')+' '+hitNum(l.line)):legLabel(l, ev);
+    return `<div class="legline"><div><b>${esc(side)}</b> · ${esc(odds)} <span class="badge ${h.cls}">${esc(h.chip)}</span></div><div>${esc(h.detail||h.progress||'')}</div>${h.box?`<div class="note">${esc(h.box)}</div>`:''}</div>`;
+  }).join('');
+  const graded=sheet&&b.gradedAt?`<div class="note">Sheet result · graded ${esc(fmtStamp(b.gradedAt))}</div>`:(sheet?'<div class="note">Sheet result</div>':'');
+  return lines+graded;
+}
 function pkBetLine(l, g, b){
   const title=legLabel(l, g);
   const odds=l.odds!=null&&l.odds!=='' ? l.odds : ((b.legs||[]).length===1 ? b.odds : null);
   const book=b.book||'';
   return `<div class="pkbet"><b>${esc(title)}</b>${odds!=null&&odds!==''?`<span class="pkodds">${esc(fmtOdds(odds))}</span>`:''}${book?`<span class="pkbook">${esc(book)}</span>`:''}</div>`;
 }
-function gdPickCard(b, id, g, mine){
+function gdPickCard(b, id, g, mine, sum){
   const legs = b.legs||[], hit = legs.filter(l=>evMatch(l,id)), rest = legs.filter(l=>!evMatch(l,id));
   const boosted = b.boosted || /boost/i.test(b.oddsNote||'');
   const gr = legs.length>1 ? gradeBet(b) : null;
@@ -3268,10 +3461,18 @@ function gdPickCard(b, id, g, mine){
     ? `<span class="badge b-gold">YOUR BET</span>${b.demo?' <span class="demo-ribbon">DEMO</span>':''}`
     : `${analystTag(analystOf(b))} <span class="badge ${VCLS[b.verdict]||'b-n'}">${esc((b.verdict||'Consider').toUpperCase())}</span>`;
   const lad=ladderTag(b);
+  const row=(l,i)=>{
+    const ev=evMatch(l,id)?g:legEvent(l);
+    const useSum=ev&&g&&String(ev.id)===String(g.id)?sum:null;
+    const h=hitChip(l, ev, useSum, legs.length<=1?b:null);
+    const key=b.id+'|'+i;
+    const open=HIT_OPEN.has(key);
+    return `<div class="pkleg"><button type="button" class="pkhitbtn" data-hitopen="${esc(key)}" aria-expanded="${open?'true':'false'}"><div style="flex:1;min-width:0">${pkBetLine(l, ev||g, b)}${h.progress?`<span class="pkprog">${esc(h.progress)}</span>`:''}</div><span class="badge ${h.cls}">${esc(h.chip)}</span></button>${propInjury(l)}<div class="pkhitmore"${open?'':' hidden'}>${hitMoreHTML(b, legs, g, sum)}</div></div>`;
+  };
   return `<div class="pick ${mine?'mybet':'v-'+esc(String(b.verdict||'consider').toLowerCase())}" data-pick="${esc(b.id)}">
     <div class="pktop">${head}<b>${esc(BETTYPES[b.betType]||b.betType)}</b>${lad?` ${lad}`:''}${legs.length>1?` <span class="badge b-n">Parlay leg (${legs.length} legs, ${fmtOdds(b.odds)})</span>`:''}${gr?` <span class="badge ${gr.cls}" title="Whole ticket">${esc(!mine&&gr.status==='won'?'TICKET WON ✓':(/^TICKET/.test(gr.txt)?'':'TICKET · ')+gr.txt)}</span>`:''}<span class="note">${esc(b.date||'')}${b.source==='sheet'?' · 📄 sheet':b.source==='demo'?' · demo':' · hub only'}</span></div>
-    ${hit.map(l=>`<div class="pkleg">${pkBetLine(l,g,b)}${legBadge(l)}</div>${propInjury(l)}`).join('')}
-    ${rest.length?`<ul class="pkother">${rest.map(l=>{ const og=legEvent(l); return `<li>${pkBetLine(l,og,b)} ${legBadge(l)}${l.game?`<span class="note">${esc(l.game)}</span>`:''}${propInjury(l)}</li>`; }).join('')}</ul>`:''}
+    ${hit.map(row).join('')||rest.map(row).join('')}
+    ${hit.length&&rest.length?`<div class="note">Other legs</div>${rest.map((l,i)=>row(l, hit.length+i)).join('')}`:''}
     <div class="pkmeta">${boosted?'<span class="badge b-gold">🚀 BOOSTED</span> ':''}${mine&&b.stake!=null?`Stake <b>${money(+b.stake)}</b> `:''}${legs.length>1?`Ticket <b>${fmtOdds(b.odds)}</b> `:''}${b.oddsNote?`<span title="${esc(b.oddsNote)}">${esc(b.oddsNote.length>90?b.oddsNote.slice(0,90)+'…':b.oddsNote)}</span>`:''}</div>
     ${b.notes?`<div class="pknotes">${esc(b.notes)}</div>`:''}
   </div>`;
@@ -3283,7 +3484,7 @@ async function gdLoadPickLegs(id){ // other legs of parlays on this game: fetch 
   await Promise.all(uniq.map(async l=>{ try{ const g=await summaryEvent(l.league, l.eventId); if(g) LEGEV.set(String(l.eventId), g); }catch(_){ } }));
   return true;
 }
-function gdPicksHTML(g){
+function gdPicksHTML(g, sum){
   const id = String(g.id), ord = b=>[VERDICTS.indexOf(b.verdict)<0?9:VERDICTS.indexOf(b.verdict), (b.legs||[]).length>1?1:0];
   const recs = betsForEvent(DATA.recommendations, id).sort((a,b)=>{ const x=ord(a), y=ord(b); return x[0]-y[0] || x[1]-y[1]; });
   const placed = betsForEvent(DATA.placedBets, id);
@@ -3292,8 +3493,8 @@ function gdPicksHTML(g){
     ? `<div class="syncbar warn pkhint">⚠ Couldn't load the Picks Desk sheet. Share it by link (Viewer) so picks show up.${st.at?` <span class="note">Showing cached picks from ${esc(fmtStamp(st.at))}.</span>`:''} <a href="${esc(sheetURL())}" target="_blank" rel="noopener">Open sheet ↗</a></div>` : '';
   const ans=analystsIn(recs);
   return `<h3 class="gdh" id="gdpickh" title="Picks Desk: Blitz (football) &amp; Court (basketball)">🎯 Picks Desk <span class="note" style="letter-spacing:0;text-transform:none">${recs.length?`${esc(ans.join(' & '))} · ${recs.length} on this game`:'Blitz &amp; Court'}</span></h3>${hint}
-    ${recs.length?`<div class="pklist">${recs.map(b=>gdPickCard(b,id,g,false)).join('')}</div>`:'<div class="empty">No Picks Desk picks (Blitz &amp; Court) for this game.</div>'}
-    ${placed.length?`<h3 class="gdh">🎟️ Your bets</h3><div class="pklist">${placed.map(b=>gdPickCard(b,id,g,true)).join('')}</div>`:''}`;
+    ${recs.length?`<div class="pklist">${recs.map(b=>gdPickCard(b,id,g,false,sum)).join('')}</div>`:'<div class="empty">No Picks Desk picks (Blitz &amp; Court) for this game.</div>'}
+    ${placed.length?`<h3 class="gdh">🎟️ Your bets</h3><div class="pklist">${placed.map(b=>gdPickCard(b,id,g,true,sum)).join('')}</div>`:''}`;
 }
 
 // ---------------- FETCH LEG GAMES ----------------
@@ -5212,7 +5413,7 @@ function monPanelHTML(id, g, d){
   if(id==='stats') return d?(gdTeamStats(d, g)||'<div class="empty">No team stats yet.</div>'):'<div class="empty">Loading team stats…</div>';
   if(id==='leaders') return d?(gdLeaders(d, g)||'<div class="empty">No leaders yet.</div>'):'<div class="empty">Loading leaders…</div>';
   if(id==='win') return d?(gdWinProb(d, g)||'<div class="empty">ESPN has no win probability for this game.</div>'):'<div class="empty">Loading win probability…</div>';
-  if(id==='picks') return gdPicksHTML(g);
+  if(id==='picks') return gdPicksHTML(g, MON.sums.get(g.lg+'|'+g.id)||null);
   if(id==='fantasy') return monFantasyHTML(g, d)||'<div class="empty">No fantasy players in this game.</div>';
   if(id==='inj') return d?gdInjHTML(d, g.lg, g):'<div class="empty">Loading injuries…</div>';
   if(id==='clips') return monClipsHTML(g, d)||'<div class="empty">No public ESPN clip on this game yet.</div>';
@@ -5432,6 +5633,15 @@ document.addEventListener('click', async ev=>{
   if((v=a('mv'))!==null){ moveItem(t.closest('[data-mv]'), +v); return; }
   if(t.id==='gdmodal' && GD && Date.now()-(GD.openedAt||0)<450) return;   // the 2nd tap of a quick double-tap must not close what the 1st opened
   if(t.id==='gdmodal' || t.closest('[data-gdclose="x"]')){ closeGame(); return; }
+  if((v=a('hitopen'))!==null){
+    ev.preventDefault();
+    if(HIT_OPEN.has(v)) HIT_OPEN.delete(v); else HIT_OPEN.add(v);
+    const btn=t.closest('[data-hitopen]');
+    const more=btn&&btn.parentElement&&btn.parentElement.querySelector(':scope > .pkhitmore');
+    if(btn) btn.setAttribute('aria-expanded', HIT_OPEN.has(v)?'true':'false');
+    if(more) more.hidden=!HIT_OPEN.has(v);
+    return;
+  }
   if((v=a('gd'))!==null){ ev.preventDefault(); return openGame(t.closest('[data-gd]').dataset.lg, v); }
   if((v=a('br'))!==null && TAB==='blitz'){ const [k,x]=v.split(':'); pref.set('br.'+k,x); return renderBlitzRecordView($('#view')); }
   if(a('brsort') && TAB==='blitz'){ pref.set('br.sort', pref.get('br.sort','desc')==='desc'?'asc':'desc'); return renderBlitzRecordView($('#view')); }
