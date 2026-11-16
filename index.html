@@ -77,6 +77,7 @@ html[data-scope="title"] .mondots span.on{box-shadow:0 0 8px rgb(var(--tint-rgb)
 html[data-scope="title"] .brsep{border-color:var(--gold)}
 html[data-scope="title"] .row .ml.fav,html[data-scope="title"] .gdwho .ml.fav,html[data-scope="title"] .mongame .note .ml.fav,html[data-scope="title"] .monmeta .ml.fav{color:var(--txt)}
 html[data-scope="title"] .b-cup{background:transparent;color:var(--txt);border-color:var(--line)}
+html[data-scope="title"] .b-ladder{background:transparent;color:var(--txt);border-color:var(--line)}
 html[data-scope="title"] .g.watch{animation:none;box-shadow:0 0 0 1px var(--accent-fill)}
 html[data-scope="title"] .watchpill b{background:transparent;color:var(--txt);border:1px solid var(--line)}
 html[data-scope="title"] .proptag{background:transparent;color:var(--txt);border:1px solid var(--line)}
@@ -117,6 +118,9 @@ h3{font-size:13px;letter-spacing:2px;color:var(--gold2);margin:16px 0 8px;text-t
 .badge{font-size:11px;font-weight:900;letter-spacing:1px;padding:3px 8px;border-radius:999px;white-space:nowrap;display:inline-block}
 .b-g{background:var(--green);color:#03140a}.b-r{background:var(--red);color:#fff}.b-n{background:#2a3a5c;color:#cfd8ea}.b-gold{background:var(--accent-fill);color:var(--accent-ink)}.b-a{background:var(--amber);color:#1a0d00}.b-b{background:var(--blue);color:#fff}
 .b-cup{background:#3a3424;color:#E7D7B1;border:1px solid #8a7a55}
+.b-ladder{background:#12343a;color:#d7fff6;border:1px solid #3d8f86;letter-spacing:.2px;white-space:normal;text-align:left;line-height:1.3;cursor:pointer;font-family:inherit}
+.b-ladder:hover{filter:brightness(1.12)}
+html.touch .b-ladder{min-height:32px;padding:6px 10px}
 .tstat{font-size:18px;font-weight:900;padding:6px 14px;border-radius:10px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px}
 .g{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px;position:relative}
@@ -400,6 +404,16 @@ th.brsort{cursor:pointer;color:var(--gold2)}
 .pkbook{font-size:.92em;font-weight:800;color:var(--gold2)}
 .pkmeta{font-size:12px;color:var(--mut)}.pkmeta b{color:var(--txt)}
 .pknotes{font-size:13px;margin-top:4px;line-height:1.4}
+.ladderbox{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:0 0 12px;background:var(--card)}
+.ladderbox h3{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ladderstat{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px;margin:8px 0}
+@media(min-width:700px){.ladderstat{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.ladderstat span{display:block}
+.ladderstat b{display:block;font-size:18px;font-variant-numeric:tabular-nums}
+.ladderrung{display:flex;gap:8px;justify-content:space-between;align-items:baseline;padding:7px 0;border-top:1px solid var(--line);font-size:13px}
+.ladderrung .lh{flex:1;min-width:0}
+.ladderrung .lh b{display:block}
+.ladderrung.on{margin:0 -8px;padding-left:8px;padding-right:8px;border-radius:8px;background:rgb(255 255 255 / .04)}
 .pkother{margin:4px 0 0;padding-left:18px;font-size:12px;color:var(--mut)}.pkother li{margin:2px 0}.pkother .badge{font-size:10px;padding:1px 6px}
 .play.sc{background:rgb(var(--tint-rgb) / .08);border-left:3px solid var(--gold)}.pclk{color:var(--mut);font-variant-numeric:tabular-nums}.pscore{font-weight:800;white-space:nowrap}
 .ibadge{font-size:11px;font-weight:900;letter-spacing:.5px;padding:2px 7px;border-radius:999px;white-space:nowrap;display:inline-block;vertical-align:middle}
@@ -716,7 +730,13 @@ function normalizeData(d){
   try{ if(!localStorage.getItem('sportsHub.mig.cbbPurdue')){ if(!f.myTeams.cbb.some(t=>String(t.id)==='2509')) f.myTeams.cbb.push({id:'2509',name:'Purdue Boilermakers',abbr:'PUR'}); localStorage.setItem('sportsHub.mig.cbbPurdue','1'); try{ localStorage.setItem(KEY, JSON.stringify(f)); }catch(_){} } }catch(_){}
   return f;
 }
-function saveData(d=DATA){ try{ localStorage.setItem(KEY, JSON.stringify(d)); }catch(e){ showErr('Could not save to localStorage: '+e.message); } }
+function saveData(d=DATA){
+  try{
+    const copy=JSON.parse(JSON.stringify(d));
+    if(copy){ copy.placedBets=(copy.placedBets||[]).filter(b=>b.source!=='demo'); copy.recommendations=(copy.recommendations||[]).filter(b=>b.source!=='demo'); }
+    localStorage.setItem(KEY, JSON.stringify(copy));
+  }catch(e){ showErr('Could not save to localStorage: '+e.message); }
+}
 const pref = { get:(k,def)=>{try{const v=localStorage.getItem('sportsHub.'+k);return v==null?def:v;}catch(_){return def;}}, set:(k,v)=>{try{localStorage.setItem('sportsHub.'+k,v);}catch(_){}} };
 
 // ---------------- HELPERS ----------------
@@ -1084,7 +1104,7 @@ function gameCard(g, opts={}){
   if(close) tags+=`<span class="badge b-a">CLOSE GAME · ${esc(periodTxt(g).toUpperCase())}</span>`;
   if(g.sit && g.sit.rz && g.state==='in') tags+=`<span class="badge b-r">RED ZONE</span>`;
   tags += opts.extraTags||'';
-  if(!opts.noPicks) tags = pickChip(g.id, g.lg) + tags;
+  if(!opts.noPicks) tags = pickChip(g.id, g.lg) + ladderBadge(g.id, g.lg) + tags;
   const sit = g.state==='in'&&g.sit&&g.sit.dd?`<div class="sit">${esc(g.sit.dd)}</div>`:'';
   const top = opts.showLg||g.note ? `<div class="lgtag"><span>${opts.showLg?esc(LG[g.lg].icon+' '+LG[g.lg].short):''}</span><span>${esc(g.note)}</span></div>`:'';
   return `<div class="${cls}" data-ev="${esc(g.id)}" data-lg="${g.lg}"${opts.noPicks?' data-nopicks="1"':''}>
@@ -2132,6 +2152,7 @@ async function openGame(lg, id, opts={}){
       ${sit?`<div class="gdsit" id="gdsit">${sit.dd?`<div><span class="note">Situation</span><b>${esc(sit.dd)}</b>${sit.rz?' <span class="badge b-r">RED ZONE</span>':''}</div>`:''}${sit.poss&&isFootball(lg)?`<div><span class="note">Possession</span><b>${esc(sit.poss.name)}</b></div>`:''}${sit.last?`<div class="lp"><span class="note">Last play</span>${esc(sit.last)}</div>`:''}</div>`:''}
       ${np?`<table class="ls"><tr><th></th>${Array.from({length:np},(_,i)=>`<th>${plbl(i)}</th>`).join('')}<th>T</th></tr><tr><td>${esc(g.away.abbr)}</td>${Array.from({length:np},(_,i)=>`<td>${esc(la[i]??'')}</td>`).join('')}<td><b>${g.away.score??''}</b></td></tr><tr><td>${esc(g.home.abbr)}</td>${Array.from({length:np},(_,i)=>`<td>${esc(lh[i]??'')}</td>`).join('')}<td><b>${g.home.score??''}</b></td></tr></table>`:''}
       <div class="toolrow">${g.state!=='post'?`<button class="addslip" data-addslip="${esc(g.id)}" data-lg="${lg}">+ slip</button>`:''}${espnLink?`<a class="btn sm" href="${esc(espnLink)}" target="_blank" rel="noopener noreferrer">Open on ESPN ↗</a>`:''}</div>
+      <div id="gdladder">${ladderSectionHTML(g)}</div>
       <div id="gdpicks">${gdPicksHTML(g)}</div>
       <div id="gdinj">${gdInjHTML(d, lg, g)}</div>
       ${gdWinProb(d, g)}
@@ -2147,7 +2168,7 @@ async function openGame(lg, id, opts={}){
     if(g.state==='in' || (g.state==='pre' && +g.date<=Date.now())) me.timer=setTimeout(()=>{ if(GD===me){ if(DRAG) return; openGame(lg,id,{refresh:true}); } }, GD_REFRESH_MS);
     me.data={groups:groups.length, state:g.state};
     { const c=INJ[lg]; if(!c || !c.tried || Date.now()-Date.parse(c.tried)>=(c.err?INJ_RETRY:INJ_TTL)) injEnsure([lg]).then(()=>{ if(GD===me) injRefreshSoon(); }); }
-    syncSheet().then(()=>gdLoadPickLegs(id)).then(()=>{ if(GD!==me) return; const el=$('#gdpicks'); if(el) el.innerHTML=gdPicksHTML(g); }).catch(()=>{});   // throttled (20 s); picks update in place
+    syncSheet().then(()=>gdLoadPickLegs(id)).then(()=>{ if(GD!==me) return; const el=$('#gdpicks'); if(el) el.innerHTML=gdPicksHTML(g); const lad=$('#gdladder'); if(lad) lad.innerHTML=ladderSectionHTML(g); }).catch(()=>{});   // throttled (20 s); picks update in place
   }catch(e){ if(GD===me) $('#gdbody').innerHTML=`<div class="empty">Could not load this game from ESPN (${esc(e.message)}).</div>`; }
 }
 document.addEventListener('keydown', e=>{
@@ -3203,6 +3224,7 @@ function refreshPickChips(){ // patch chips in place after a sheet sync (no re-r
     if(!tags){ const foot=card.querySelector(':scope > .foot'); if(!foot) return; foot.insertAdjacentHTML('beforebegin','<div class="tags"></div>'); tags=card.querySelector(':scope > .tags'); }
     tags.insertAdjacentHTML('afterbegin', html);
   });
+  refreshLadderBadges();
 }
 function legLabel(l, g){ // selName(), but fills a team name from the game when the sheet row only has the ESPN team id
   let nm = l.selectionName;
@@ -3228,8 +3250,9 @@ function gdPickCard(b, id, g, mine){
   const head = mine
     ? `<span class="badge b-gold">YOUR BET</span>${b.demo?' <span class="demo-ribbon">DEMO</span>':''}`
     : `${analystTag(analystOf(b))} <span class="badge ${VCLS[b.verdict]||'b-n'}">${esc((b.verdict||'Consider').toUpperCase())}</span>`;
+  const lad=ladderTag(b);
   return `<div class="pick ${mine?'mybet':'v-'+esc(String(b.verdict||'consider').toLowerCase())}" data-pick="${esc(b.id)}">
-    <div class="pktop">${head}<b>${esc(BETTYPES[b.betType]||b.betType)}</b>${legs.length>1?` <span class="badge b-n">Parlay leg (${legs.length} legs, ${fmtOdds(b.odds)})</span>`:''}${gr?` <span class="badge ${gr.cls}" title="Whole ticket">${esc(!mine&&gr.status==='won'?'TICKET WON ✓':(/^TICKET/.test(gr.txt)?'':'TICKET · ')+gr.txt)}</span>`:''}<span class="note">${esc(b.date||'')}${b.source==='sheet'?' · 📄 sheet':' · hub only'}</span></div>
+    <div class="pktop">${head}<b>${esc(BETTYPES[b.betType]||b.betType)}</b>${lad?` ${lad}`:''}${legs.length>1?` <span class="badge b-n">Parlay leg (${legs.length} legs, ${fmtOdds(b.odds)})</span>`:''}${gr?` <span class="badge ${gr.cls}" title="Whole ticket">${esc(!mine&&gr.status==='won'?'TICKET WON ✓':(/^TICKET/.test(gr.txt)?'':'TICKET · ')+gr.txt)}</span>`:''}<span class="note">${esc(b.date||'')}${b.source==='sheet'?' · 📄 sheet':b.source==='demo'?' · demo':' · hub only'}</span></div>
     ${hit.map(l=>`<div class="pkleg">${pkBetLine(l,g,b)}${legBadge(l)}</div>${propInjury(l)}`).join('')}
     ${rest.length?`<ul class="pkother">${rest.map(l=>{ const og=legEvent(l); return `<li>${pkBetLine(l,og,b)} ${legBadge(l)}${l.game?`<span class="note">${esc(l.game)}</span>`:''}${propInjury(l)}</li>`; }).join('')}</ul>`:''}
     <div class="pkmeta">${boosted?'<span class="badge b-gold">🚀 BOOSTED</span> ':''}${mine&&b.stake!=null?`Stake <b>${money(+b.stake)}</b> `:''}${legs.length>1?`Ticket <b>${fmtOdds(b.odds)}</b> `:''}${b.oddsNote?`<span title="${esc(b.oddsNote)}">${esc(b.oddsNote.length>90?b.oddsNote.slice(0,90)+'…':b.oddsNote)}</span>`:''}</div>
@@ -3419,7 +3442,7 @@ function betRow(b){
   const legTxt = b.legs.map(l=>`${esc(l.game||'—')}`).join('<br>'), mk=b.legs.map(l=>esc(MARKETS[l.market]||l.market)).join('<br>'), sel=b.legs.map(l=>esc(selName(l))).join('<br>');
   const res = gr.status==='open' ? `<span class="badge ${gr.cls}">${esc(gr.txt)}</span>` : `<span class="badge ${gr.status==='won'?'b-g':gr.status==='lost'?'b-r':'b-n'}">${esc(gr.status.toUpperCase())}</span>${b.resultOverride?'<span class="sub">manual</span>':''}`;
   return `<tr class="${b.demo?'demo':''}">
-    <td>${esc(b.date)}${b.demo?'<span class="sub" style="color:var(--blue)">DEMO</span>':''}${srcTag(b)}</td><td>${esc(b.book)}<span class="sub">${esc(BETTYPES[b.betType]||b.betType)}${b.legs.length>1?' · '+b.legs.length+' legs':''}</span></td>
+    <td>${esc(b.date)}${b.demo?'<span class="sub" style="color:var(--blue)">DEMO</span>':''}${srcTag(b)}${ladderTag(b)?`<div>${ladderTag(b)}</div>`:''}</td><td>${esc(b.book)}<span class="sub">${esc(BETTYPES[b.betType]||b.betType)}${b.legs.length>1?' · '+b.legs.length+' legs':''}</span></td>
     <td class="wrap">${legTxt}</td><td>${mk}</td><td class="wrap">${sel}</td>
     <td><b>${fmtOdds(b.odds)}</b>${b.oddsNote?' <span class="note">'+esc(b.oddsNote)+'</span>':''}<span class="sub">entered ${fmtStamp(b.oddsEnteredAt)}</span><span class="sub">${b.oddsVerifiedAt?'✓ verified '+fmtStamp(b.oddsVerifiedAt):`<a href="#" data-verify="${esc(b.id)}|${b.kind}">mark verified</a>`}</span></td>
     <td>${money(+b.stake)}${units(+b.stake).replace(/[+]/,'')}</td>
@@ -3433,7 +3456,7 @@ function betRow(b){
 function recRow(b){
   const gr=gradeBet(b), c=clv(b);
   const res = gr.status==='open' ? `<span class="badge ${gr.cls}">${esc(gr.txt)}</span>` : `<span class="badge ${gr.status==='won'?'b-g':gr.status==='lost'?'b-r':'b-n'}">${esc(gr.status.toUpperCase())}</span>`;
-  return `<tr class="${b.demo?'demo':''}" data-recrow="${esc(b.id)}"><td>${esc(b.date)} ${analystTag(analystOf(b))}${b.demo?'<span class="sub" style="color:var(--blue)">DEMO</span>':''}${srcTag(b)}</td><td class="wrap">${b.legs.map(l=>esc(l.game||'—')).join('<br>')}</td><td>${b.legs.map(l=>esc(MARKETS[l.market]||l.market)).join('<br>')}</td><td class="wrap">${b.legs.map(l=>esc(selName(l))).join('<br>')}</td>
+  return `<tr class="${b.demo?'demo':''}" data-recrow="${esc(b.id)}"><td>${esc(b.date)} ${analystTag(analystOf(b))}${b.demo?'<span class="sub" style="color:var(--blue)">DEMO</span>':''}${srcTag(b)}${ladderTag(b)?`<div>${ladderTag(b)}</div>`:''}</td><td class="wrap">${b.legs.map(l=>esc(l.game||'—')).join('<br>')}</td><td>${b.legs.map(l=>esc(MARKETS[l.market]||l.market)).join('<br>')}</td><td class="wrap">${b.legs.map(l=>esc(selName(l))).join('<br>')}</td>
     <td><b>${fmtOdds(b.odds)}</b><span class="sub">${esc(b.book)} · entered ${fmtStamp(b.oddsEnteredAt)}</span><span class="sub">${b.oddsVerifiedAt?'✓ verified '+fmtStamp(b.oddsVerifiedAt):`<a href="#" data-verify="${esc(b.id)}|rec">mark verified</a>`}</span></td>
     <td><select data-verdict="${esc(b.id)}">${VERDICTS.map(v=>`<option ${v===b.verdict?'selected':''}>${v}</option>`).join('')}</select></td>
     <td>${res}</td>
@@ -3703,6 +3726,213 @@ function parseLegs(v){
     return {league:(f[0]||'cfb').toLowerCase(), eventId:f[1]||null, market:(f[2]||'moneyline').toLowerCase(), selection:f[3]||'', selectionName:'', line:sNum(f[4]), odds:sNum(f[5]), game:'', manual:null}; });
   return legs.map(normalizeLegMarket);
 }
+// Ladder columns sit at the end of Recommendations and Placed. Read by header (gviz lowercases labels). Blank ladder = not a rung.
+function ladderFromRow(r){
+  if(!r) return null;
+  const name=sStr(r.ladder).toUpperCase();
+  if(name!=='NFL' && name!=='NBA') return null;
+  const run=sStr(r.ladder_run);
+  const rung=sNum(r.ladder_rung);
+  if(!run || !(rung>=1)) return null;
+  const stake=sNum(r.ladder_stake), bank=sNum(r.ladder_bankroll);
+  return {ladder:name, run, rung:Math.round(rung), stake:stake!=null?stake:null, bankroll:bank};
+}
+function moneyCompact(n){ const x=+n; if(!Number.isFinite(x)) return ''; return Math.abs(x-Math.round(x))<0.001?(x<0?'-':'')+'$'+Math.abs(Math.round(x)):money(x); }
+function ladderToWin(stake, odds){
+  const s=+stake, o=+odds;
+  if(!(s>0) || !validOdds(o)) return null;
+  const profit=o>0 ? s*o/100 : s*100/Math.abs(o);
+  return Math.round(profit*100)/100;
+}
+function legSig(l){ return String(l&&l.eventId||'')+'|'+String(l&&l.market||'')+'|'+String(l&&l.selection||''); }
+function samePick(a,b){
+  if(a&&b&&a.id&&a.id===b.id) return true;
+  const A=(a&&a.legs||[]).map(legSig).filter(s=>s!=='||');
+  const B=new Set((b&&b.legs||[]).map(legSig));
+  return A.length>0 && A.every(s=>B.has(s));
+}
+function preferPlaced(p, r){
+  const L={};
+  const fill=src=>{ if(!src||!src.ladder) return; for(const k of ['ladder','run','rung','stake','bankroll']){ const v=src.ladder[k]; if(v!=null&&v!=='') L[k]=v; } };
+  fill(r); fill(p);
+  const b=Object.assign({}, r||{}, p||{}, {ladder:L});
+  if(p && (p.resultOverride==null||p.resultOverride==='') && r && r.resultOverride) b.resultOverride=r.resultOverride;
+  if(!(b.stake>0) && L.stake>0) b.stake=L.stake;
+  return b;
+}
+function ladderMerged(){
+  const placed=DATA&&DATA.placedBets||[], recs=DATA&&DATA.recommendations||[];
+  const used=new Set(), out=[];
+  recs.forEach(r=>{
+    const p=placed.find(x=>!used.has(x)&&samePick(r,x));
+    if(p){ used.add(p); if(r.ladder||p.ladder) out.push(preferPlaced(p,r)); }
+    else if(r.ladder) out.push(r);
+  });
+  placed.forEach(p=>{ if(!used.has(p)&&p.ladder) out.push(p); });
+  return out.filter(b=>b.ladder&&b.ladder.ladder);
+}
+function ladderForEvent(id){
+  const hits=ladderMerged().filter(b=>(b.legs||[]).some(l=>evMatch(l,id)));
+  const by=new Map();
+  hits.forEach(b=>{
+    const k=b.ladder.ladder+'|'+b.ladder.run+'|'+b.ladder.rung;
+    const prev=by.get(k);
+    if(!prev || (b.kind==='placed' && prev.kind!=='placed')) by.set(k, b);
+  });
+  return [...by.values()];
+}
+function ladderRunsForEvent(id){
+  const all=ladderMerged(), mine=ladderForEvent(id), keys=[];
+  mine.forEach(b=>{ const k=b.ladder.ladder+'|'+b.ladder.run; if(!keys.includes(k)) keys.push(k); });
+  return keys.map(k=>{
+    const i=k.indexOf('|'), ladder=k.slice(0,i), run=k.slice(i+1);
+    const raw=all.filter(b=>b.ladder.ladder===ladder&&b.ladder.run===run);
+    const by=new Map();
+    raw.forEach(b=>{ const prev=by.get(b.ladder.rung); if(!prev || (b.kind==='placed' && prev.kind!=='placed')) by.set(b.ladder.rung, b); });
+    const rungs=[...by.values()].sort((a,b)=>a.ladder.rung-b.ladder.rung||String(a.date).localeCompare(String(b.date)));
+    const hereR=new Set(mine.filter(b=>b.ladder.ladder===ladder&&b.ladder.run===run).map(b=>b.ladder.rung));
+    return {ladder, run, rungs, here:rungs.filter(b=>hereR.has(b.ladder.rung))};
+  });
+}
+function ladderOutcome(b){
+  const fake=Object.assign({}, b, {stake:(b.ladder&&b.ladder.stake)||b.stake||0});
+  const g=gradeBet(fake);
+  return g.status==='open'?'pending':g.status;
+}
+function ladderProfit(b){
+  const st=ladderOutcome(b);
+  const stake=(b.ladder&&b.ladder.stake!=null)?+b.ladder.stake:+b.stake;
+  if(st==='pending') return null;
+  if(st==='won') return ladderToWin(stake, b.odds);
+  if(st==='lost') return Number.isFinite(stake)?-Math.abs(stake):null;
+  if(st==='push'||st==='void') return 0;
+  if(st==='cashout'){ const g=gradeBet(Object.assign({}, b, {stake:stake||0})); return g.pl; }
+  return null;
+}
+function ladderStatus(rungs){
+  const gs=rungs.map(ladderOutcome);
+  if(gs.includes('lost')) return {lbl:'Busted', cls:'b-r'};
+  if(gs.length && gs.every(s=>s==='push'||s==='void')) return {lbl:'Push', cls:'b-n'};
+  if(gs.length && gs.every(s=>s==='won'||s==='push'||s==='void')) return {lbl:'Done', cls:'b-g'};
+  return {lbl:'Active', cls:'b-a'};
+}
+function ladderBankLine(rungs){
+  const snaps=rungs.filter(b=>b.ladder.bankroll!=null);
+  const pls=list=>list.map(ladderProfit).filter(n=>n!=null).reduce((s,n)=>s+n,0);
+  if(!snaps.length){
+    const net=Math.round(pls(rungs)*100)/100;
+    return {label:'Run P/L', value:sgnMoney(net), note:'No bankroll was logged for this run. This is the net profit from graded rungs.'};
+  }
+  const snap=snaps.slice().sort((a,b)=>a.ladder.rung-b.ladder.rung)[snaps.length-1];
+  const net=pls(rungs.filter(b=>b.ladder.rung>=snap.ladder.rung));
+  const now=Math.round((+snap.ladder.bankroll+net)*100)/100;
+  return {label:'Bankroll', value:money(now), note:`$${Number(snap.ladder.bankroll).toFixed(2)} logged before rung ${snap.ladder.rung}, plus graded results since.`};
+}
+function ladderMark(st){
+  if(st==='won') return {lbl:'W', cls:'b-g'};
+  if(st==='lost') return {lbl:'L', cls:'b-r'};
+  if(st==='push') return {lbl:'Push', cls:'b-n'};
+  if(st==='void') return {lbl:'Void', cls:'b-n'};
+  if(st==='cashout') return {lbl:'Cash out', cls:'b-n'};
+  return {lbl:'Pending', cls:'b-a'};
+}
+function ladderTag(b){
+  if(!b||!b.ladder||!b.ladder.ladder) return '';
+  const L=b.ladder, stake=L.stake!=null?' · '+moneyCompact(L.stake):'';
+  return `<span class="badge b-ladder" style="cursor:default">${esc(L.ladder+' Ladder · Rung '+L.rung+stake)}</span>`;
+}
+function ladderBadge(id, lg){
+  return ladderForEvent(id).map(b=>{
+    const L=b.ladder, stake=L.stake!=null?' · '+moneyCompact(L.stake):'';
+    return `<button type="button" class="badge b-ladder" data-gd="${esc(id)}" data-lg="${esc(lg)}">${esc(L.ladder+' Ladder · Rung '+L.rung+stake)}</button>`;
+  }).join('');
+}
+function refreshLadderBadges(){
+  document.querySelectorAll('.g[data-ev][data-lg]').forEach(card=>{
+    if(card.dataset.nopicks) return;
+    card.querySelectorAll(':scope > .tags > .b-ladder').forEach(el=>el.remove());
+    const html=ladderBadge(card.dataset.ev, card.dataset.lg);
+    if(!html) return;
+    let tags=card.querySelector(':scope > .tags');
+    if(!tags){ const foot=card.querySelector(':scope > .foot'); if(!foot) return; foot.insertAdjacentHTML('beforebegin','<div class="tags"></div>'); tags=card.querySelector(':scope > .tags'); }
+    const chip=tags.querySelector(':scope > .pickchip');
+    if(chip) chip.insertAdjacentHTML('afterend', html); else tags.insertAdjacentHTML('afterbegin', html);
+  });
+}
+function ladderSectionHTML(g){
+  const runs=ladderRunsForEvent(g&&g.id);
+  if(!runs.length) return '';
+  return runs.map(run=>{
+    const demo=run.rungs.some(b=>b.source==='demo');
+    const focus=run.here[0]||run.rungs[run.rungs.length-1];
+    const st=ladderStatus(run.rungs);
+    const stake=focus.ladder.stake;
+    const tw=ladderToWin(stake, focus.odds);
+    const bank=ladderBankLine(run.rungs);
+    const hereIds=new Set(run.here.map(b=>b.ladder.rung));
+    const rows=run.rungs.map(b=>{
+      const mk=ladderMark(ladderOutcome(b));
+      const title=(b.legs||[]).map(l=>legLabel(l, legEvent(l))).join(' + ')||'Rung '+b.ladder.rung;
+      const stak=b.ladder.stake!=null?moneyCompact(b.ladder.stake):'—';
+      return `<div class="ladderrung${hereIds.has(b.ladder.rung)?' on':''}"><div class="lh"><span class="note">Rung ${esc(b.ladder.rung)} · ${esc(b.date||'')}</span><b>${esc(title)}</b><span class="note">${esc(fmtOdds(b.odds))} · stake ${esc(stak)}</span></div><span class="badge ${mk.cls}">${esc(mk.lbl)}</span></div>`;
+    }).join('');
+    return `<section class="ladderbox"><h3 class="gdh">${esc(run.ladder)} Ladder <span class="badge ${st.cls}">${esc(st.lbl)}</span></h3>
+      <div class="ladderstat"><div><span class="note">Rung</span><b>${esc(focus.ladder.rung)}</b></div><div><span class="note">Stake</span><b>${stake!=null?esc(moneyCompact(stake)):'—'}</b></div><div><span class="note">To win</span><b>${tw!=null?esc(money(tw)):'—'}</b></div><div><span class="note">${esc(bank.label)}</span><b>${esc(bank.value)}</b></div></div>
+      <p class="note">${esc(bank.note)}</p>
+      ${demo?'<p class="note">Preview only (?ladderDemo=1). These rungs are not in the sheet.</p>':''}
+      <div class="ladderhist">${rows}</div></section>`;
+  }).join('');
+}
+function ladderDemoOn(){ try{ return /(?:^|[?&])ladderDemo=1(?:&|$)/.test(location.search); }catch(_){ return false; } }
+let LADDER_DEMO_STARTED=false;
+async function ladderDemoApply(){
+  if(!ladderDemoOn() || LADDER_DEMO_STARTED) return;
+  LADDER_DEMO_STARTED=true;
+  const take=async (lg, url)=>{
+    try{ const d=await getJSON(url, 60000); return remember((d.events||[]).map(e=>normEvent(e, lg))).filter(g=>g.home&&g.home.id&&g.away&&g.away.id); }
+    catch(_){ return []; }
+  };
+  const nfl=await take('nfl', API+'football/nfl/scoreboard');
+  const nba=await take('nba', API+'basketball/nba/scoreboard?dates='+ymd(new Date()));
+  const byDate=(a,b)=>+a.date-+b.date;
+  const three=list=>{
+    const pre=list.filter(g=>g.state!=='post').sort(byDate);
+    const post=list.filter(g=>g.state==='post').sort(byDate);
+    const pend=pre[0]||null;
+    const settled=post.concat(pre.filter(g=>g!==pend));
+    const out=[];
+    for(const g of settled){ if(out.length>=2) break; out.push(g); }
+    if(pend) out.push(pend);
+    else if(settled[2]) out.push(settled[2]);
+    return out;
+  };
+  const nflG=three(nfl), nbaG=nba.slice().sort(byDate).slice(0,2);
+  if(nflG.length<1 && nbaG.length<1){ LADDER_DEMO_STARTED=false; return; }
+  const runN='2026-11-16', runB='2026-11-16';
+  const mk=(lgName, run, game, rung, stake, odds, result, bank)=>{
+    if(!game) return null;
+    const id='demo-ladder-'+lgName.toLowerCase()+'-'+rung;
+    const leg={league:game.lg, eventId:String(game.id), market:'moneyline', selection:String(game.home.id), selectionName:game.home.name, line:null, odds, game:`${game.away.name} at ${game.home.name}`, date:isoDay(game.date), manual:result||null};
+    const base={id, source:'demo', demo:true, date:isoDay(game.date), book:'FanDuel', betType:'moneyline', odds, boosted:false, oddsNote:'Ladder demo', oddsEnteredAt:null, oddsVerifiedAt:null, closingOdds:null, closingEnteredAt:null, notes:'', legs:[leg], analyst:lgName==='NFL'?'Blitz':'Court',
+      ladder:{ladder:lgName, run, rung, stake, bankroll:bank}};
+    const rec=Object.assign({}, base, {kind:'rec', stake:null, verdict:'Consider', resultOverride:result||null});
+    const placed=Object.assign({}, base, {kind:'placed', stake, verdict:null, resultOverride:result||null, payoutOverride:null});
+    return {rec, placed};
+  };
+  const specs=[];
+  if(nflG[0]) specs.push(mk('NFL', runN, nflG[0], 1, 5, -110, 'won', 39.64));
+  if(nflG[1]) specs.push(mk('NFL', runN, nflG[1], 2, 5, 120, 'won', null));
+  if(nflG[2]) specs.push(mk('NFL', runN, nflG[2], 3, 5, -140, null, null));
+  if(nbaG[0]) specs.push(mk('NBA', runB, nbaG[0], 1, 2, 100, 'won', 18));
+  if(nbaG[1]) specs.push(mk('NBA', runB, nbaG[1], 2, 2, -150, 'lost', null));
+  const drop=b=>b.source!=='demo';
+  DATA.recommendations=(DATA.recommendations||[]).filter(drop);
+  DATA.placedBets=(DATA.placedBets||[]).filter(drop);
+  specs.filter(Boolean).forEach(s=>{ DATA.recommendations.push(s.rec); DATA.placedBets.push(s.placed); });
+  try{ refreshLadderBadges(); }catch(_){}
+  const lad=$('#gdladder'); if(lad && GD && GD.last) lad.innerHTML=ladderSectionHTML(GD.last.g);
+  if(document.body.dataset.loaded) render();
+}
 function rowToBet(r, kind){
   const id=sStr(r.id); if(!id) throw new Error('missing id');
   const legs=parseLegs(r.legs); if(!legs.length) throw new Error('no legs');
@@ -3714,6 +3944,7 @@ function rowToBet(r, kind){
     closingOdds:sNum(r.closing_odds), closingEnteredAt:sStr(r.closing_entered_at)||null,
     resultOverride:sStr(r.result_override).toLowerCase()||null, payoutOverride:kind==='placed'?sNum(r.cashout_amount):null, notes:sStr(r.notes), legs,
     analyst:sStr(r.analyst)||null };   // optional column; analystOf() applies the fallbacks
+  const lad=ladderFromRow(r); if(lad) b.ladder=lad;
   if(b.boosted && !/boost/i.test(b.oddsNote)) b.oddsNote = (b.oddsNote?b.oddsNote+', ':'')+'boosted';
   if(!BETTYPES[b.betType]) throw new Error('bet_type must be moneyline/spread/total/parlay/prop');
   if(b.resultOverride && !['won','lost','push','void','cashout'].includes(b.resultOverride)) throw new Error('bad result_override');
@@ -3750,6 +3981,7 @@ async function syncSheet(force, maxAge=20000){
     }catch(e){ DATA.sheetSync=Object.assign({}, st, {ok:false, tried, error:e.message}); }
     saveData(); SYNCING=null; try{ refreshPickChips(); }catch(_){ }
     try{ if(typeof refreshOpenRosterProps==='function') refreshOpenRosterProps(); }catch(_){ }
+    try{ if(typeof ladderDemoApply==='function') ladderDemoApply(); }catch(_){ }
     return DATA.sheetSync;
   })();
   return SYNCING;
@@ -5142,6 +5374,7 @@ document.addEventListener('visibilitychange', ()=>{
 DATA = loadData();
 const startTeam=teamFromHash();
 go(parseHash() || pref.get('tab','mine'));
+try{ ladderDemoApply(); }catch(_){}
 if(startTeam){ history.replaceState({hubTeam:0}, '', '#team/'+startTeam.lg+'/'+startTeam.id); openTeam(startTeam.lg, startTeam.id, {fromHash:true}); }
 syncSheet().then(()=>{ if(TAB==='bets' && !$('#slipform')) render(); });
 // Even when nothing is live (score tabs don't auto-refresh), pick up new rows from Blitz while the page sits open: chips patch in place.
