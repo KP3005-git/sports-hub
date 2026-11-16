@@ -414,6 +414,21 @@ th.brsort{cursor:pointer;color:var(--gold2)}
 .ladderrung .lh{flex:1;min-width:0}
 .ladderrung .lh b{display:block}
 .ladderrung.on{margin:0 -8px;padding-left:8px;padding-right:8px;border-radius:8px;background:rgb(255 255 255 / .04)}
+.ladpage{display:grid;gap:12px}
+@media(min-width:860px){.ladpage{grid-template-columns:1fr 1fr;align-items:start}}
+.ladsteps{display:flex;align-items:center;overflow-x:auto;padding:2px 0 10px;gap:0}
+.ladstep{flex:none;width:48px;text-align:center;font-size:11px;font-weight:800;color:var(--mut)}
+.ladstep i{display:grid;place-items:center;width:36px;height:36px;margin:0 auto 4px;border-radius:10px;font-style:normal;font-weight:900;font-size:14px}
+.ladstep.won i{background:var(--green);color:#03140a}
+.ladstep.lost i{background:var(--red);color:#fff}
+.ladstep.pending i{background:var(--amber);color:#1a0d00}
+.ladjoin{flex:none;width:16px;height:3px;border-radius:2px;background:var(--line);margin-bottom:18px}
+.ladrrow{display:flex;gap:8px;justify-content:space-between;align-items:center;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--line);color:inherit;font:inherit;padding:8px 0;cursor:pointer}
+.ladrrow .lh{flex:1;min-width:0}
+.ladrrow b{display:block}
+.ladrrow:hover,.ladrrow:focus-visible{background:rgb(255 255 255 / .04)}
+html.touch .ladrrow{min-height:44px}
+.ladpast{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:7px 0;border-top:1px solid var(--line);font-size:13px}
 .pkother{margin:4px 0 0;padding-left:18px;font-size:12px;color:var(--mut)}.pkother li{margin:2px 0}.pkother .badge{font-size:10px;padding:1px 6px}
 .play.sc{background:rgb(var(--tint-rgb) / .08);border-left:3px solid var(--gold)}.pclk{color:var(--mut);font-variant-numeric:tabular-nums}.pscore{font-weight:800;white-space:nowrap}
 .ibadge{font-size:11px;font-weight:900;letter-spacing:.5px;padding:2px 7px;border-radius:999px;white-space:nowrap;display:inline-block;vertical-align:middle}
@@ -622,6 +637,7 @@ html.reorder .reorderbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-i
     <button data-tab="cbb">🏀 CBB</button>
     <button data-tab="nfl">🏈 NFL</button>
     <button data-tab="nba">🏀 NBA</button>
+    <button data-tab="ladders">🪜 Ladders</button>
     <button data-tab="fantasy">🏆 Fantasy</button>
     <button data-tab="highlights">🎬 Highlights</button>
     <button data-tab="monitor">📺 Monitor</button>
@@ -1236,7 +1252,7 @@ function parseHash(){
   const h=decodeURIComponent(location.hash.slice(1)).split('/').filter(Boolean);
   if(!h.length) return null;
   if(h[0]==='records') h[0]='blitz';   // #records = Pick records (internal id stays 'blitz' so old links keep working)
-  const tabs=['mine','bets','blitz','settings','fantasy','highlights','monitor','injuries',...LGS];
+  const tabs=['mine','bets','blitz','settings','fantasy','highlights','monitor','injuries','ladders',...LGS];
   if(tabs.includes(h[0])){ if(h[1]&&FILTERS[h[1]]&&LGS.includes(h[0])) pref.set('filter.'+h[0],h[1]); return h[0]; }
   if(FILTERS[h[0]]){ const lg=pref.get('lastLeague','cfb'); pref.set('filter.'+lg,h[0]); return lg; }   // Blitz-style #live
   return null;
@@ -1253,7 +1269,7 @@ function go(tab){
   { const nav=document.getElementById('tabs'), b=nav&&nav.querySelector('button.on'); if(b && nav.scrollWidth>nav.clientWidth) nav.scrollLeft=Math.max(0, b.offsetLeft-(nav.clientWidth-b.offsetWidth)/2); }
   setHash(); render();
 }
-const SHEET_BG_MS = 2*60e3, SHEET_BG_TABS = ['mine','cfb','cbb','nfl','nba','fantasy','highlights','monitor','injuries'];
+const SHEET_BG_MS = 2*60e3, SHEET_BG_TABS = ['mine','cfb','cbb','nfl','nba','ladders','fantasy','highlights','monitor','injuries'];
 async function render(){
   clearTimeout(RT); const tok=++TOKEN; showErr('');
   const view=$('#view');
@@ -1267,6 +1283,7 @@ async function render(){
     else if(TAB==='highlights') await renderHighlights(tok,view);
     else if(TAB==='monitor') await renderMonitor(tok,view);
     else if(TAB==='injuries') await renderInjuries(tok,view);
+    else if(TAB==='ladders') { renderLadders(view); setRefresh([], null); }
     if(tok===TOKEN){ $('#upd').textContent=fmtTime(new Date()); $('#dot').className='dot'; document.body.dataset.loaded='1'; document.body.dataset.view=TAB; }
     // Keep Blitz's picks current on every tab, not just Bets: a page left open (score tabs auto-refresh, visibilitychange) used to keep
     // yesterday's sheet copy until a reload, so new picks never got 🎯 chips. Background, throttled to one sheet read per 2 min; chips patch in place.
@@ -3812,9 +3829,29 @@ function ladderProfit(b){
 function ladderStatus(rungs){
   const gs=rungs.map(ladderOutcome);
   if(gs.includes('lost')) return {lbl:'Busted', cls:'b-r'};
-  if(gs.length && gs.every(s=>s==='push'||s==='void')) return {lbl:'Push', cls:'b-n'};
-  if(gs.length && gs.every(s=>s==='won'||s==='push'||s==='void')) return {lbl:'Done', cls:'b-g'};
+  if(gs.length && gs.every(s=>s!=='pending')) return {lbl:'Complete', cls:'b-g'};
   return {lbl:'Active', cls:'b-a'};
+}
+function ladderNet(rungs){
+  return Math.round(rungs.map(ladderProfit).filter(n=>n!=null).reduce((s,n)=>s+n,0)*100)/100;
+}
+function ladderStartBank(rungs){
+  const snaps=rungs.filter(b=>b.ladder.bankroll!=null).sort((a,b)=>a.ladder.rung-b.ladder.rung);
+  return snaps.length?+snaps[0].ladder.bankroll:null;
+}
+function ladderGroups(){
+  const map=new Map();
+  ladderMerged().forEach(b=>{
+    const k=b.ladder.ladder+'|'+b.ladder.run;
+    if(!map.has(k)) map.set(k,{ladder:b.ladder.ladder, run:b.ladder.run, rungs:[]});
+    map.get(k).rungs.push(b);
+  });
+  return [...map.values()].map(run=>{
+    const by=new Map();
+    run.rungs.forEach(b=>{ const prev=by.get(b.ladder.rung); if(!prev || (b.kind==='placed' && prev.kind!=='placed')) by.set(b.ladder.rung, b); });
+    run.rungs=[...by.values()].sort((a,b)=>a.ladder.rung-b.ladder.rung);
+    return run;
+  }).sort((a,b)=>String(b.run).localeCompare(String(a.run))||a.ladder.localeCompare(b.ladder));
 }
 function ladderBankLine(rungs){
   const snaps=rungs.filter(b=>b.ladder.bankroll!=null);
@@ -3883,6 +3920,70 @@ function ladderSectionHTML(g){
       <div class="ladderhist">${rows}</div></section>`;
   }).join('');
 }
+function ladderStepCls(st){ return st==='won'?'won':st==='lost'?'lost':'pending'; }
+function ladderStepsHTML(rungs){
+  return `<div class="ladsteps">${rungs.map((b,i)=>{
+    const st=ladderOutcome(b), mk=ladderMark(st);
+    const join=i?'<span class="ladjoin" aria-hidden="true"></span>':'';
+    return `${join}<div class="ladstep ${ladderStepCls(st)}"><i>${esc(b.ladder.rung)}</i><span>${esc(mk.lbl)}</span></div>`;
+  }).join('')}</div>`;
+}
+function ladderRowBtn(b){
+  const leg=(b.legs||[])[0]||{};
+  const title=(b.legs||[]).map(l=>legLabel(l, legEvent(l))).join(' + ')||('Rung '+b.ladder.rung);
+  const game=leg.game||'Game';
+  const mk=ladderMark(ladderOutcome(b));
+  const stake=b.ladder.stake!=null?moneyCompact(b.ladder.stake):'—';
+  const open=leg.eventId&&leg.league?` data-gd="${esc(leg.eventId)}" data-lg="${esc(leg.league)}"`:'';
+  return `<button type="button" class="ladrrow"${open}><div class="lh"><span class="note">${esc(b.date||'')} · Rung ${esc(b.ladder.rung)}</span><b>${esc(game)}</b><span class="note">${esc(title)} · ${esc(fmtOdds(b.odds))} · stake ${esc(stake)}</span></div><span class="badge ${mk.cls}">${esc(mk.lbl)}</span></button>`;
+}
+function ladderBoardHTML(name, current, past){
+  const who=name==='NFL'?'Blitz':'Court';
+  if(!current) return `<section class="ladderbox"><h3 class="gdh">${esc(name)} Ladder</h3><div class="empty">No ${esc(name)} ladder yet. When a ${esc(who)} row has ladder set to ${esc(name)}, the current run shows up here.</div></section>`;
+  const rungs=current.rungs;
+  const st=ladderStatus(rungs);
+  const pend=rungs.find(b=>ladderOutcome(b)==='pending');
+  const focus=pend||rungs[rungs.length-1];
+  const stake=focus.ladder.stake;
+  const tw=ladderToWin(stake, focus.odds);
+  const start=ladderStartBank(rungs);
+  const bank=ladderBankLine(rungs);
+  const net=ladderNet(rungs);
+  const pastHTML=past.length?past.map(p=>{
+    const pst=ladderStatus(p.rungs);
+    const pnet=ladderNet(p.rungs);
+    const reached=p.rungs.reduce((m,b)=>Math.max(m,b.ladder.rung),0);
+    return `<div class="ladpast"><span>${esc(p.run)}</span><span>${reached} rung${reached===1?'':'s'}</span><span class="badge ${pst.cls}">${esc(pst.lbl)}</span><b class="${plClass(pnet)}">${esc(sgnMoney(pnet))}</b></div>`;
+  }).join(''):'<div class="note">No earlier runs.</div>';
+  return `<section class="ladderbox"><h3 class="gdh">${esc(name)} Ladder <span class="badge ${st.cls}">${esc(st.lbl)}</span></h3>
+    <p class="note">Run started ${esc(current.run)} · ${esc(who)}</p>
+    ${ladderStepsHTML(rungs)}
+    <div class="ladderstat">
+      <div><span class="note">${pend?'Current rung':'Last rung'}</span><b>${esc(focus.ladder.rung)}</b></div>
+      <div><span class="note">Stake</span><b>${stake!=null?esc(moneyCompact(stake)):'—'}</b></div>
+      <div><span class="note">To win</span><b>${tw!=null?esc(money(tw)):'—'}</b></div>
+      <div><span class="note">Starting bankroll</span><b>${start!=null?esc(money(start)):'—'}</b></div>
+      <div><span class="note">${esc(bank.label==='Bankroll'?'Running bankroll':bank.label)}</span><b>${esc(bank.value)}</b></div>
+      <div><span class="note">Run P/L</span><b class="${plClass(net)}">${esc(sgnMoney(net))}</b></div>
+    </div>
+    <p class="note">${esc(bank.note)}</p>
+    <div class="ladderhist">${rungs.map(ladderRowBtn).join('')}</div>
+    <h3 class="gdh">Past runs</h3>${pastHTML}</section>`;
+}
+function renderLadders(view){
+  const groups=ladderGroups();
+  const demo=(DATA.placedBets||[]).some(b=>b.source==='demo')||(DATA.recommendations||[]).some(b=>b.source==='demo');
+  const boards=['NFL','NBA'].map(name=>{
+    const mine=groups.filter(g=>g.ladder===name);
+    return ladderBoardHTML(name, mine[0]||null, mine.slice(1));
+  }).join('');
+  view.innerHTML=`<h2>🪜 Ladders</h2>
+    <p class="note">NFL is Blitz's ladder and NBA is Court's. They share one FanDuel balance. One lost rung ends that run.</p>
+    ${demo?'<p class="note">Preview only (?ladderDemo=1). These rungs are not in the sheet.</p>':''}
+    <div class="ladpage" id="ladderpage">${boards}</div>`;
+  const live=groups.filter(g=>ladderStatus(g.rungs).lbl==='Active').length;
+  $('#cnt').textContent=`Ladders · ${live?live+' active run'+(live===1?'':'s'):'no active run'}`;
+}
 function ladderDemoOn(){ try{ return /(?:^|[?&])ladderDemo=1(?:&|$)/.test(location.search); }catch(_){ return false; } }
 let LADDER_DEMO_STARTED=false;
 async function ladderDemoApply(){
@@ -3911,7 +4012,7 @@ async function ladderDemoApply(){
   const runN='2026-11-16', runB='2026-11-16';
   const mk=(lgName, run, game, rung, stake, odds, result, bank)=>{
     if(!game) return null;
-    const id='demo-ladder-'+lgName.toLowerCase()+'-'+rung;
+    const id='demo-ladder-'+lgName.toLowerCase()+'-'+String(run).replace(/-/g,'')+'-'+rung;
     const leg={league:game.lg, eventId:String(game.id), market:'moneyline', selection:String(game.home.id), selectionName:game.home.name, line:null, odds, game:`${game.away.name} at ${game.home.name}`, date:isoDay(game.date), manual:result||null};
     const base={id, source:'demo', demo:true, date:isoDay(game.date), book:'FanDuel', betType:'moneyline', odds, boosted:false, oddsNote:'Ladder demo', oddsEnteredAt:null, oddsVerifiedAt:null, closingOdds:null, closingEnteredAt:null, notes:'', legs:[leg], analyst:lgName==='NFL'?'Blitz':'Court',
       ladder:{ladder:lgName, run, rung, stake, bankroll:bank}};
@@ -3925,6 +4026,10 @@ async function ladderDemoApply(){
   if(nflG[2]) specs.push(mk('NFL', runN, nflG[2], 3, 5, -140, null, null));
   if(nbaG[0]) specs.push(mk('NBA', runB, nbaG[0], 1, 2, 100, 'won', 18));
   if(nbaG[1]) specs.push(mk('NBA', runB, nbaG[1], 2, 2, -150, 'lost', null));
+  const used=new Set(nflG.concat(nbaG).map(g=>g&&g.id).filter(Boolean));
+  const older=nfl.filter(g=>!used.has(g.id));
+  if(older[0]) specs.push(mk('NFL', '2026-11-02', older[0], 1, 2, -110, 'won', 22));
+  if(older[1]) specs.push(mk('NFL', '2026-11-02', older[1], 2, 2, 130, 'lost', null));
   const drop=b=>b.source!=='demo';
   DATA.recommendations=(DATA.recommendations||[]).filter(drop);
   DATA.placedBets=(DATA.placedBets||[]).filter(drop);
@@ -3982,6 +4087,7 @@ async function syncSheet(force, maxAge=20000){
     saveData(); SYNCING=null; try{ refreshPickChips(); }catch(_){ }
     try{ if(typeof refreshOpenRosterProps==='function') refreshOpenRosterProps(); }catch(_){ }
     try{ if(typeof ladderDemoApply==='function') ladderDemoApply(); }catch(_){ }
+    if(TAB==='ladders' && document.body.dataset.loaded) render();
     return DATA.sheetSync;
   })();
   return SYNCING;
@@ -5367,7 +5473,7 @@ document.addEventListener('visibilitychange', ()=>{
     return;
   }
   if(TAB==='monitor'){ monWakeSync(); monRefresh(); return; }
-  if(LGS.concat(['mine','bets','blitz','fantasy','injuries']).includes(TAB) && !$('#slipform')) render();
+  if(LGS.concat(['mine','bets','blitz','fantasy','injuries','ladders']).includes(TAB) && !$('#slipform')) render();
 });
 
 // ---------------- INIT ----------------
