@@ -3693,35 +3693,105 @@ async function renderBlitzRecord(tok, view){
 }
 
 // ---------------- GOOGLE SHEET SYNC (source of truth for bets) ----------------
-// From file:// the gviz CSV endpoint is CORS-blocked (origin "null"), so we use gviz's JSONP mode:
-// <script src=".../gviz/tq?tqx=out:json;responseHandler:CB&headers=1&sheet=TAB">, which needs no CORS.
-// Works only when the sheet is shared "Anyone with the link → Viewer".
+// From file:// the gviz CSV endpoint is CORS-blocked (origin "null"), so we use gviz's JSONP mode.
+// gviz picks one type per column and returns a null cell for the other type, so a text "-115"
+// in a mostly-numeric odds column disappears. The full sheet is read first (headers=1, names intact).
+// Any null in a non-string column is read again by row range: a one-row range comes back as strings,
+// and a block of text cells (boosted "FALSE") comes back as a string column. JSONP, no CORS.
 const PLACED_COLS = ['id','date','sportsbook','bet_type','stake','odds','boosted','odds_note','odds_entered_at','odds_verified_at','closing_odds','closing_entered_at','result_override','cashout_amount','notes','legs'];
 const REC_COLS    = ['id','date','sportsbook','bet_type','odds','boosted','odds_note','odds_entered_at','odds_verified_at','verdict','closing_odds','closing_entered_at','result_override','notes','legs'];
 const sheetId = ()=>(DATA.settings.sheetId||'').trim();
 const sheetURL = ()=>`https://docs.google.com/spreadsheets/d/${encodeURIComponent(sheetId())}/edit`;
-function gvizJSONP(id, tab, timeout=15000){
+function gvizJSONP(id, tab, extra, timeout){
   return new Promise((resolve,reject)=>{
     const cb='__gviz_'+uid(); const sc=document.createElement('script'); let done=false;
     const end=()=>{ done=true; clearTimeout(t); try{ delete window[cb]; }catch(_){ window[cb]=undefined; } sc.remove(); };
     window[cb]=d=>{ if(done) return; end(); if(!d||d.status==='error') reject(new Error(((d&&d.errors)||[]).map(e=>e.detailed_message||e.message).join('; ')||'sheet returned an error')); else resolve(d); };
     sc.onerror=()=>{ if(done) return; end(); reject(new Error(navigator.onLine===false?'offline':'sheet not reachable — is it shared "Anyone with the link → Viewer"?')); };
-    const t=setTimeout(()=>{ if(done) return; end(); reject(new Error('sheet request timed out')); }, timeout);
-    sc.src=`https://docs.google.com/spreadsheets/d/${encodeURIComponent(id)}/gviz/tq?tqx=out:json;responseHandler:${cb}&headers=1&sheet=${encodeURIComponent(tab)}&_=${Date.now()}`;
+    const t=setTimeout(()=>{ if(done) return; end(); reject(new Error('sheet request timed out')); }, timeout||20000);
+    sc.src=`https://docs.google.com/spreadsheets/d/${encodeURIComponent(id)}/gviz/tq?tqx=out:json;responseHandler:${cb}&${extra||'headers=1'}&sheet=${encodeURIComponent(tab)}&_=${Date.now()}`;
     document.head.appendChild(sc);
   });
 }
-function gvizVal(c){ if(c==null) return null; let v=c.v; if(v==null) return c.f??null;
-  if(typeof v==='string'){ const m=/^Date\((\d+),(\d+),(\d+)(?:,(\d+),(\d+),(\d+))?\)$/.exec(v);   // Sheets-parsed dates
+function gvizRaw(c){
+  if(c==null) return null;
+  let v=c.v;
+  if(v==null||v==='') v=(c.f!=null&&c.f!=='')?c.f:null;
+  if(typeof v==='string'){ const m=/^Date\((\d+),(\d+),(\d+)(?:,(\d+),(\d+),(\d+))?\)$/.exec(v.trim());
     if(m){ const d=new Date(+m[1],+m[2],+m[3],+(m[4]||0),+(m[5]||0),+(m[6]||0)); return m[4]!=null?d.toISOString():isoDay(d); } }
-  return v; }
-function gvizRows(d){
-  const t=d.table||{cols:[],rows:[]}; let labels=(t.cols||[]).map(c=>String(c.label||'').trim().toLowerCase());
-  let rows=(t.rows||[]).map(r=>(r.c||[]).map(gvizVal));
-  if(!labels.some(Boolean) && rows.length) labels=rows.shift().map(x=>String(x??'').trim().toLowerCase());
-  return rows.map((r,i)=>({_row:i+2, ...Object.fromEntries(labels.map((l,j)=>[l,r[j]]))})).filter(o=>Object.entries(o).some(([k,v])=>k!=='_row'&&v!=null&&v!==''));
+  return v==null?null:v;
 }
-const sNum = v=>{ if(v==null||v==='') return null; const n=parseFloat(String(v).replace(/[$,+\s]/g,'')); return Number.isFinite(n)?n:null; };
+function gvizCol(n){ let s=''; while(n>0){ const m=(n-1)%26; s=String.fromCharCode(65+m)+s; n=Math.floor((n-1)/26); } return s||'A'; }
+function gvizGroups(idxs){
+  if(!idxs.length) return [];
+  const s=[...idxs].sort((a,b)=>a-b), out=[]; let a=s[0], b=s[0];
+  for(let i=1;i<s.length;i++){ if(s[i]===b+1) b=s[i]; else { out.push([a,b]); a=b=s[i]; } }
+  out.push([a,b]); return out;
+}
+async function gvizApplyRange(id, tab, types, matrix, known, a, b){
+  const range=`A${a+2}:${gvizCol(types.length)}${b+2}`;
+  let d; try{ d=await gvizJSONP(id, tab, 'headers=0&range='+encodeURIComponent(range), 15000); }catch(_){ return; }
+  const t=d.table||{cols:[],rows:[]};
+  const rows=t.rows||[], rt=(t.cols||[]).map(c=>c.type||'string');
+  if(rows.length!==b-a+1){
+    if(a===b) return;
+    const m=(a+b)>>1;
+    await gvizApplyRange(id, tab, types, matrix, known, a, m);
+    await gvizApplyRange(id, tab, types, matrix, known, m+1, b);
+    return;
+  }
+  const again=[];
+  for(let k=0;k<rows.length;k++){
+    const cells=rows[k].c||[];
+    let unresolved=false;
+    for(let j=0;j<types.length;j++){
+      if(types[j]==='string'||known[a+k][j]) continue;
+      const raw=gvizRaw(cells[j]);
+      const asString=(rt[j]||'string')==='string' || a===b;
+      if(raw!=null && raw!==''){ matrix[a+k][j]=raw; known[a+k][j]=true; }
+      else if(asString){ matrix[a+k][j]=null; known[a+k][j]=true; }
+      else unresolved=true;
+    }
+    if(unresolved) again.push(a+k);
+  }
+  if(again.length && a!==b){
+    const m=(a+b)>>1;
+    const lo=again.filter(i=>i<=m), hi=again.filter(i=>i>m);
+    if(lo.length) await gvizApplyRange(id, tab, types, matrix, known, lo[0], lo[lo.length-1]);
+    if(hi.length) await gvizApplyRange(id, tab, types, matrix, known, hi[0], hi[hi.length-1]);
+  }
+}
+async function gvizRepair(id, tab, types, matrix, known){
+  const suspect=[];
+  matrix.forEach((row,i)=>{ if(row.some(v=>v!=null&&v!=='') && types.some((tp,j)=>tp!=='string'&&!known[i][j])) suspect.push(i); });
+  await poolMap(gvizGroups(suspect), 4, async ([a,b])=>gvizApplyRange(id, tab, types, matrix, known, a, b));
+}
+async function gvizSheet(id, tab){
+  const d=await gvizJSONP(id, tab, 'headers=1', 25000);
+  const t=d.table||{cols:[],rows:[]};
+  const labels=(t.cols||[]).map(c=>String(c.label||'').trim().toLowerCase());
+  const types=(t.cols||[]).map(c=>c.type||'string');
+  const matrix=(t.rows||[]).map(r=>{
+    const cells=r.c||[];
+    return labels.map((_,j)=>gvizRaw(cells[j]));
+  });
+  const known=matrix.map(row=>types.map((tp,j)=>tp==='string'||!(row[j]==null||row[j]==='')));
+  await gvizRepair(id, tab, types, matrix, known);
+  return matrix.map((row,i)=>{
+    const o={_row:i+2};
+    labels.forEach((l,j)=>{ if(l) o[l]=row[j]; });
+    return o;
+  }).filter(o=>Object.entries(o).some(([k,v])=>k!=='_row'&&v!=null&&v!==''));
+}
+const sNum = v=>{
+  if(v==null||v==='') return null;
+  if(typeof v==='number') return Number.isFinite(v)?v:null;
+  let s=String(v).trim().replace(/[\u2212\u2013\u2014\uFE63\uFF0D]/g,'-');
+  if(!s) return null;
+  s=s.replace(/[$,+\s]/g,'');
+  const n=parseFloat(s);
+  return Number.isFinite(n)?n:null;
+};
 const sStr = v=>v==null?'':String(v).trim();
 const sBool = v=>v===true||/^(true|yes|y|1|x)$/i.test(sStr(v));
 // Sheet writers (FanDuel / SGP) send player_points, anytime_td, and similar. Those are props:
@@ -4078,9 +4148,9 @@ async function syncSheet(force, maxAge=20000){
   SYNCING=(async()=>{
     const tried=new Date().toISOString();
     try{
-      const [pd, rd] = await Promise.all([gvizJSONP(sheetId(),'Placed'), gvizJSONP(sheetId(),'Recommendations')]);
+      const [pd, rd] = await Promise.all([gvizSheet(sheetId(),'Placed'), gvizSheet(sheetId(),'Recommendations')]);
       const warnings=[]; const conv=(rows,kind,tab)=>rows.map(r=>{ try{ return rowToBet(r,kind); }catch(e){ warnings.push(`${tab} row ${r._row}: ${e.message}`); return null; } }).filter(Boolean);
-      const placed=conv(gvizRows(pd),'placed','Placed'), recs=conv(gvizRows(rd),'rec','Recommendations');
+      const placed=conv(pd,'placed','Placed'), recs=conv(rd,'rec','Recommendations');
       mergeSheet('placed',placed); mergeSheet('rec',recs);
       DATA.sheetSync={ok:true, at:tried, tried, placed:placed.length, recs:recs.length, warnings, error:null};
     }catch(e){ DATA.sheetSync=Object.assign({}, st, {ok:false, tried, error:e.message}); }
