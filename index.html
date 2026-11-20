@@ -634,7 +634,7 @@ body{background:#000;font:15px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text
 .dockbrand b{display:block;font-size:15px;letter-spacing:.4px;font-weight:800}
 .dockbrand small{display:block;color:var(--mut);font-size:11px;font-weight:650;letter-spacing:.2px}
 .stage{flex:1;min-width:0;min-height:100vh;display:flex;flex-direction:column}
-header{position:sticky;top:0;z-index:20;background:var(--header);border-bottom:1px solid var(--glass-line);box-shadow:0 8px 24px rgba(0,0,0,.22);-webkit-backdrop-filter:blur(18px) saturate(1.3);backdrop-filter:blur(18px) saturate(1.3)}
+header{position:static;z-index:20;background:var(--header);border-bottom:1px solid var(--glass-line);box-shadow:0 8px 24px rgba(0,0,0,.22);-webkit-backdrop-filter:blur(18px) saturate(1.3);backdrop-filter:blur(18px) saturate(1.3)}
 .hbar{max-width:none;padding:14px 20px 12px}
 .pagetitle{display:flex;flex-direction:column;gap:2px;min-width:0}
 .mobilebrand{display:none}
@@ -681,7 +681,9 @@ footer{margin-top:auto}
 }
 @media (max-width:899px){
   .shell{display:block}
-  .dock{position:fixed;left:10px;right:10px;bottom:calc(8px + env(safe-area-inset-bottom));top:auto;width:auto;height:auto;z-index:30;border:1px solid var(--glass-line);border-radius:24px;padding:6px;overflow:visible;box-shadow:0 10px 40px rgba(0,0,0,.45)}
+  .dock{position:fixed;left:10px;right:10px;bottom:calc(8px + env(safe-area-inset-bottom));top:auto;width:auto;height:auto;z-index:30;border:1px solid var(--glass-line);border-radius:24px;padding:6px;overflow:visible;box-shadow:0 10px 40px rgba(0,0,0,.45);transform:translate3d(0,0,0);transition:transform .28s cubic-bezier(.2,.8,.2,1)}
+  html.dock-hide .dock{transform:translate3d(0,calc(140% + env(safe-area-inset-bottom)),0)}
+  html.navmore .dock{transform:translate3d(0,0,0)}
   .dockbrand{display:none}
   .mobilebrand{display:flex;align-items:center;gap:8px;font-weight:800;letter-spacing:.3px;font-size:15px;font-style:normal;color:#fff;text-shadow:none}
   .mobilebrand .mark{width:28px;height:28px;border-radius:22%;overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,.65),0 0 12px rgba(61,155,255,.6)}
@@ -701,6 +703,9 @@ footer{margin-top:auto}
   #tip{bottom:calc(92px + env(safe-area-inset-bottom))}
   html.reorder .reorderbar{bottom:calc(84px + env(safe-area-inset-bottom))}
   html.reorder main{padding-bottom:150px}
+}
+@media (max-width:899px) and (prefers-reduced-motion: reduce){
+  .dock{transition:none}
 }
 </style>
 </head>
@@ -5713,6 +5718,23 @@ document.addEventListener('click', ev=>{
 
 // ---------------- EVENT WIRING ----------------
 let IMPORT_MODE='merge';
+// Phone tab bar: hide while scrolling down, show on the way up, at the top, and near the bottom.
+(function(){
+  const TOP=8, NEAR=96, THRESH=10;
+  let last=window.scrollY||0, acc=0;
+  window.addEventListener('scroll', ()=>{
+    if(window.innerWidth>899) return;
+    const root=document.documentElement;
+    const y=window.scrollY||0, dy=y-last;
+    last=y;
+    const nearBottom=(root.scrollHeight-y-window.innerHeight)<NEAR;
+    if(y<=TOP || nearBottom || root.classList.contains('navmore')){ root.classList.remove('dock-hide'); acc=0; return; }
+    if(!dy) return;
+    acc = (acc>0)===(dy>0) ? acc+dy : dy;
+    if(acc>THRESH){ root.classList.add('dock-hide'); acc=0; }
+    else if(acc<-THRESH){ root.classList.remove('dock-hide'); acc=0; }
+  }, {passive:true});
+})();
 document.addEventListener('click', async ev=>{
   const t=ev.target, a=k=>{ const el=t.closest(`[data-${k}]`); return el?el.dataset[k.replace(/-([a-z])/g,(m,c)=>c.toUpperCase())]:null; };
   let v;
@@ -5721,7 +5743,7 @@ document.addEventListener('click', async ev=>{
   if((v=a('teampage'))!==null){ ev.preventDefault(); ev.stopPropagation(); const [lg,id]=v.split('|'); return openTeam(lg, id); }
   if((v=a('teamback'))!==null){ ev.preventDefault(); return teamBack(); }
   if(t.id==='teammodal'){ teamBack(); return; }
-  if(a('navmore')!==null){ ev.preventDefault(); const open=document.documentElement.classList.toggle('navmore'); const mb=document.getElementById('navmore'); if(mb) mb.setAttribute('aria-expanded', open?'true':'false'); return; }
+  if(a('navmore')!==null){ ev.preventDefault(); const open=document.documentElement.classList.toggle('navmore'); if(open) document.documentElement.classList.remove('dock-hide'); const mb=document.getElementById('navmore'); if(mb) mb.setAttribute('aria-expanded', open?'true':'false'); return; }
   if((v=a('tab'))!==null) return go(v);
   if((v=a('mon'))!==null){ monAction(v); return; }
   if((v=a('monpin'))!==null){
