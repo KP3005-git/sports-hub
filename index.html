@@ -404,6 +404,17 @@ th.brsort{cursor:pointer;color:var(--gold2)}
 .pkbook{font-size:.92em;font-weight:800;color:var(--gold2)}
 .pkmeta{font-size:12px;color:var(--mut)}.pkmeta b{color:var(--txt)}
 .pknotes{font-size:13px;margin-top:4px;line-height:1.4}
+.why{margin-top:8px;padding:10px 12px;border-radius:14px;background:rgba(6,10,18,.72);border:1px solid rgba(255,255,255,.16);color:#f4f7ff;font-size:15px;line-height:1.5}
+.whylabel{font-size:11px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:#d5e2ff;margin:0 0 6px}
+.why p,.why li{margin:0 0 8px;color:#f4f7ff}
+.why li:last-child,.why p:last-child{margin-bottom:0}
+.why b{color:#fff;font-weight:800}
+.why ul{margin:0;padding-left:1.15em}
+.why summary{cursor:pointer;color:#9ec0ff;font-weight:800;font-size:14px;margin-top:6px;list-style:none}
+.why summary::-webkit-details-marker{display:none}
+.why details[open] summary .whyclosed,.why summary .whyopen{display:none}
+.why details[open] summary .whyopen{display:inline}
+html.touch .why summary{min-height:44px;display:flex;align-items:center}
 .pkhitbtn{display:flex;gap:8px;align-items:flex-start;justify-content:space-between;width:100%;background:none;border:0;color:inherit;font:inherit;text-align:left;padding:2px 0;cursor:pointer}
 .pkhitbtn .pkbet{flex:1}
 .pkprog{display:block;margin-top:2px;font-size:12px;font-weight:700;color:var(--mut)}
@@ -3564,6 +3575,34 @@ function hitMoreHTML(b, legs, g, sum){
   const graded=sheet&&b.gradedAt?`<div class="note">Sheet result · graded ${esc(fmtStamp(b.gradedAt))}</div>`:(sheet?'<div class="note">Sheet result</div>':'');
   return lines+graded;
 }
+function whyChunks(text){
+  const raw=String(text||'').replace(/\r\n/g,'\n').trim();
+  if(!raw) return [];
+  const parts=raw.split(/\n+| \u00b7 |\s\|\s+|;\s+/).map(s=>s.trim()).filter(Boolean);
+  const out=[];
+  parts.forEach(p=>{
+    if(p.length<160){ out.push(p); return; }
+    const bits=p.split(/(?<=[.!?])\s+(?=[A-Z(])/).map(s=>s.trim()).filter(Boolean);
+    if(bits.length>1) out.push(...bits); else out.push(p);
+  });
+  return out;
+}
+function whyMark(escaped){
+  return escaped.replace(/(\$[\d,]+(?:\.\d+)?|[+-]\d{3,}|\d+(?:\.\d+)?%|\d+(?:\.\d+)?\s+of\s+\d+|\d+\.\d+)/g,'<b>$1</b>');
+}
+function whyHTML(text){
+  const chunks=whyChunks(text);
+  if(!chunks.length) return '';
+  const items=chunks.map(c=>whyMark(esc(c)));
+  const list=arr=>arr.length>1?`<ul class="whypts">${arr.map(c=>`<li>${c}</li>`).join('')}</ul>`:`<p>${arr[0]}</p>`;
+  const long=chunks.join(' ').length>220 || chunks.length>2;
+  if(!long) return `<div class="why"><div class="whylabel">Why</div>${list(items)}</div>`;
+  const trimmed=chunks[0].length>150;
+  const cut=trimmed?chunks[0].slice(0,147).replace(/\s+\S*$/,'')+'…':chunks[0];
+  const rest=trimmed?items:items.slice(1);
+  const more=rest.length?list(rest):'';
+  return `<div class="why"><div class="whylabel">Why</div><p class="whyprev">${whyMark(esc(cut))}</p>${more?`<details><summary><span class="whyclosed">Show more</span><span class="whyopen">Show less</span></summary>${more}</details>`:''}</div>`;
+}
 function pkBetLine(l, g, b){
   const title=legLabel(l, g);
   const odds=l.odds!=null&&l.odds!=='' ? l.odds : ((b.legs||[]).length===1 ? b.odds : null);
@@ -3591,7 +3630,7 @@ function gdPickCard(b, id, g, mine, sum){
     ${hit.map(row).join('')||rest.map(row).join('')}
     ${hit.length&&rest.length?`<div class="note">Other legs</div>${rest.map((l,i)=>row(l, hit.length+i)).join('')}`:''}
     <div class="pkmeta">${boosted?'<span class="badge b-gold">🚀 BOOSTED</span> ':''}${mine&&b.stake!=null?`Stake <b>${money(+b.stake)}</b> `:''}${legs.length>1?`Ticket <b>${fmtOdds(b.odds)}</b> `:''}${b.oddsNote?`<span title="${esc(b.oddsNote)}">${esc(b.oddsNote.length>90?b.oddsNote.slice(0,90)+'…':b.oddsNote)}</span>`:''}</div>
-    ${b.notes?`<div class="pknotes">${esc(b.notes)}</div>`:''}
+    ${b.notes?whyHTML(b.notes):''}
   </div>`;
 }
 async function gdLoadPickLegs(id){ // other legs of parlays on this game: fetch their games once so they get names + grades
@@ -3766,6 +3805,7 @@ function slipCard(b){
       <div class="ptitle">${b.demo?'<span class="demo-ribbon">DEMO SLIP</span> ':''}${esc(b.book)} ${b.legs.length>1?b.legs.length+'-Leg ':''}${esc(BETTYPES[b.betType]||b.betType)}${b.kind==='rec'?' <span class="badge b-b">RECOMMENDATION · '+esc(b.verdict)+'</span>':''}</div>
       <div class="pmeta">${esc(b.date)} · ${b.stake!=null?`Stake <b>${money(b.stake)}</b> · `:''}Odds <b>${fmtOdds(b.odds)}</b>${b.oddsNote?' ('+esc(b.oddsNote)+')':''}${toWin?` · Returns <b>${money(toWin)}</b> (profit ${money(toWin-b.stake)})`:''}</div></div>
     <div class="tstat ${gr.cls}">${esc(gr.txt)}</div></div><div class="legs">${legsHTML}</div>
+    ${b.notes?whyHTML(b.notes):''}
     ${gr.pushAdj?'<div class="note" style="margin-top:6px">A leg pushed — payout recalculated from leg odds if entered, otherwise shown at full ticket odds. Set the exact payout with "Result" in history if needed.</div>':''}</div>`;
 }
 function srcTag(b){ return b.source==='sheet' ? `<span class="sub" title="From Google Sheet row ${esc(b.sheetRow||'')}">📄 sheet${(b.localFields||[]).length?' + local edits':''}</span>` : `<span class="sub" style="color:var(--amber)">hub only</span>`; }
@@ -3796,7 +3836,7 @@ function recRow(b){
     <td><select data-verdict="${esc(b.id)}">${VERDICTS.map(v=>`<option ${v===b.verdict?'selected':''}>${v}</option>`).join('')}</select></td>
     <td>${res}</td>
     <td>${c==null?`<a href="#" data-closing="${esc(b.id)}|rec">add close</a>`:`<span class="${plClass(c)}">${pct(c)}</span><span class="sub">close ${fmtOdds(b.closingOdds)}</span>`}</td>
-    <td class="wrap">${esc(b.notes||'')}</td>
+    <td class="wrap">${b.notes?whyHTML(b.notes):''}</td>
     <td><button class="btn sm" data-place="${esc(b.id)}">Log as placed</button> ${rowActions(b)}</td></tr>`;
 }
 function breakdown(key, label){
@@ -4323,7 +4363,8 @@ function ladderRowBtn(b){
   const mk=ladderMark(ladderOutcome(b));
   const stake=b.ladder.stake!=null?moneyCompact(b.ladder.stake):'—';
   const open=leg.eventId&&leg.league?` data-gd="${esc(leg.eventId)}" data-lg="${esc(leg.league)}"`:'';
-  return `<button type="button" class="ladrrow"${open}><div class="lh"><span class="note">${esc(b.date||'')} · Rung ${esc(b.ladder.rung)}</span><b>${esc(game)}</b><span class="note">${esc(title)} · ${esc(fmtOdds(b.odds))} · stake ${esc(stake)}</span></div><span class="badge ${mk.cls}">${esc(mk.lbl)}</span></button>`;
+  const row=`<button type="button" class="ladrrow"${open}><div class="lh"><span class="note">${esc(b.date||'')} · Rung ${esc(b.ladder.rung)}</span><b>${esc(game)}</b><span class="note">${esc(title)} · ${esc(fmtOdds(b.odds))} · stake ${esc(stake)}</span></div><span class="badge ${mk.cls}">${esc(mk.lbl)}</span></button>`;
+  return b.notes?`<div class="ladnote">${row}${whyHTML(b.notes)}</div>`:row;
 }
 function ladderBoardHTML(name, current, past){
   const who=name==='NFL'?'Blitz':'Court';
@@ -4948,7 +4989,7 @@ function glPicksHTML(props, rows, cols, team){
     const odds=leg.odds!=null?leg.odds:bet.odds;
     const stake=bet.kind==='placed' && bet.stake>0 ? 'Stake '+money(bet.stake) : 'Recommended'+(bet.verdict?' · '+bet.verdict:'');
     const cmp=propCompare(rows, cols, leg);
-    return `<div class="glpickrow">${analystTag(analystOf(bet))}${multi?' <span class="propleg">Leg of SGP/parlay</span>':''}<div class="glpickmain"><b>${esc(propLabel(leg))}</b> <span class="note">${esc(fmtOdds(odds))} · ${esc(stake)}</span></div><div class="note">${esc(propGameText(leg, bet, team))}</div>${cmp?`<div class="glcmp">${esc(cmp)}</div>`:''}</div>`;
+    return `<div class="glpickrow">${analystTag(analystOf(bet))}${multi?' <span class="propleg">Leg of SGP/parlay</span>':''}<div class="glpickmain"><b>${esc(propLabel(leg))}</b> <span class="note">${esc(fmtOdds(odds))} · ${esc(stake)}</span></div><div class="note">${esc(propGameText(leg, bet, team))}</div>${cmp?`<div class="glcmp">${esc(cmp)}</div>`:''}${bet.notes?whyHTML(bet.notes):''}</div>`;
   }).join('');
   return `<section class="glpick" aria-label="Picks Desk"><div class="glpickh">Picks Desk</div>${rowsHTML}</section>`;
 }
