@@ -1405,6 +1405,7 @@ function go(tab){
 }
 const SHEET_BG_MS = 2*60e3, SHEET_BG_TABS = ['mine','cfb','cbb','nfl','nba','ladders','fantasy','highlights','monitor','injuries'];
 async function render(){
+  if(typeof holdDockScroll==='function') holdDockScroll();
   clearTimeout(RT); const tok=++TOKEN; showErr('');
   const view=$('#view');
   try{
@@ -1996,7 +1997,7 @@ function injBodyHTML(){
   if(!rows.length){ const tot=injRowsFor(lgF).length; return `<div class="empty">${tot?'No injuries match these filters.':(lgF!=='all'&&LG[lgF].college?`ESPN has no current ${esc(LG[lgF].short)} injury data.`:'No injuries loaded yet.')}</div>`; }
   const head=`<tr>${lgF==='all'?'<th>Lg</th>':''}<th>Player</th><th>Pos</th><th>Team</th><th>Status</th><th>Injury</th><th>ESPN est. return</th><th>Updated</th><th>Latest note</th></tr>`;
   const body=rows.map(({lg,e})=>{ const mine=mineK.has(lg+'|'+(e.id||e.name));
-    return `<tr data-injrow="${esc(lg+':'+e.id)}" class="${mine?'injmine':''}">${lgF==='all'?`<td>${esc(LG[lg].short)}</td>`:''}<td><b>${mine?'⭐ ':''}${esc(e.name)}</b></td><td>${esc(e.pos)}</td><td>${esc(e.team||e.teamName)}</td><td>${injBadge(e)}</td><td>${esc(e.type||'—')}${e.side?` <span class="note">(${esc(e.side.toLowerCase())})</span>`:''}</td><td>${esc(injDay(e.ret)||'—')}</td><td>${esc(injDay(e.date)||'—')}</td><td class="wrap">${e.sc?esc(e.sc):'<span class="note">—</span>'}${e.lc&&e.lc!==e.sc?`<details><summary class="note">more</summary><span class="note">${esc(e.lc)}</span></details>`:''}</td></tr>`; }).join('');
+    return `<tr data-injrow="${esc(lg+':'+e.id)}" class="${mine?'injmine':''}">${lgF==='all'?`<td>${esc(LG[lg].short)}</td>`:''}<td><b>${mine?'⭐ ':''}${esc(e.name)}</b></td><td>${esc(e.pos)}</td><td>${esc(e.team||e.teamName)}</td><td>${injBadge(e)}</td><td>${esc(e.type||'—')}${e.side?` <span class="note">(${esc(e.side.toLowerCase())})</span>`:''}</td><td>${esc(injDay(e.ret)||'—')}</td><td>${esc(injDay(e.date)||'—')}</td><td class="wrap">${e.sc?esc(e.sc):'<span class="note">—</span>'}${e.lc&&e.lc!==e.sc?`<details data-keep="${esc('inj|'+lg+':'+e.id)}"${EXPAND.has('inj|'+lg+':'+e.id)?' open':''}><summary class="note">more</summary><span class="note">${esc(e.lc)}</span></details>`:''}</td></tr>`; }).join('');
   return `<div class="note" id="injcount" style="margin-bottom:6px">${rows.length} player${rows.length>1?'s':''}</div><div class="tblwrap"><table id="injtbl">${head}${body}</table></div>`;
 }
 function renderInjuriesView(view, full){
@@ -2248,7 +2249,7 @@ function gdPlayersHTML(d, lg, g, groups){
         const tkey=tid+':'+(c.name||ci); played.forEach(a=>ids.add(String(a.athlete.id)));
         const st=played.filter(a=>a.starter), bn=played.filter(a=>!a.starter), rows=st.concat(bn);
         body += pTable(tkey, c.labels||c.names||[], rows.map(a=>Object.assign({ath:a.athlete, stats:a.stats||[], extra:playsHTML(tkey,a.athlete)}, tagFor(a.athlete, tid))), c.totals, gid, st.length&&bn.length?st.length:null);
-        if(dnp.length) body += `<details class="pdnp"><summary>Did not play (${dnp.length})</summary>${dnp.map(a=>`${esc(a.athlete.shortName||a.athlete.displayName)}${a.reason?' <span class="note">('+esc(String(a.reason).toLowerCase())+')</span>':''}`).join(' · ')}</details>`; });
+        if(dnp.length){ const dk='dnp|'+gid+'|'+tkey; body += `<details class="pdnp" data-keep="${esc(dk)}"${EXPAND.has(dk)?' open':''}><summary>Did not play (${dnp.length})</summary>${dnp.map(a=>`${esc(a.athlete.shortName||a.athlete.displayName)}${a.reason?' <span class="note">('+esc(String(a.reason).toLowerCase())+')</span>':''}`).join(' · ')}</details>`; } });
     }
     if(!body) body='<div class="note">No player stats for this team yet.</div>';
     return `<div class="pteam" data-team="${side}" data-pcount="${ids.size}"><h4>${tm.logo?teamLogoBtn(lg, tm.id, tm.logo):''}${esc(tm.full||tm.name)} <span class="note">${ids.size} player${ids.size===1?'':'s'}</span>${dres?` <span class="badge b-gold" title="Your fantasy D/ST · ${esc(dres.line)}">⭐ D/ST ${dres.pts.toFixed(1)}</span>`:''}</h4>${body}</div>`;
@@ -2296,6 +2297,7 @@ async function openGame(lg, id, opts={}){
     me.last = {d, lg, g, groups};
     injAddSummary(lg, d);
     const playersHTML = gdPlayersHTML(d, lg, g, groups);
+    holdDockScroll();
     $('#gdbody').innerHTML = `<div class="note">${esc(LG[lg].icon+' '+LG[lg].name)}${g.cup?' '+cupBadge(g):(g.note?' · '+esc(g.note):'')}</div>
       <div class="gdscore">${side(g.away)}${side(g.home)}</div>
       <div class="gdmeta"><span class="st ${g.state==='in'?'l':''}">${g.state==='in'?'● ':''}${esc(statusTxt(g))}</span> · ${esc(fmtDay(g.date))} ${esc(fmtTime(g.date))} · 📺 ${esc(g.tv)}${venue?' · '+esc(venue):''}${g.state==='in'?` · <span class="note" id="gdupd">updated ${esc(fmtTime(new Date()))} · refreshes every ${GD_REFRESH_MS/1000}s</span>`:''}</div>
@@ -2319,7 +2321,7 @@ async function openGame(lg, id, opts={}){
     if(g.state==='in' || (g.state==='pre' && +g.date<=Date.now())) me.timer=setTimeout(()=>{ if(GD===me){ if(DRAG) return; openGame(lg,id,{refresh:true}); } }, GD_REFRESH_MS);
     me.data={groups:groups.length, state:g.state};
     { const c=INJ[lg]; if(!c || !c.tried || Date.now()-Date.parse(c.tried)>=(c.err?INJ_RETRY:INJ_TTL)) injEnsure([lg]).then(()=>{ if(GD===me) injRefreshSoon(); }); }
-    syncSheet().then(()=>gdLoadPickLegs(id)).then(()=>{ if(GD!==me) return; const el=$('#gdpicks'); if(el) el.innerHTML=gdPicksHTML(g, me.last&&me.last.d); const lad=$('#gdladder'); if(lad) lad.innerHTML=ladderSectionHTML(g); }).catch(()=>{});   // throttled (20 s); picks update in place
+    syncSheet().then(()=>gdLoadPickLegs(id)).then(()=>{ if(GD!==me) return; const el=$('#gdpicks'); if(el){ holdDockScroll(); el.innerHTML=gdPicksHTML(g, me.last&&me.last.d); } const lad=$('#gdladder'); if(lad) lad.innerHTML=ladderSectionHTML(g); }).catch(()=>{});   // throttled (20 s); picks update in place
   }catch(e){ if(GD===me) $('#gdbody').innerHTML=`<div class="empty">Could not load this game from ESPN (${esc(e.message)}).</div>`; }
 }
 document.addEventListener('keydown', e=>{
@@ -3389,6 +3391,7 @@ function legBadge(l){ // existing gradeLeg(); props stay manual
   return `<span class="badge ${r.cls}" title="${esc(r.note||'')}">${esc(r.badge)}</span>`;
 }
 const HIT_OPEN=new Set();
+const EXPAND=new Set(); // open <details data-keep> (Why, DNP, injury notes) survive auto-refresh
 function hitNum(n){ if(!Number.isFinite(+n)) return ''; const r=Math.round(+n*10)/10; return Math.abs(r-Math.round(r))<0.05?String(Math.round(r)):String(r); }
 function hitSheet(bet){
   const o=String(bet&&bet.resultOverride||'').toLowerCase();
@@ -3590,7 +3593,7 @@ function whyChunks(text){
 function whyMark(escaped){
   return escaped.replace(/(\$[\d,]+(?:\.\d+)?|[+-]\d{3,}|\d+(?:\.\d+)?%|\d+(?:\.\d+)?\s+of\s+\d+|\d+\.\d+)/g,'<b>$1</b>');
 }
-function whyHTML(text){
+function whyHTML(text, key){
   const chunks=whyChunks(text);
   if(!chunks.length) return '';
   const items=chunks.map(c=>whyMark(esc(c)));
@@ -3601,7 +3604,8 @@ function whyHTML(text){
   const cut=trimmed?chunks[0].slice(0,147).replace(/\s+\S*$/,'')+'…':chunks[0];
   const rest=trimmed?items:items.slice(1);
   const more=rest.length?list(rest):'';
-  return `<div class="why"><div class="whylabel">Why</div><p class="whyprev">${whyMark(esc(cut))}</p>${more?`<details><summary><span class="whyclosed">Show more</span><span class="whyopen">Show less</span></summary>${more}</details>`:''}</div>`;
+  const keep=key?` data-keep="${esc(key)}"${EXPAND.has(key)?' open':''}`:'';
+  return `<div class="why"><div class="whylabel">Why</div><p class="whyprev">${whyMark(esc(cut))}</p>${more?`<details${keep}><summary><span class="whyclosed">Show more</span><span class="whyopen">Show less</span></summary>${more}</details>`:''}</div>`;
 }
 function pkBetLine(l, g, b){
   const title=legLabel(l, g);
@@ -3621,7 +3625,7 @@ function gdPickCard(b, id, g, mine, sum){
     const ev=evMatch(l,id)?g:legEvent(l);
     const useSum=ev&&g&&String(ev.id)===String(g.id)?sum:null;
     const h=hitChip(l, ev, useSum, legs.length<=1?b:null);
-    const key=b.id+'|'+i;
+    const key=[b.id, l.eventId||'', l.market||'', l.selection||'', l.line??''].join('|');
     const open=HIT_OPEN.has(key);
     return `<div class="pkleg"><button type="button" class="pkhitbtn" data-hitopen="${esc(key)}" aria-expanded="${open?'true':'false'}"><div style="flex:1;min-width:0">${pkBetLine(l, ev||g, b)}${h.progress?`<span class="pkprog">${esc(h.progress)}</span>`:''}</div><span class="badge ${h.cls}">${esc(h.chip)}</span></button>${propInjury(l)}<div class="pkhitmore"${open?'':' hidden'}>${hitMoreHTML(b, legs, g, sum)}</div></div>`;
   };
@@ -3630,7 +3634,7 @@ function gdPickCard(b, id, g, mine, sum){
     ${hit.map(row).join('')||rest.map(row).join('')}
     ${hit.length&&rest.length?`<div class="note">Other legs</div>${rest.map((l,i)=>row(l, hit.length+i)).join('')}`:''}
     <div class="pkmeta">${boosted?'<span class="badge b-gold">🚀 BOOSTED</span> ':''}${mine&&b.stake!=null?`Stake <b>${money(+b.stake)}</b> `:''}${legs.length>1?`Ticket <b>${fmtOdds(b.odds)}</b> `:''}${b.oddsNote?`<span title="${esc(b.oddsNote)}">${esc(b.oddsNote.length>90?b.oddsNote.slice(0,90)+'…':b.oddsNote)}</span>`:''}</div>
-    ${b.notes?whyHTML(b.notes):''}
+    ${b.notes?whyHTML(b.notes, 'why|'+b.id):''}
   </div>`;
 }
 async function gdLoadPickLegs(id){ // other legs of parlays on this game: fetch their games once so they get names + grades
@@ -3805,7 +3809,7 @@ function slipCard(b){
       <div class="ptitle">${b.demo?'<span class="demo-ribbon">DEMO SLIP</span> ':''}${esc(b.book)} ${b.legs.length>1?b.legs.length+'-Leg ':''}${esc(BETTYPES[b.betType]||b.betType)}${b.kind==='rec'?' <span class="badge b-b">RECOMMENDATION · '+esc(b.verdict)+'</span>':''}</div>
       <div class="pmeta">${esc(b.date)} · ${b.stake!=null?`Stake <b>${money(b.stake)}</b> · `:''}Odds <b>${fmtOdds(b.odds)}</b>${b.oddsNote?' ('+esc(b.oddsNote)+')':''}${toWin?` · Returns <b>${money(toWin)}</b> (profit ${money(toWin-b.stake)})`:''}</div></div>
     <div class="tstat ${gr.cls}">${esc(gr.txt)}</div></div><div class="legs">${legsHTML}</div>
-    ${b.notes?whyHTML(b.notes):''}
+    ${b.notes?whyHTML(b.notes, 'why|'+b.id):''}
     ${gr.pushAdj?'<div class="note" style="margin-top:6px">A leg pushed — payout recalculated from leg odds if entered, otherwise shown at full ticket odds. Set the exact payout with "Result" in history if needed.</div>':''}</div>`;
 }
 function srcTag(b){ return b.source==='sheet' ? `<span class="sub" title="From Google Sheet row ${esc(b.sheetRow||'')}">📄 sheet${(b.localFields||[]).length?' + local edits':''}</span>` : `<span class="sub" style="color:var(--amber)">hub only</span>`; }
@@ -3836,7 +3840,7 @@ function recRow(b){
     <td><select data-verdict="${esc(b.id)}">${VERDICTS.map(v=>`<option ${v===b.verdict?'selected':''}>${v}</option>`).join('')}</select></td>
     <td>${res}</td>
     <td>${c==null?`<a href="#" data-closing="${esc(b.id)}|rec">add close</a>`:`<span class="${plClass(c)}">${pct(c)}</span><span class="sub">close ${fmtOdds(b.closingOdds)}</span>`}</td>
-    <td class="wrap">${b.notes?whyHTML(b.notes):''}</td>
+    <td class="wrap">${b.notes?whyHTML(b.notes, 'why|'+b.id):''}</td>
     <td><button class="btn sm" data-place="${esc(b.id)}">Log as placed</button> ${rowActions(b)}</td></tr>`;
 }
 function breakdown(key, label){
@@ -4364,7 +4368,7 @@ function ladderRowBtn(b){
   const stake=b.ladder.stake!=null?moneyCompact(b.ladder.stake):'—';
   const open=leg.eventId&&leg.league?` data-gd="${esc(leg.eventId)}" data-lg="${esc(leg.league)}"`:'';
   const row=`<button type="button" class="ladrrow"${open}><div class="lh"><span class="note">${esc(b.date||'')} · Rung ${esc(b.ladder.rung)}</span><b>${esc(game)}</b><span class="note">${esc(title)} · ${esc(fmtOdds(b.odds))} · stake ${esc(stake)}</span></div><span class="badge ${mk.cls}">${esc(mk.lbl)}</span></button>`;
-  return b.notes?`<div class="ladnote">${row}${whyHTML(b.notes)}</div>`:row;
+  return b.notes?`<div class="ladnote">${row}${whyHTML(b.notes, 'why|'+b.id)}</div>`:row;
 }
 function ladderBoardHTML(name, current, past){
   const who=name==='NFL'?'Blitz':'Court';
@@ -4989,7 +4993,7 @@ function glPicksHTML(props, rows, cols, team){
     const odds=leg.odds!=null?leg.odds:bet.odds;
     const stake=bet.kind==='placed' && bet.stake>0 ? 'Stake '+money(bet.stake) : 'Recommended'+(bet.verdict?' · '+bet.verdict:'');
     const cmp=propCompare(rows, cols, leg);
-    return `<div class="glpickrow">${analystTag(analystOf(bet))}${multi?' <span class="propleg">Leg of SGP/parlay</span>':''}<div class="glpickmain"><b>${esc(propLabel(leg))}</b> <span class="note">${esc(fmtOdds(odds))} · ${esc(stake)}</span></div><div class="note">${esc(propGameText(leg, bet, team))}</div>${cmp?`<div class="glcmp">${esc(cmp)}</div>`:''}${bet.notes?whyHTML(bet.notes):''}</div>`;
+    return `<div class="glpickrow">${analystTag(analystOf(bet))}${multi?' <span class="propleg">Leg of SGP/parlay</span>':''}<div class="glpickmain"><b>${esc(propLabel(leg))}</b> <span class="note">${esc(fmtOdds(odds))} · ${esc(stake)}</span></div><div class="note">${esc(propGameText(leg, bet, team))}</div>${cmp?`<div class="glcmp">${esc(cmp)}</div>`:''}${bet.notes?whyHTML(bet.notes, 'why|'+bet.id):''}</div>`;
   }).join('');
   return `<section class="glpick" aria-label="Picks Desk"><div class="glpickh">Picks Desk</div>${rowsHTML}</section>`;
 }
@@ -5759,23 +5763,30 @@ document.addEventListener('click', ev=>{
 
 // ---------------- EVENT WIRING ----------------
 let IMPORT_MODE='merge';
-// Phone tab bar: hide while scrolling down, show on the way up, at the top, and near the bottom.
+// Phone tab bar: hide on the way down. Show only after a deliberate upward scroll,
+// at the very top, or while More is open. Layout/refresh scrolls and iOS bounce are ignored.
+let DOCK_IGNORE_UNTIL=0;
+function holdDockScroll(){ DOCK_IGNORE_UNTIL=performance.now()+500; }
 (function(){
-  const TOP=8, NEAR=96, THRESH=10;
-  let last=window.scrollY||0, acc=0;
+  const TOP=8, HIDE_AT=12, SHOW_AT=72;
+  let last=0, up=0, down=0;
+  const maxY=()=>Math.max(0, (document.scrollingElement||document.documentElement).scrollHeight-window.innerHeight);
   window.addEventListener('scroll', ()=>{
     if(window.innerWidth>899) return;
     const root=document.documentElement;
-    const y=window.scrollY||0, dy=y-last;
-    last=y;
-    const nearBottom=(root.scrollHeight-y-window.innerHeight)<NEAR;
-    if(y<=TOP || nearBottom || root.classList.contains('navmore')){ root.classList.remove('dock-hide'); acc=0; return; }
-    if(!dy) return;
-    acc = (acc>0)===(dy>0) ? acc+dy : dy;
-    if(acc>THRESH){ root.classList.add('dock-hide'); acc=0; }
-    else if(acc<-THRESH){ root.classList.remove('dock-hide'); acc=0; }
+    const raw=window.scrollY||0, max=maxY();
+    if(raw<0 || raw>max+1){ last=Math.min(max, Math.max(0, raw)); return; }
+    if(performance.now()<DOCK_IGNORE_UNTIL){ last=raw; return; }
+    const dy=raw-last; last=raw;
+    if(raw<=TOP || root.classList.contains('navmore')){ root.classList.remove('dock-hide'); up=0; down=0; return; }
+    if(dy>0){ up=0; down+=dy; if(down>=HIDE_AT){ root.classList.add('dock-hide'); down=0; } }
+    else if(dy<0){ down=0; up+=-dy; if(up>=SHOW_AT){ root.classList.remove('dock-hide'); up=0; } }
   }, {passive:true});
 })();
+document.addEventListener('toggle', ev=>{
+  const d=ev.target; if(!d||!d.dataset||!d.dataset.keep) return;
+  if(d.open) EXPAND.add(d.dataset.keep); else EXPAND.delete(d.dataset.keep);
+}, true);
 document.addEventListener('click', async ev=>{
   const t=ev.target, a=k=>{ const el=t.closest(`[data-${k}]`); return el?el.dataset[k.replace(/-([a-z])/g,(m,c)=>c.toUpperCase())]:null; };
   let v;
