@@ -759,6 +759,7 @@ footer{margin-top:auto}
 .campus{--ink:#edc879;--wash:#312b20;font-variant-numeric:tabular-nums}.campus.cbb{--ink:#ffac83;--wash:#3c261e}.campus.cfb{--ink:#91dfbb;--wash:#1a322c}.campus-heading{padding:18px 0}.campus-heading small,.campus-lead small{color:var(--ink);text-transform:uppercase;font:750 .73rem/1.35 system-ui;letter-spacing:.1em}.campus-heading h2{display:block;color:var(--txt);font:850 clamp(1.9rem,4vw,3rem)/1.08 system-ui;text-transform:none;letter-spacing:-.045em;margin:4px 0}.campus-heading h2:after{display:none}.campus-heading p{color:var(--mut);margin:4px 0;font-size:.85rem}.campus-top{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:14px;margin:15px 0}
 .campus-lead,.campus-bye{border:1px solid var(--line);border-left:3px solid var(--ink);border-radius:10px;background:linear-gradient(110deg,var(--wash),#101722)}.campus-lead{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;text-align:left;color:var(--txt);cursor:pointer}.campus-lead>span{display:grid;gap:4px}.campus-lead strong{font:800 1.65rem/1.1 system-ui}.campus-lead span span{color:#c5cbd3;font-size:.85rem}.campus-lead .campus-logo{width:70px;height:65px}.campus-logo{width:30px;height:30px;object-fit:contain;flex:none}.campus-team{display:inline-flex;align-items:center;gap:8px;border:0;background:none;color:var(--txt);padding:2px 0;font-weight:700;text-align:left;cursor:pointer}.campus-team:hover span{text-decoration:underline}.campus-number,.campus-slot>b{color:var(--ink)}.campus-change{display:inline-block;min-width:34px;text-align:center;padding:2px 5px;border-radius:4px}.campus-change.up{background:#183b30;color:#a6efc8}.campus-change.down{background:#41282f;color:#ffbac4}.campus-change.new{background:#283652;color:#bdd4ff}.campus .league-scroll{border:1px solid var(--line);border-radius:10px}.campus .league-table td{padding:5px 9px}.campus .league-table th{padding:10px 9px}.campus h3{margin:20px 0 9px}.campus-bracket{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.campus-slot{display:flex;align-items:center;gap:6px}.campus-slot>b{min-width:24px;font-size:.8rem}.campus-bye,.campus-game{padding:9px}.campus-game{background:var(--card);border:1px solid var(--line);border-radius:9px}.campus-game>div{display:flex;align-items:center;justify-content:space-between;gap:4px;padding:5px 0}.campus-game>div+div{border-top:1px solid var(--line)}.campus-game small{color:var(--mut)}.campus :focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 @media(max-width:1150px){.campus-bracket{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:620px){.campus-top{grid-template-columns:1fr;gap:0}.campus-heading{padding:10px 0}.campus-game small{font-size:.67rem}.campus-slot{gap:3px}.campus-slot .campus-team{gap:4px}.campus-slot .campus-logo{width:23px;height:23px}.campus-game,.campus-bye{padding:7px}.campus .league-table td,.campus .league-table th{padding:5px}}
+.research-controls,.research-games{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr));gap:10px;margin:12px 0}.research-controls label{min-width:0}.research-controls select,[data-resume-team],[data-resume-net]{display:block;max-width:100%;margin:5px 0}.research-games h4,.research-games p{margin:6px 0}.research-games small{color:var(--mut)}#compare-prompt{color:var(--mut);padding:5px}
 </style>
 </head>
 <body>
@@ -1474,7 +1475,7 @@ function go(tab){
   if(typeof closeRoster==='function') closeRoster();
   if(typeof closeGame==='function') closeGame();
   if(tab!=='monitor' && typeof monLeave==='function') monLeave();
-  TAB=tab; pref.set('tab',tab); if(LGS.includes(tab)) pref.set('lastLeague',tab);
+  comparePick=null; TAB=tab; pref.set('tab',tab); if(LGS.includes(tab)) pref.set('lastLeague',tab);
   document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===tab));
   const pn=document.getElementById('pagename'); if(pn) pn.textContent=({mine:'My Teams',cfb:'College Football',cbb:"Men's Basketball",nfl:'NFL',nba:'NBA',ladders:'Ladders',fantasy:'Fantasy',highlights:'Highlights',monitor:'Monitor',injuries:'Injuries',bets:'Bets',blitz:'Picks Desk',settings:'Settings'})[tab]||'Sports Hub';
   document.documentElement.classList.remove('navmore');
@@ -3159,14 +3160,204 @@ function scoreboardURL(lg){
   else q.push('dates='+(vs.date||ymd(new Date())));
   return API+L.path+'/scoreboard?'+q.join('&');
 }
+// League research views
+const RESEARCH_STANDINGS='https://site.api.espn.com/apis/v2/sports/';
+const compareSelections={}, resumeSelections={};
+let comparePick=null;
+function standingsFeed(lg,level){
+  return getJSON(RESEARCH_STANDINGS+LG[lg].path+'/standings?level='+level,5*60e3);
+}
+function researchTeams(data){
+  const list=[];
+  function walk(node){
+    for(const entry of node.standings?.entries||[]){
+      if(entry.team) list.push({team:entry.team,stats:Object.fromEntries((entry.stats||[]).map(s=>[s.type,s])),group:node.name});
+    }
+    for(const child of node.children||[]) walk(child);
+  }
+  walk(data);
+  return [...new Map(list.map(r=>[String(r.team.id),r])).values()].sort((a,b)=>a.team.displayName.localeCompare(b.team.displayName));
+}
+function teamSelect(label,attr,teams,id){
+  return '<label>'+esc(label)+' <select '+attr+'>'+teams.map(r=>'<option value="'+esc(r.team.id)+'" '+(String(r.team.id)===String(id)?'selected':'')+'>'+esc(r.team.displayName)+'</option>').join('')+'</select></label>';
+}
+function resultLetter(g){
+  return g.usScore==null||g.oppScore==null?'—':g.usScore===g.oppScore?'T':g.usScore>g.oppScore?'W':'L';
+}
+async function regularGames(lg,id,year){
+  const path=API+LG[lg].path+'/teams/'+encodeURIComponent(id)+'/schedule?seasontype=2&season='+encodeURIComponent(year);
+  const data=await getJSON(path,5*60e3);
+  return teamNormGames(lg,id,data.events||[]);
+}
+async function comparisonBoard(lg,data,tok,view,nav){
+  const teams=researchTeams(data), ids=compareSelections[lg]||[];
+  if(teams.length<2){view.innerHTML=nav+'<p class="empty">Team standings are unavailable.</p>';return;}
+  const a=teams.find(r=>String(r.team.id)===ids[0])||teams[0];
+  const b=teams.find(r=>r!==a&&String(r.team.id)===ids[1])||teams.find(r=>r!==a);
+  compareSelections[lg]=[String(a.team.id),String(b.team.id)];
+  const controls='<h2>Head to head</h2><div class="research-controls">'+teamSelect('Team A','data-compare-side="0"',teams,a.team.id)+teamSelect('Team B','data-compare-side="1"',teams,b.team.id)+'</div>';
+  const year=data.season?.year;
+  const headings=['Regular season',a.team.displayName,b.team.displayName];
+  const top=nav+controls;
+  view.innerHTML=top+'<p role="status">Loading team schedules…</p>';
+  const schedules=await Promise.allSettled([a,b].map(r=>regularGames(lg,r.team.id,year)));
+  if(tok!==TOKEN) return;
+  const [sa,sb]=schedules.map(r=>r.status==='fulfilled'?r.value:null);
+  const finals=s=>s?.filter(g=>g.state==='post');
+  const recent=s=>finals(s)?.slice(-5).map(resultLetter).join(' · ')||'—';
+  const records=r=>esc(r.stats.total?.displayValue||r.stats.overall?.displayValue||'—');
+  const rows=[['Record',records(a),records(b)],['Last five · oldest first',recent(sa),recent(sb)]];
+  const head=sa?.filter(g=>g.oppId===String(b.team.id))||[];
+  const next=head.find(g=>g.state==='in'||(g.state==='pre'&&+g.date>=Date.now()-6*3600e3));
+  const meeting=next?(next.state==='in'?'Live now':'Next meeting · '+fmtStamp(next.date)):'No upcoming meeting listed';
+  const last=head.filter(g=>g.state==='post').at(-1);
+  const matchup='<p class="panel">'+esc(sa?meeting:'Meeting schedule unavailable')+(last?' · Last meeting: '+esc(a.team.abbreviation)+' '+esc(last.usScore)+'–'+esc(last.oppScore)+' '+esc(b.team.abbreviation):'')+'</p>';
+  const common=new Map();
+  for(const [i,sched] of [sa,sb].entries()){
+    for(const g of finals(sched)||[]){
+      const row=common.get(g.oppId)||{name:g.oppName,records:[[],[]]};
+      row.records[i].push(resultLetter(g));common.set(g.oppId,row);
+    }
+  }
+  const opponents=[...common.values()].filter(r=>r.records.every(x=>x.length)).map(r=>[esc(r.name),...r.records.map(v=>esc(v.join(' · ')))]);
+  view.innerHTML=top+leagueTable(headings,rows)+matchup+'<h3>Common opponents</h3>'+
+    (schedules.some(r=>r.status==='rejected')?'<p class="note">A schedule could not load. Reopen Compare teams to retry.</p>':opponents.length?leagueTable(['Opponent',a.team.abbreviation,b.team.abbreviation],opponents):'<p class="empty">No shared opponents played yet.</p>');
+}
+function proPositions(lg,data){
+  const rows=[];
+  for(const conf of data.children||[]) for(const div of conf.children||[]){
+    const teams=researchTeams(div).map(r=>({id:String(r.team.id),name:r.team.shortDisplayName||r.team.displayName,conf:conf.abbreviation,division:div.name,seed:Number(r.stats.playoffseed?.value),pct:Number(r.stats.winpercent?.value)||0,elim:r.stats.clincher?.displayValue==='e'})).filter(r=>r.seed>0);
+    teams.sort((a,b)=>b.pct-a.pct||a.seed-b.seed);
+    teams.forEach((r,i)=>rows.push({...r,leader:i===0}));
+  }
+  return rows;
+}
+const MOVEMENT_BASELINE={"day":"2026-11-21","nfl":{"year":2026,"rows":[["2",1,true],["17",8,false],["20",13,false],["15",15,false],["4",4,true],["23",6,false],["5",7,false],["33",11,false],["30",3,true],["34",9,false],["11",12,false],["10",16,false],["12",2,true],["7",5,false],["13",10,false],["24",14,false],["19",3,true],["6",10,false],["28",11,false],["21",16,false],["8",2,true],["16",5,false],["3",6,false],["9",7,false],["29",4,true],["27",12,false],["18",13,false],["1",14,false],["25",1,true],["26",8,false],["14",9,false],["22",15,false]]},"nba":{"year":2027,"rows":[["20",1,true],["2",2,false],["18",6,false],["28",9,false],["17",14,false],["8",3,true],["5",7,false],["11",11,false],["4",13,false],["15",15,false],["1",4,true],["14",5,false],["19",8,false],["27",10,false],["30",12,false],["16",5,true],["22",6,false],["7",7,false],["25",8,false],["26",14,false],["13",1,true],["21",9,false],["9",11,false],["12",13,false],["23",15,false],["24",2,true],["29",3,false],["10",4,false],["6",10,false],["3",12,false]]}};
+function weeklyMovement(lg,data,now=new Date()){
+  const rows=proPositions(lg,data),year=data.season?.year;
+  if(!year||rows.length!==(lg==='nba'?30:32))return '';
+  const day=now.toISOString().slice(0,10), key='sportsHub.movement.'+lg+'.'+year;
+  const cutoff=Date.parse(day)-7*864e5, oldest=cutoff-6*864e5;
+  let history={};
+  try{
+    history=JSON.parse(localStorage.getItem(key)||'{}')||{};
+    const baseline=MOVEMENT_BASELINE[lg];
+    if(baseline?.year===year && !history[MOVEMENT_BASELINE.day]) history[MOVEMENT_BASELINE.day]=baseline.rows;
+    history=Object.fromEntries(Object.entries(history).filter(([d,v])=>Date.parse(d)>=oldest&&Array.isArray(v)));
+    history[day]=rows.map(r=>[r.id,r.seed,r.leader]);
+    localStorage.setItem(key,JSON.stringify(history));
+  }catch(e){return '<p class="note">Browser storage is unavailable for weekly standings history.</p>';}
+  const prior=Object.keys(history).filter(d=>Date.parse(d)<=cutoff).sort().at(-1);
+  if(!prior)return '<p class="note">Weekly movement · Snapshot saved '+esc(day)+'. Visit again next week to compare.</p>';
+  const before=new Map(history[prior].map(([id,seed,leader])=>[id,{seed,leader}]));
+  const changes=[];
+  const zone=s=>lg==='nfl'?(s<=7?'playoff field':'outside field'):(s<=6?'playoff field':s<=10?'play-in field':'outside field');
+  for(const r of rows){
+    const p=before.get(r.id);if(!p)continue;
+    const notes=[];
+    if(r.seed!==p.seed)notes.push('Seed '+p.seed+' → '+r.seed);
+    if(r.leader!==p.leader)notes.push(r.leader?'Took division lead':'Lost division lead');
+    if(zone(r.seed)!==zone(p.seed))notes.push(zone(p.seed)+' → '+zone(r.seed));
+    if(notes.length)changes.push([esc(r.conf),esc(r.name),esc(notes.join(' · '))]);
+  }
+  return '<details class="panel"><summary>Weekly movement · '+esc(prior)+' to '+esc(day)+' · '+changes.length+' teams</summary>'+(changes.length?leagueTable(['Conference','Team','Change'],changes):'<p>No seed or division-lead changes.</p>')+'</details>';
+}
+async function importantGames(lg,favorites){
+  const pro=lg==='nfl'||lg==='nba',L=LG[lg];
+  const [board,context]=await Promise.all([getJSON(API+L.path+'/scoreboard?'+(L.sb||'limit=100'),30000),pro?standingsFeed(lg,3):getJSON(API+L.path+'/rankings',5*60e3)]);
+  if(pro)weeklyMovement(lg,context);
+  const positions=pro?proPositions(lg,context):[];
+  const poll=context.rankings?.find(p=>p.shortName==='AP Poll'||p.name==='AP Top 25');
+  const ranked=new Map((poll?.ranks||[]).map(r=>[String(r.team.id),r.current]));
+  const games=[];
+  for(const event of board.events||[]){
+    const g=normEvent(event,lg),sides=[g.home.id,g.away.id],reasons=new Set();
+    for(const fav of favorites){
+      const id=String(fav.id),name=fav.abbr||fav.name;
+      if(sides.includes(id)){reasons.add(name+' is one of your teams.');continue;}
+      if(pro){
+        const me=positions.find(r=>r.id===id);
+        if(!me||me.elim)continue;
+        for(const other of positions.filter(r=>sides.includes(r.id)&&!r.elim&&r.conf===me.conf)){
+          if(other.division===me.division)reasons.add(other.name+' shares '+name+'’s division.');
+          else if(Math.abs(me.seed-other.seed)<=2 || (Math.abs(me.seed-(lg==='nfl'?7:6))<=3 && Math.abs(other.seed-(lg==='nfl'?7:6))<=1))reasons.add(other.name+' is #'+other.seed+' in '+me.conf+'; '+name+' is #'+me.seed+'.');
+        }
+      }else if(ranked.has(id)){
+        for(const side of [g.home,g.away])if(ranked.has(side.id)&&Math.abs(ranked.get(id)-ranked.get(side.id))<=2)reasons.add(side.abbr+' is #'+ranked.get(side.id)+' in the AP poll, near '+name+' (#'+ranked.get(id)+').');
+      }
+    }
+    if(reasons.size)games.push({g,why:[...reasons].join(' ')});
+  }
+  return games;
+}
+async function fillImportantGames(sections,tok){
+  const results=await Promise.allSettled(sections.map(lg=>importantGames(lg,DATA.myTeams[lg])));
+  const el=document.getElementById('important-games');if(tok!==TOKEN||!el)return [];
+  const list=results.flatMap(r=>r.status==='fulfilled'?r.value:[]).sort((a,b)=>({in:0,pre:1,post:2}[a.g.state]-{in:0,pre:1,post:2}[b.g.state])||a.g.date-b.g.date);
+  const missed=sections.filter((_,i)=>results[i].status==='rejected').map(l=>LG[l].short);
+  remember(list.map(r=>r.g));
+  el.innerHTML='<h2>Games That Matter</h2>'+(list.length?'<div class="research-games">'+list.map(({g,why})=>'<article class="panel"><small>'+esc(LG[g.lg].short)+' · '+esc(g.state==='pre'?fmtStamp(g.date):g.detail)+'</small><h4><button class="btn sm" data-gd="'+esc(g.id)+'" data-lg="'+g.lg+'">'+esc(g.away.abbr)+(g.state==='pre'?'':' '+esc(g.away.score??'—'))+' @ '+esc(g.home.abbr)+(g.state==='pre'?'':' '+esc(g.home.score??'—'))+'</button></h4><p>'+esc(why)+'</p></article>').join('')+'</div>':'<p class="note">No games with a standings or poll connection on the current slate.</p>')+(missed.length?'<p class="note">Could not load '+esc(missed.join(', '))+'.</p>':'');
+  return list.map(r=>r.g);
+}
+
+const NET_DOWNLOAD='https://ncaa-api.henrygd.me/rankings/basketball-men/d1/ncaa-mens-basketball-net-rankings';
+const NET_RELEASE={"updated":"Through Games Apr. 06 2026","rows":[["1","Michigan","Big Ten","37-3","21-3","7-0","6-0","3-0"],["2","Duke","ACC","35-3","19-3","6-0","3-0","7-0"],["3","Arizona","Big 12","36-3","19-3","7-0","3-0","7-0"],["4","Florida","SEC","27-8","12-7","7-1","2-0","6-0"],["5","Illinois","Big Ten","28-9","10-9","6-0","7-0","5-0"],["6","Houston","Big 12","30-7","10-7","10-0","4-0","6-0"],["7","Iowa St.","Big 12","29-8","8-8","10-0","4-0","7-0"],["8","Purdue","Big Ten","30-9","13-9","6-0","8-0","3-0"],["9","UConn","Big East","34-6","11-4","11-1","7-1","5-0"],["10","Gonzaga","WCC","31-4","7-3","4-0","12-1","8-0"],["11","Michigan St.","Big Ten","27-8","10-7","4-1","9-0","4-0"],["12","Nebraska","Big Ten","28-7","10-7","5-0","7-0","6-0"],["13","St. John's (NY)","Big East","30-7","6-6","12-0","9-1","3-0"],["14","Alabama","SEC","25-10","9-8","9-2","5-0","2-0"],["15","Vanderbilt","SEC","27-9","10-8","9-1","2-0","6-0"],["16","Virginia","ACC","30-6","8-5","9-1","6-0","7-0"],["17","Tennessee","SEC","25-12","8-11","8-1","2-0","7-0"],["18","Arkansas","SEC","28-9","9-9","9-0","4-0","6-0"],["19","Louisville","ACC","24-11","9-11","4-0","4-0","7-0"],["20","Texas Tech","Big 12","23-11","7-10","5-1","8-0","3-0"],["21","Kansas","Big 12","24-11","8-10","9-1","4-0","3-0"],["22","Iowa","Big Ten","24-13","7-10","5-2","6-1","6-0"],["23","BYU","Big 12","23-12","7-10","8-2","3-0","5-0"],["24","Saint Mary's (CA)","WCC","26-6","1-5","7-1","11-0","7-0"],["25","Utah St.","Mountain West","28-7","5-5","9-1","9-1","5-0"],["26","North Carolina","ACC","24-9","6-9","5-0","8-0","5-0"],["27","Wisconsin","Big Ten","24-11","8-8","5-2","5-1","6-0"],["28","Kentucky","SEC","22-14","7-12","6-2","3-0","6-0"],["29","Saint Louis","Atlantic 10","28-6","3-2","6-3","6-1","13-0"],["30","Ohio St.","Big Ten","21-13","4-12","5-1","6-0","6-0"],["31","UCLA","Big Ten","24-12","5-9","6-3","6-0","7-0"],["32","Miami (FL)","ACC","26-9","6-7","7-2","3-0","10-0"],["33","Georgia","SEC","22-11","7-8","5-2","1-1","9-0"],["34","Villanova","Big East","24-9","2-7","8-1","9-1","5-0"],["35","Clemson","ACC","24-11","6-7","7-4","4-0","7-0"],["36","NC State","ACC","20-14","5-9","6-4","5-0","4-1"],["37","Auburn","SEC","22-16","4-13","7-2","4-1","7-0"],["38","Texas","SEC","20-15","9-10","2-4","2-1","7-0"],["39","TCU","Big 12","23-12","6-8","8-2","2-1","7-1"],["40","SMU","ACC","20-14","4-9","5-5","5-0","6-0"],["41","Indiana","Big Ten","18-14","3-10","3-4","5-0","7-0"],["42","Santa Clara","WCC","25-9","2-7","6-1","10-0","7-1"],["43","Texas A&M","SEC","22-12","7-8","4-4","3-0","8-0"],["44","VCU","Atlantic 10","28-8","3-6","5-2","9-0","11-0"],["45","South Fla.","American","24-9","3-3","6-4","6-2","9-0"],["46","New Mexico","Mountain West","25-11","2-7","6-2","7-2","10-0"],["47","Oklahoma","SEC","21-16","6-10","6-6","2-0","7-0"],["48","San Diego St.","Mountain West","21-11","3-8","6-2","6-1","6-0"],["49","Cincinnati","Big 12","18-15","3-11","4-3","4-0","7-1"],["50","Baylor","Big 12","16-17","3-13","5-4","3-0","5-0"],["51","Tulsa","American","28-8","1-3","5-4","10-1","12-0"],["52","UCF","Big 12","21-12","5-8","6-3","4-1","6-0"],["53","Seton Hall","Big East","21-12","1-6","7-4","7-2","6-0"],["54","West Virginia","Big 12","21-14","6-8","4-5","3-1","8-0"],["55","Washington","Big Ten","16-17","2-11","3-5","6-1","5-0"],["56","Virginia Tech","ACC","19-13","2-10","6-3","4-0","7-0"],["57","McNeese","Southland","26-6","0-3","2-2","8-0","16-1"],["58","Akron","MAC","27-6","0-3","0-1","11-2","16-0"],["59","Missouri","SEC","20-13","5-9","4-4","3-0","8-0"],["60","Boise St.","Mountain West","19-11","2-6","7-3","7-1","3-1"],["61","Northwestern","Big Ten","15-19","2-13","2-4","6-2","5-0"],["62","Stanford","ACC","20-13","5-6","4-3","4-4","7-0"],["63","Florida St.","ACC","18-15","3-9","6-5","2-0","7-1"],["64","Belmont","MVC","25-6","0-0","5-2","11-2","9-2"],["65","Miami (OH)","MAC","29-2","1-1","3-0","10-0","15-1"],["66","Dayton","Atlantic 10","25-12","2-6","8-2","7-3","8-1"],["67","Nevada","Mountain West","24-13","1-7","5-4","13-0","5-2"],["68","High Point","Big South","28-5","1-1","0-2","5-2","22-0"],["69","Wake Forest","ACC","18-17","1-10","6-5","4-2","7-0"],["70","Wichita St.","American","23-12","1-5","6-3","5-3","11-1"],["71","Grand Canyon","Mountain West","20-12","3-5","3-4","4-2","10-1"],["72","California","ACC","21-12","4-6","2-4","7-2","8-0"],["73","Arizona St.","Big 12","17-16","6-11","3-3","4-1","4-1"],["74","Yale","Ivy League","22-7","0-1","1-0","12-5","9-1"],["75","LSU","SEC","15-17","1-12","3-3","2-2","9-0"],["76","Colorado","Big 12","17-16","1-11","4-4","8-1","4-0"],["77","Southern California","Big Ten","17-14","1-9","7-4","6-1","3-0"],["78","Providence","Big East","15-18","1-8","3-8","7-2","4-0"],["79","UNI","MVC","22-13","0-3","4-6","7-4","11-0"],["80","Ole Miss","SEC","15-20","5-14","2-3","1-3","7-0"],["81","Oklahoma St.","Big 12","20-15","2-11","8-4","3-0","7-0"],["82","Minnesota","Big Ten","15-18","3-12","4-1","1-5","7-0"],["83","Creighton","Big East","16-18","2-8","3-7","6-3","5-0"],["84","Butler","Big East","16-16","2-6","3-8","6-2","5-0"],["85","Syracuse","ACC","15-17","1-11","4-3","3-3","7-0"],["86","Utah Valley","WAC","22-9","0-2","0-2","10-3","12-2"],["87","Georgetown","Big East","16-18","1-9","5-6","4-3","6-0"],["88","Colorado St.","Mountain West","20-13","3-5","3-5","5-2","9-1"],["89","SFA","Southland","26-6","0-2","2-1","5-2","19-1"],["90","Hofstra","CAA","22-11","0-2","2-2","10-4","10-3"],["91","Illinois St.","MVC","22-13","2-3","4-4","9-5","7-1"],["92","George Washington","Atlantic 10","18-16","1-6","1-5","7-2","9-3"],["93","Marquette","Big East","12-20","1-9","2-8","5-3","4-0"],["94","George Mason","Atlantic 10","22-10","1-2","1-3","11-5","9-0"],["95","Notre Dame","ACC","13-18","2-10","2-6","3-1","6-1"],["96","Xavier","Big East","15-18","0-9","4-8","5-1","6-0"],["97","Wyoming","Mountain West","17-15","1-8","1-5","3-2","12-0"],["98","California Baptist","WAC","25-9","0-2","2-4","5-3","18-0"],["99","Kansas St.","Big 12","12-20","0-13","5-6","2-1","5-0"],["100","UNCW","CAA","25-7","1-0","0-2","8-3","16-2"],["101","DePaul","Big East","16-16","2-5","3-8","5-2","6-1"],["102","Liberty","CUSA","23-8","1-2","2-0","9-4","11-2"],["103","Hawaii","Big West","22-9","0-1","0-4","8-2","14-2"],["104","South Carolina","SEC","13-19","1-13","2-6","1-0","9-0"],["105","UNLV","Mountain West","17-17","4-6","6-4","2-4","5-3"],["106","Pittsburgh","ACC","13-20","2-10","3-6","3-3","5-1"],["107","Oregon","Big Ten","12-20","1-14","3-2","2-4","6-0"],["108","Mississippi St.","SEC","13-19","2-12","3-5","3-2","5-0"],["109","Sam Houston","CUSA","19-12","0-2","0-3","10-6","9-1"],["110","Murray St.","MVC","20-13","0-3","4-5","6-5","10-0"],["111","Saint Joseph's","Atlantic 10","22-12","1-5","3-3","9-2","9-2"],["112","Davidson","Atlantic 10","18-14","0-5","3-3","6-5","9-1"],["113","St. Thomas (MN)","Summit League","21-10","0-1","0-3","6-2","15-4"],["114","Pacific","WCC","16-15","0-7","0-3","4-5","12-0"],["115","UIC","MVC","17-16","0-3","4-4","5-8","8-1"],["116","North Dakota St.","Summit League","24-8","0-1","0-1","5-4","19-2"],["117","Bradley","MVC","20-13","0-1","2-7","10-4","8-1"],["118","UAB","American","19-12","2-1","3-3","5-6","9-2"],["119","Seattle U","WCC","19-14","1-6","1-1","4-6","13-1"],["120","UC Irvine","Big West","21-12","0-0","1-3","6-9","14-0"],["121","San Francisco","WCC","16-16","0-6","3-4","6-3","7-3"],["122","Southern Ill.","MVC","15-16","2-1","2-6","4-7","7-2"],["123","Fla. Atlantic","American","16-15","0-3","2-7","7-3","7-2"],["124","UC San Diego","Big West","21-11","0-1","1-1","9-6","11-3"],["125","Wright St.","Horizon","21-12","0-2","0-2","5-6","16-2"],["126","UTRGV","Southland","17-14","0-4","1-2","2-2","14-6"],["127","William & Mary","CAA","18-12","0-1","2-2","4-6","12-3"],["128","Memphis","American","13-19","0-7","2-7","5-2","6-3"],["129","Winthrop","Big South","20-11","0-4","1-2","3-1","16-4"],["130","Duquesne","Atlantic 10","16-15","0-7","2-3","5-4","9-1"],["131","Maryland","Big Ten","12-21","1-15","3-2","3-4","5-0"],["132","Montana St.","Big Sky","15-14","0-3","0-1","8-6","7-4"],["133","Utah","Big 12","10-22","1-13","2-5","2-3","5-1"],["134","Toledo","MAC","17-15","0-3","1-3","4-7","12-2"],["135","North Texas","American","17-14","0-4","2-4","6-3","9-3"],["136","Rutgers","Big Ten","14-20","0-13","3-6","6-0","5-1"],["137","Troy","Sun Belt","20-12","1-1","2-1","4-7","13-3"],["138","Penn St.","Big Ten","12-20","2-11","0-5","3-4","7-0"],["139","ETSU","SoCon","21-11","0-2","0-0","2-4","19-5"],["140","St. Bonaventure","Atlantic 10","16-17","0-4","3-4","5-5","8-4"],["141","Navy","Patriot","24-8","0-2","0-2","1-1","23-3"],["142","UC Santa Barbara","Big West","16-14","0-1","1-3","3-7","12-3"],["143","Robert Morris","Horizon","20-11","0-1","1-0","8-3","11-7"],["144","Washington St.","WCC","11-20","0-4","0-10","4-4","7-2"],["145","Portland St.","Big Sky","17-11","0-1","0-3","8-4","9-3"],["146","Penn","Ivy League","17-12","0-3","1-3","6-4","10-2"],["147","Kennesaw St.","CUSA","18-14","0-2","0-3","6-5","12-4"],["148","Northern Colo.","Big Sky","17-12","0-1","1-1","7-6","9-4"],["149","Cornell","Ivy League","13-13","0-2","1-3","2-6","10-2"],["150","Rhode Island","Atlantic 10","16-16","3-0","1-7","4-5","8-4"],["151","Fresno St.","Mountain West","12-19","0-7","0-8","5-2","7-2"],["152","Idaho","Big Sky","18-15","0-1","0-3","9-8","9-3"],["153","Kent St.","MAC","22-10","0-2","1-4","9-3","12-1"],["154","Harvard","Ivy League","16-12","1-1","0-1","5-7","10-3"],["155","Arkansas St.","Sun Belt","18-12","0-2","0-1","9-2","9-7"],["156","Western Ky.","CUSA","16-14","0-2","2-2","2-9","12-1"],["157","Valparaiso","MVC","17-15","0-3","1-7","7-3","9-2"],["158","Boston College","ACC","11-20","0-8","1-7","5-2","5-3"],["159","Bowling Green","MAC","15-14","0-1","1-4","4-6","10-3"],["160","Towson","CAA","17-15","0-3","0-3","6-6","11-3"],["161","Richmond","Atlantic 10","14-17","1-2","0-5","7-7","6-3"],["162","Middle Tenn.","CUSA","14-15","0-2","0-4","8-5","6-4"],["163","UT Arlington","WAC","16-14","0-2","1-4","5-5","10-3"],["164","Austin Peay","ASUN","20-9","0-1","0-3","2-3","18-2"],["165","Col. of Charleston","CAA","20-11","0-1","2-3","4-6","14-1"],["166","Central Ark.","ASUN","20-12","0-4","0-1","3-2","17-5"],["167","Temple","American","15-16","0-3","2-2","2-9","11-2"],["168","Monmouth","CAA","18-15","0-1","0-4","8-4","10-6"],["169","Georgia Tech","ACC","11-20","1-10","0-5","1-4","9-1"],["170","Marshall","Sun Belt","18-13","0-1","1-2","6-5","11-5"],["171","Charlotte","American","16-17","0-6","1-4","4-5","11-2"],["172","Oregon St.","WCC","17-16","1-4","1-4","10-5","5-3"],["173","Siena","MAAC","23-12","0-2","0-0","2-6","21-4"],["174","Fordham","Atlantic 10","14-15","0-3","2-3","4-4","8-5"],["175","Oakland","Horizon","15-16","0-5","0-2","7-3","8-6"],["176","Tennessee St.","OVC","20-10","0-3","1-0","3-1","16-6"],["177","Utah Tech","WAC","16-15","0-3","0-6","5-3","11-3"],["178","Merrimack","MAAC","23-11","0-2","0-1","4-6","19-2"],["179","UC Davis","Big West","17-14","1-0","0-5","6-8","10-1"],["180","Cal St. Fullerton","Big West","16-16","0-2","1-4","6-8","9-2"],["181","Marist","MAAC","18-12","0-0","0-1","0-8","18-3"],["182","LMU (CA)","WCC","14-17","0-4","1-3","6-5","7-5"],["183","Furman","SoCon","19-13","0-1","0-3","5-5","14-4"],["184","Mercer","SoCon","16-13","0-3","0-1","2-5","14-4"],["185","South Alabama","Sun Belt","19-12","0-1","1-1","7-6","11-4"],["186","Northern Ky.","Horizon","17-14","0-1","0-1","2-8","15-4"],["187","New Mexico St.","CUSA","13-16","0-0","1-2","6-8","6-6"],["188","Columbia","Ivy League","14-12","0-3","0-1","4-5","10-3"],["189","CSUN","Big West","18-14","0-1","1-4","8-5","9-4"],["190","A&M-Corpus Christi","Southland","14-15","0-3","1-5","0-4","13-3"],["191","App State","Sun Belt","17-13","0-1","1-0","3-6","13-6"],["192","Queens (NC)","ASUN","20-14","0-6","0-1","2-3","18-4"],["193","Lipscomb","ASUN","17-13","0-4","0-0","2-4","15-5"],["194","Howard","MEAC","20-11","0-3","1-2","2-0","17-6"],["195","FIU","CUSA","12-17","0-3","0-2","4-6","8-6"],["196","Montana","Big Sky","15-15","0-3","1-1","7-7","7-4"],["197","Buffalo","MAC","15-15","0-2","1-4","3-4","11-5"],["198","LIU","NEC","24-11","0-3","0-2","1-3","23-3"],["199","UMBC","America East","22-9","0-2","0-2","0-2","22-3"],["200","Campbell","CAA","14-18","0-4","2-3","3-8","9-3"],["201","Drake","MVC","12-20","0-1","2-7","5-11","5-1"],["202","Massachusetts","MAC","16-16","0-2","2-1","5-8","9-5"],["203","Weber St.","Big Sky","14-16","0-1","0-5","4-6","10-4"],["204","Eastern Wash.","Big Sky","13-19","0-2","1-4","4-11","8-2"],["205","Missouri St.","CUSA","13-18","0-1","0-3","5-9","8-5"],["206","Tulane","American","17-15","0-2","3-5","4-7","10-1"],["207","UT Martin","OVC","19-11","0-1","2-1","0-3","17-6"],["208","Louisiana Tech","CUSA","17-14","0-1","1-1","4-10","12-2"],["209","James Madison","Sun Belt","17-15","0-2","0-1","6-5","11-7"],["210","Quinnipiac","MAAC","18-13","0-2","1-2","4-3","13-6"],["211","South Dakota St.","Summit League","11-18","0-1","0-6","1-5","10-6"],["212","Drexel","CAA","16-16","0-0","0-4","4-8","12-4"],["213","Samford","SoCon","16-14","0-2","0-1","4-6","12-5"],["214","Jacksonville St.","CUSA","12-17","0-0","0-2","5-9","7-6"],["215","New Orleans","Southland","15-18","1-4","2-3","1-5","11-6"],["216","Southern Miss.","Sun Belt","17-16","0-2","0-2","4-8","13-4"],["217","Indiana St.","MVC","9-21","0-2","1-6","2-10","6-3"],["218","Green Bay","Horizon","16-15","0-1","0-4","4-7","12-3"],["219","Youngstown St.","Horizon","12-17","1-0","0-3","2-7","9-7"],["220","Detroit Mercy","Horizon","15-15","0-1","1-4","3-6","11-4"],["221","Ga. Southern","Sun Belt","19-16","0-1","0-0","5-7","14-8"],["222","Elon","CAA","12-18","0-2","2-1","2-7","8-8"],["223","Portland","WCC","13-19","1-4","0-6","5-7","7-2"],["224","Southeast Mo. St.","OVC","17-13","0-3","0-0","2-1","15-9"],["225","Western Caro.","SoCon","13-16","0-5","0-0","4-4","9-7"],["226","Coastal Carolina","Sun Belt","18-13","0-1","2-1","4-4","12-7"],["227","Cal Poly","Big West","12-19","0-1","3-4","4-8","5-6"],["228","Colgate","Patriot","16-15","0-3","0-0","2-5","14-7"],["229","Vermont","America East","20-12","0-0","0-1","0-6","20-5"],["230","Tarleton St.","WAC","10-18","0-4","0-3","2-4","8-7"],["231","Saint Peter's","MAAC","16-12","0-2","0-1","3-3","13-6"],["232","Ohio","MAC","13-17","0-3","0-4","4-7","9-3"],["233","Stony Brook","CAA","15-15","0-1","0-3","4-8","11-3"],["234","Iona","MAAC","18-14","0-1","0-1","3-4","15-8"],["235","UNC Asheville","Big South","12-17","0-3","0-5","0-4","12-5"],["236","San Diego","WCC","10-21","0-4","1-5","4-6","5-6"],["237","Texas St.","Sun Belt","17-13","0-0","0-0","3-9","14-4"],["238","Fairfield","MAAC","20-13","0-1","0-0","2-6","18-6"],["239","Idaho St.","Big Sky","10-20","0-2","0-3","4-10","6-5"],["240","Eastern Mich.","MAC","9-21","1-2","0-6","1-7","7-6"],["241","Charleston So.","Big South","12-17","0-2","0-3","3-3","9-9"],["242","Rice","American","11-18","1-2","0-5","4-5","6-6"],["243","San Jose St.","Mountain West","8-24","0-7","2-10","0-7","6-0"],["244","La Salle","Atlantic 10","8-23","0-4","1-7","3-11","4-1"],["245","Denver","Summit League","12-17","0-3","3-3","2-3","7-8"],["246","Wofford","SoCon","17-13","0-2","0-1","3-4","14-6"],["247","FGCU","ASUN","14-18","0-3","0-0","2-7","12-8"],["248","Abilene Christian","WAC","11-19","0-2","0-5","2-7","9-5"],["249","Lamar University","Southland","10-19","0-3","0-3","1-5","9-8"],["250","Nicholls","Southland","13-19","0-2","1-6","2-5","10-6"],["251","Princeton","Ivy League","8-20","0-3","1-0","2-11","5-6"],["252","Radford","Big South","13-16","0-3","0-4","0-4","13-5"],["253","Milwaukee","Horizon","11-20","0-5","0-1","2-7","9-7"],["254","Purdue Fort Wayne","Horizon","14-15","0-3","1-2","4-5","9-5"],["255","Old Dominion","Sun Belt","11-21","0-2","0-5","3-8","8-6"],["256","American","Patriot","14-16","0-3","0-1","2-3","12-9"],["257","Long Beach St.","Big West","8-22","0-2","1-3","1-12","6-5"],["258","Presbyterian","Big South","12-18","0-3","0-3","2-3","10-9"],["259","SIUE","OVC","16-13","0-1","0-0","2-2","14-10"],["260","Bethune-Cookman","SWAC","16-15","0-7","0-1","1-0","15-7"],["261","Omaha","Summit League","12-17","0-1","0-4","2-6","10-6"],["262","East Carolina","American","10-20","0-4","2-4","1-5","7-7"],["263","Longwood","Big South","13-16","0-2","0-3","1-3","12-8"],["264","Lindenwood","OVC","15-15","0-3","0-0","1-3","14-9"],["265","Morehead St.","OVC","17-13","0-3","0-1","1-4","16-5"],["266","Boston U.","Patriot","16-17","0-1","0-0","2-6","14-10"],["267","Dartmouth","Ivy League","9-16","0-2","0-3","4-4","5-7"],["268","UTEP","CUSA","8-20","0-1","0-4","3-10","5-5"],["269","Hampton","CAA","11-19","0-1","0-3","2-9","9-6"],["270","Sacramento St.","Big Sky","7-21","0-3","0-3","2-13","5-2"],["271","North Dakota","Summit League","15-17","0-2","1-3","2-5","12-7"],["272","Southern Utah","WAC","7-22","0-3","0-2","2-12","5-5"],["273","UC Riverside","Big West","8-22","0-3","0-5","2-9","6-5"],["274","Mercyhurst","NEC","15-17","0-3","0-2","0-3","15-9"],["275","Pepperdine","WCC","7-23","0-6","0-2","2-10","5-5"],["276","N.C. A&T","CAA","9-19","0-0","0-4","3-9","6-6"],["277","Mount St. Mary's","MAAC","14-17","0-3","0-1","2-6","12-7"],["278","Loyola Chicago","Atlantic 10","9-24","1-5","0-5","3-10","5-4"],["279","Southern U.","SWAC","14-17","0-5","0-2","0-1","14-9"],["280","UIW","Southland","9-19","0-3","1-4","1-3","7-9"],["281","Central Mich.","MAC","8-21","0-4","0-3","3-6","5-8"],["282","Lehigh","Patriot","16-17","0-2","0-0","1-6","15-9"],["283","Western Mich.","MAC","9-20","0-4","0-3","2-7","7-6"],["284","Delaware","CUSA","10-20","0-1","1-2","5-7","4-10"],["285","Bellarmine","ASUN","11-19","0-2","0-3","0-5","11-9"],["286","South Dakota","Summit League","13-16","0-1","0-5","1-4","12-6"],["287","Northeastern","CAA","7-24","0-1","0-3","3-10","4-10"],["288","Chattanooga","SoCon","10-19","0-2","0-1","2-4","8-12"],["289","Central Conn. St.","NEC","16-12","0-1","0-0","2-3","14-8"],["290","Le Moyne","NEC","14-17","0-1","0-1","1-5","13-10"],["291","Eastern Ky.","ASUN","9-21","0-2","0-2","1-7","8-10"],["292","Sacred Heart","MAAC","13-19","0-1","0-1","2-7","11-10"],["293","UNC Greensboro","SoCon","13-19","0-1","0-2","1-7","12-9"],["294","Houston Christian","Southland","10-20","0-2","0-5","1-4","9-9"],["295","Southeastern La.","Southland","8-22","0-2","0-6","2-4","6-10"],["296","Jacksonville","ASUN","10-20","0-4","0-1","0-6","10-9"],["297","Brown","Ivy League","7-18","0-1","0-2","0-9","7-6"],["298","West Ga.","ASUN","13-17","0-3","0-0","1-4","12-10"],["299","Ball St.","MAC","10-19","0-2","0-3","0-8","10-6"],["300","Northwestern St.","Southland","8-22","0-4","0-5","1-3","7-10"],["301","Prairie View","SWAC","15-18","0-5","0-2","0-0","15-11"],["302","USC Upstate","Big South","10-19","0-3","0-4","1-3","9-9"],["303","Wagner","NEC","11-17","0-2","0-2","0-4","11-9"],["304","East Texas A&M","Southland","9-21","0-4","0-4","1-3","8-10"],["305","Grambling","SWAC","12-19","0-2","0-1","1-3","11-13"],["306","Georgia St.","Sun Belt","8-22","0-2","0-0","3-10","5-10"],["307","Evansville","MVC","5-25","0-2","0-10","4-9","1-4"],["308","Tennessee Tech","OVC","10-18","0-2","0-0","1-5","9-11"],["309","Little Rock","OVC","10-20","0-1","0-3","0-6","10-10"],["310","Alabama A&M","SWAC","15-15","0-2","0-1","0-2","15-10"],["311","Florida A&M","SWAC","13-16","0-4","0-0","0-3","13-9"],["312","Stetson","ASUN","10-21","0-3","0-1","0-8","10-9"],["313","Louisiana","Sun Belt","11-22","0-3","0-0","2-10","9-9"],["314","Oral Roberts","Summit League","7-23","0-2","0-5","2-6","5-10"],["315","Northern Ariz.","Big Sky","7-22","0-2","0-2","2-10","5-8"],["316","Ark.-Pine Bluff","SWAC","11-19","0-6","1-1","0-3","10-9"],["317","Norfolk St.","MEAC","11-17","0-2","0-1","0-5","11-9"],["318","Cleveland St.","Horizon","8-22","0-2","1-2","1-10","6-8"],["319","IU Indy","Horizon","5-25","0-2","0-2","3-6","2-15"],["320","Eastern Ill.","OVC","10-20","0-3","0-1","0-5","10-11"],["321","UMass Lowell","America East","12-18","0-3","0-1","0-7","12-7"],["322","Texas Southern","SWAC","10-18","0-4","0-1","0-2","10-11"],["323","Alabama St.","SWAC","9-22","0-4","1-3","0-1","8-14"],["324","Lafayette","Patriot","10-21","0-2","0-1","1-6","9-12"],["325","New Haven","NEC","11-17","0-3","0-0","0-4","11-10"],["326","UAlbany","America East","8-21","0-0","0-4","1-8","7-9"],["327","NJIT","America East","15-17","0-3","0-1","2-6","13-7"],["328","Manhattan","MAAC","11-20","0-1","0-2","1-7","10-10"],["329","Loyola Maryland","Patriot","10-20","0-1","0-2","0-6","10-11"],["330","CSU Bakersfield","Big West","6-24","0-2","0-4","3-10","3-8"],["331","Holy Cross","Patriot","9-22","0-1","0-2","1-4","8-15"],["332","Stonehill","NEC","10-21","0-1","0-2","0-4","10-14"],["333","FDU","NEC","8-21","0-2","0-2","0-4","8-13"],["334","Bucknell","Patriot","10-23","0-3","0-1","0-8","10-11"],["335","NIU","MAC","7-21","0-4","0-3","1-8","6-6"],["336","Army West Point","Patriot","9-21","0-1","0-1","1-7","8-12"],["337","North Florida","ASUN","5-25","0-5","0-0","0-4","5-16"],["338","North Ala.","ASUN","7-21","0-1","1-1","1-6","5-13"],["339","Maine","America East","7-24","0-1","0-1","0-8","7-14"],["340","Niagara","MAAC","7-22","0-2","0-1","0-6","7-13"],["341","N.C. Central","MEAC","10-18","0-5","0-0","0-5","10-8"],["342","UTSA","American","3-25","0-3","0-6","1-6","2-10"],["343","Chicago St.","NEC","6-25","0-3","0-4","0-5","6-13"],["344","Canisius","MAAC","9-21","0-2","0-1","0-7","9-11"],["345","Southern Ind.","OVC","5-23","0-0","0-1","1-5","4-17"],["346","The Citadel","SoCon","8-22","0-0","0-2","0-10","8-10"],["347","Jackson St.","SWAC","12-21","0-7","0-0","0-3","12-11"],["348","New Hampshire","America East","7-21","0-3","0-2","0-5","7-11"],["349","Alcorn","SWAC","9-23","0-5","0-3","0-3","9-12"],["350","Air Force","Mountain West","3-29","0-7","0-9","0-8","3-5"],["351","UMES","MEAC","7-23","0-5","0-1","0-2","7-15"],["352","Morgan St.","MEAC","11-16","0-1","0-3","1-1","10-11"],["353","Saint Francis","NEC","5-24","0-3","0-2","0-4","5-15"],["354","Bryant","America East","7-22","0-3","0-0","0-8","7-11"],["355","ULM","Sun Belt","2-28","0-1","0-3","0-10","2-14"],["356","South Carolina St.","MEAC","8-22","0-3","0-2","0-5","8-12"],["357","Rider","MAAC","3-25","0-4","0-0","0-8","3-13"],["358","Kansas City","Summit League","1-27","0-3","0-4","0-5","1-15"],["359","VMI","SoCon","3-26","0-2","0-0","0-9","3-15"],["360","Binghamton","America East","5-23","0-0","0-3","0-2","5-18"],["361","Gardner-Webb","Big South","2-28","0-3","0-6","0-6","2-13"],["362","Delaware St.","MEAC","5-22","0-1","0-2","0-5","5-14"],["363","Coppin St.","MEAC","6-24","0-3","0-3","0-5","6-13"],["364","Western Ill.","OVC","2-26","0-1","0-1","0-4","2-20"],["365","Mississippi Val.","SWAC","2-30","0-4","0-4","0-1","2-21"]]};
+function netDate(updated){
+  return Date.parse(String(updated).replace(/^Through Games\s+/i,'').replace(/\./g,''));
+}
+function savedNet(){
+  try{
+    const stored=JSON.parse(localStorage.getItem('sportsHub.netRelease'));
+    if(stored?.rows?.length && netDate(stored.updated)>netDate(NET_RELEASE.updated)) return stored;
+  }catch(_){}
+  return NET_RELEASE;
+}
+function readNetRelease(raw){
+  if(!Number.isFinite(netDate(raw.updated))||!Array.isArray(raw.data)||raw.data.length<50||raw.data.length>500||Number(raw.pages||1)>1)
+    throw Error('Choose the complete rankings JSON from the download link.');
+  const rows=raw.data.map(r=>[r.Rank,r.School,r.Conf,r.Record,...[1,2,3,4].map(n=>r['Quad '+n])]);
+  if(rows.some(r=>!(Number(r[0])>=1)||typeof r[1]!=='string'||r.slice(3).some(v=>!/^\d+-\d+$/.test(v))))throw Error('Invalid NET rank or quadrant record.');
+  return {updated:raw.updated,rows};
+}
+function schoolKey(s){
+  return String(s||'').toLowerCase().replace(/\bst\.?$/,'state').replace(/[^a-z0-9]/g,'');
+}
+async function bubbleBoard(data,tok,view,nav){
+  const teams=researchTeams(data),year=data.season?.year,release=savedNet();
+  const team=teams.find(r=>String(r.team.id)===resumeSelections.team)||teams.find(r=>DATA.myTeams.cbb.some(f=>String(f.id)===String(r.team.id)))||teams[0];
+  if(!team){view.innerHTML=nav+'<p class="empty">Current team résumés are unavailable.</p>';return;}
+  const date=new Date(netDate(release.updated)),releaseYear=date.getUTCFullYear()+(date.getUTCMonth()>=7?1:0);
+  const current=releaseYear===Number(year);
+  const rows=release.rows;
+  const match=rows.find(r=>[team.team.location,team.team.nickname,team.team.displayName].some(n=>schoolKey(n)===schoolKey(r[1])));
+  const netTeam=rows.find(r=>r[1]===resumeSelections.net)||match||rows[0];
+  const season=data.season?.displayName||year||'';
+  const options=rows.slice().sort((a,b)=>a[1].localeCompare(b[1])).map(r=>'<option '+(r===netTeam?'selected':'')+'>'+esc(r[1])+'</option>').join('');
+  const range=rows.filter(r=>+r[0]>=30&&+r[0]<=70);
+  const title='<h2>Bubble Watch</h2><div class="panel"><h3>'+esc(season)+' team résumé</h3>'+teamSelect('School','data-resume-team',teams,team.team.id)+
+    '<p>'+esc(team.stats.total?.displayValue||'—')+' overall · '+esc(team.stats.vsaprankedteams?.displayValue||'—')+' against AP-ranked opponents</p><div id="resume-wins">Loading notable wins…</div></div>';
+  view.innerHTML=nav+title+'<section class="panel"><h3>'+esc(releaseYear-1)+'–'+esc(String(releaseYear).slice(-2))+' NET résumés'+(current?'':' · archive')+'</h3><p>'+esc(release.updated)+(current?'':'. Current-season NET data is pending in this view.')+'</p>'+
+    '<label>NET school <select data-resume-net>'+options+'</select></label>'+leagueTable(['NET','School','Record','Q1','Q2','Q3','Q4'],[[netTeam[0],netTeam[1],...netTeam.slice(3)].map(esc)])+
+    '<details><summary>Bubble watchlist · NET 30–70</summary><p class="note">A range for comparing résumés. The committee considers more than NET rank.</p>'+leagueTable(['NET','School','Q1','Q2','Q3','Q4'],range.map(r=>[r[0],r[1],...r.slice(4)].map(esc)))+'</details>'+
+    '<details><summary>Update NET data</summary><p>Save the latest release as JSON, then import it here.</p><a href="'+NET_DOWNLOAD+'" target="_blank" rel="noopener">Open latest release ↗</a> <label>Import release <input type="file" data-net-import accept=".json,application/json"></label><span role="status" id="net-status"></span></details></section>';
+  try{
+    const games=await regularGames('cbb',team.team.id,year);
+    if(tok!==TOKEN)return;
+    const wins=games.filter(g=>g.state==='post'&&resultLetter(g)==='W'&&g.oppRank);
+    document.getElementById('resume-wins').innerHTML=wins.length?'<h4>Wins against ranked opponents</h4>'+leagueTable(['Date','Opponent','Score'],wins.map(g=>[esc(fmtDay(g.date)),'#'+esc(g.oppRank)+' '+esc(g.oppName),esc(g.usScore)+'–'+esc(g.oppScore)])):'<p class="note">No wins tagged with an opponent ranking in the schedule.</p>';
+  }catch(_){if(tok===TOKEN)document.getElementById('resume-wins').textContent='Notable wins could not load.';}
+}
+
 const leagueViews = {};
 function leagueViewButtons(lg){
   const selected = leagueViews[lg] || 'scores';
   const options = LG[lg].college ? [['scores','Scores'],['poll','AP Top 25']] :
     [['scores','Scores'],['league','League standings'],...(lg==='nba' ? [['conferences','East / West'],['cup','NBA Cup']] : [['divisions','Divisions']])];
   if(lg==='cfb' || lg==='nfl') options.push(['playoffs','Playoff picture']);
+  options.push(['compare','Compare teams']);
+  if(lg==='cbb') options.push(['bubble','Bubble Watch']);
   return '<div class="filters" aria-label="League view">'+options.map(([id,label])=>
-    `<button type="button" data-league-view="${id}" aria-pressed="${id===selected}" class="${id===selected?'on':''}">${label}</button>`).join('')+'</div>';
+    `<button type="button" data-league-view="${id}" aria-pressed="${id===selected}" class="${id===selected?'on':''}">${label}</button>`).join('')+'</div>'+(['league','divisions','poll','playoffs','conferences','cup'].includes(selected)?'<button class="btn sm" data-pick-compare="1">Select two teams to compare</button><span role="status" id="compare-prompt"></span>':'');
 }
 function leagueTable(headers, rows){
   return `<div class="league-scroll" tabindex="0"><table class="league-table"><thead><tr>${headers.map(h=>'<th scope="col">'+esc(h)+'</th>').join('')}</tr></thead><tbody>${rows.map(row=>'<tr>'+row.map(cell=>'<td>'+cell+'</td>').join('')+'</tr>').join('')}</tbody></table></div>`;
@@ -3437,8 +3628,10 @@ async function renderLeagueBoard(lg,tok,view){
   const query=mode==='playoffs'?'level=2':nbaSpecial ? (mode==='cup'?'type=3&level=1':'level=2') : 'level=3';
   const url=college ? API+LG[lg].path+'/rankings' : 'https://site.api.espn.com/apis/v2/sports/'+LG[lg].path+'/standings?'+query;
   try{
-    const data=await getJSON(url,5*60e3);
+    const data=(mode==='compare'||mode==='bubble')?await standingsFeed(lg,2):await getJSON(url,5*60e3);
     if(tok!==TOKEN) return;
+    if(mode==='compare')return comparisonBoard(lg,data,tok,view,nav);
+    if(mode==='bubble')return bubbleBoard(data,tok,view,nav);
     if(mode==='playoffs'){
       view.innerHTML=nav+(lg==='nfl'?nflPlayoffPicture(data):cfpPlayoffPicture(data));
       RT=setTimeout(()=>{ if(tok===TOKEN) render(); },5*60e3);
@@ -3455,6 +3648,8 @@ async function renderLeagueBoard(lg,tok,view){
       return;
     }
     view.innerHTML=nav+(nbaSpecial?nbaBoard(data):college?collegePollTable(lg,data):proStandingsTable(lg,data,mode==='divisions'));
+    if(!college && ['league','divisions'].includes(mode)) view.insertAdjacentHTML('afterbegin',weeklyMovement(lg,data));
+    if(mode==='conferences')standingsFeed(lg,3).then(d=>{if(tok===TOKEN)view.insertAdjacentHTML('afterbegin',weeklyMovement(lg,d));}).catch(()=>{});
   }catch(e){
     if(tok===TOKEN) view.innerHTML=nav+'<p role="status">Couldn’t load ESPN data. <button class="btn sm" data-league-view="'+leagueViews[lg]+'">Retry</button></p>';
   }
@@ -3615,9 +3810,11 @@ async function renderMine(tok, view){
   const teamsAll = sections.flatMap(lg=>DATA.myTeams[lg].map(t=>({lg,t}))), teams = ORD.apply('mine.teams', teamsAll, x=>x.lg+':'+x.t.id);
   if(!sections.length && !players.length){ view.innerHTML=`<div class="empty">No favorites yet. Add teams and players in <b>⚙️ Settings</b>.</div>`; setRefresh([],null); return; }
   view.innerHTML = `${myInjBanner()}<div class="toolrow">${resetBtn(['mine.players','mine.teams'])}</div>${players.length?`<h2>👑 Favorite Players</h2><div class="grid" id="mplgrid" ${sortAttrs('mine.players', playersAll.map(p=>'p:'+p.league+p.id))}>${players.map(p=>withSid(`<div class="g" id="mpl-${esc(p.league+p.id)}"><div class="note">Loading ${esc(p.name)}…</div></div>`,'p:'+p.league+p.id)).join('')}</div>`:''}
+    <section id="important-games"><h2>Games That Matter</h2><p role="status">Checking today’s standings and games…</p></section>
     <h2>⭐ My Teams — today / next game</h2>
     <div class="grid" id="minegrid" ${sortAttrs('mine.teams', teamsAll.map(x=>x.lg+':'+x.t.id))}>${teams.map(({lg,t})=>withSid(`<div class="g fav" id="mt-${lg}-${esc(t.id)}"><div class="lgtag"><span>${LG[lg].icon} ${LG[lg].short}</span></div><div class="row"><div class="nm">⭐ ${esc(t.name)}</div></div><div class="foot">Loading… ${rosterBtn(lg,t.id)}</div></div>`, lg+':'+t.id)).join('')}</div>`;
   const all=[];
+  const important=fillImportantGames(sections,tok);
   injEnsure(myInjLeagues()).then(()=>{ if(tok===TOKEN) myInjPatch(); });
   await Promise.all([
     ...sections.flatMap(lg=>DATA.myTeams[lg].map(async t=>{
@@ -3636,8 +3833,10 @@ async function renderMine(tok, view){
   if(tok!==TOKEN) return;
   const n=all.filter(isLive).length;
   $('#cnt').textContent = `My Teams: ${sections.reduce((a,lg)=>a+DATA.myTeams[lg].length,0)} teams · ${players.length} players · ${n} live`;
+  const related=await important;
+  if(tok!==TOKEN)return;
   paintWatch('mine', all, '#minegrid', {fresh:!(WATCH_HOLD.mine&&WATCH_HOLD.mine.lined)});
-  setRefresh(all, ()=>render());
+  setRefresh([...all,...related], ()=>render());
 }
 
 // ---------------- BETTING MATH ----------------
@@ -6182,9 +6381,20 @@ document.addEventListener('click', async ev=>{
   const t=ev.target, a=k=>{ const el=t.closest(`[data-${k}]`); return el?el.dataset[k.replace(/-([a-z])/g,(m,c)=>c.toUpperCase())]:null; };
   let v;
   if((v=a('cup-jump'))!==null){ document.getElementById(v)?.scrollIntoView({block:'start'}); return; }
-  if((v=a('league-view'))!==null && LGS.includes(TAB)){ leagueViews[TAB]=v; return render(); }
+  if((v=a('league-view'))!==null && LGS.includes(TAB)){ comparePick=null; leagueViews[TAB]=v; return render(); }
   if((v=a('theme-accent'))!==null){ if(!THEME_ACCENTS.includes(v)) return; const th=themeRead(); th.accent=v; themeApply(th,true); return; }
   if((v=a('theme-scope'))!==null){ if(v!=='title'&&v!=='app') return; const th=themeRead(); th.scope=v; themeApply(th,true); return; }
+  if(a('pick-compare')!==null){
+    comparePick=comparePick?.lg===TAB?null:{lg:TAB,first:null};
+    $('#compare-prompt').textContent=comparePick?' Select the first team.':'';
+    return;
+  }
+  if((v=a('teampage'))!==null && comparePick?.lg===TAB && $('#compare-prompt')){
+    const [lg,id]=v.split('|');if(lg!==TAB)return;
+    if(!comparePick.first){comparePick.first=id;$('#compare-prompt').textContent=' Select a different team.';return;}
+    if(comparePick.first===id)return;
+    compareSelections[lg]=[comparePick.first,id];comparePick=null;leagueViews[lg]='compare';return render();
+  }
   if((v=a('teampage'))!==null){ ev.preventDefault(); ev.stopPropagation(); const [lg,id]=v.split('|'); return openTeam(lg, id); }
   if((v=a('teamback'))!==null){ ev.preventDefault(); return teamBack(); }
   if(t.id==='teammodal'){ teamBack(); return; }
@@ -6287,6 +6497,23 @@ document.addEventListener('click', async ev=>{
 });
 document.addEventListener('change', ev=>{
   const t=ev.target, d=t.dataset;
+  if(t.hasAttribute('data-compare-side')){
+    const pair=compareSelections[TAB],i=Number(d.compareSide);
+    if(pair[1-i]===t.value)pair[1-i]=pair[i];
+    pair[i]=t.value;return render();
+  }
+  if(t.hasAttribute('data-resume-team')){resumeSelections.team=t.value;resumeSelections.net=null;return render();}
+  if(t.hasAttribute('data-resume-net')){resumeSelections.net=t.value;return render();}
+  if(t.hasAttribute('data-net-import')){
+    const file=t.files?.[0],msg=document.getElementById('net-status');if(!file)return;
+    if(file.size>2e6){msg.textContent='Choose a file under 2 MB.';return;}
+    file.text().then(body=>{
+      const release=readNetRelease(JSON.parse(body));
+      if(netDate(release.updated)<netDate(savedNet().updated))throw Error('A newer release is already available.');
+      localStorage.setItem('sportsHub.netRelease',JSON.stringify(release));
+      if(TAB==='cbb'&&leagueViews.cbb==='bubble')render();
+    }).catch(e=>{msg.textContent=e.message;});return;
+  }
   if(t.classList.contains('monpanel')){ monSavePanels(); return; }
   if(t.name==='monint'){ const n=+t.value; if([8,12,20].includes(n)){ pref.set('monitor.interval', String(n)); document.querySelectorAll('label.btn input[name="monint"]').forEach(el=>el.parentElement.classList.toggle('pri', +el.value===n)); if(typeof monArmRotation==='function') monArmRotation(); } return; }
   if(t.closest('#slipform')){
