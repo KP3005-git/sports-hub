@@ -740,6 +740,15 @@ footer{margin-top:auto}
 .league-table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;background:var(--card)}
 .league-table td,.league-table th{padding:.55rem;text-align:left;white-space:nowrap;border-bottom:1px solid var(--line)}
 .league-table th{color:var(--mut);font-size:.82rem}
+.cup-page{--cup-gold:#f3cb71;max-width:1300px;margin:auto}
+.cup-banner{position:static;display:flex;align-items:center;gap:clamp(16px,5vw,80px);padding:22px 26px;margin:15px 0;background:linear-gradient(110deg,#342b1e,#161b24 70%);border:1px solid #665432;border-left:4px solid #eac16b;border-radius:12px}
+.cup-banner h2{margin:3px 0;color:#ffdf94;font-size:clamp(26px,4vw,42px);line-height:1.12}.cup-banner h2:after{display:none}.cup-banner p{max-width:57ch;margin:0;line-height:1.5}.cup-banner small,.cup-round>small,.cup-rank{color:#b9bdc5}
+.cup-links{display:flex;gap:8px}.cup-grid,.cup-bracket{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.cup-page section{scroll-margin-top:90px}.cup-page h3{margin:22px 0 9px}.cup-group,.cup-round{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}.cup-group h4,.cup-round h4{margin:0 0 8px;color:var(--cup-gold)}
+.cup-group table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}.cup-group th,.cup-group td{text-align:right;padding:5px 2px}.cup-group th{font-size:.76rem;color:var(--mut)}.cup-group th:first-child,.cup-group td:first-child{text-align:left}.cup-group td{border-top:1px solid var(--line)}.cup-group button{display:flex;align-items:center;gap:6px;background:transparent;color:var(--txt);border:0;padding:2px;text-align:left;cursor:pointer}.cup-group img{object-fit:contain}.cup-rank{min-width:1ch}
+.cup-round{display:flex;flex-direction:column}.cup-slots{flex:1;display:flex;flex-direction:column;justify-content:space-around;gap:10px;margin-top:10px}.cup-match{background:var(--bg);border-left:2px solid #b4914d;border-radius:5px;padding:11px}.cup-match small{display:block;color:var(--mut);margin-top:4px}.cup-side{display:flex;justify-content:space-between;gap:6px}.cup-records{margin:18px 0}.cup-records summary{cursor:pointer;padding:10px 0}
+@media(max-width:850px){.cup-grid{grid-template-columns:repeat(auto-fit,minmax(min(225px,100%),1fr))}}
+@media(max-width:620px){.cup-banner{display:block;padding:16px}.cup-banner p{margin-top:8px}.cup-bracket{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -3220,12 +3229,59 @@ function nbaRecordTable(standings, cup){
     return [...first,stat('streak'),stat('home'),stat('road'),...(cup?[]:[stat('lasttengames')])];
   }));
 }
-function nbaBoard(data,cup){
+// Official 2026 draw and knockout dates: nba.com/nba-cup/2026/groups
+// Key by ESPN season end-year so a later draw never inherits these assignments.
+const CUP_DRAWS = {2027:{
+  East:[['DET','TOR','ORL','MIL','BKN'],['NY','CLE','PHI','MIA','IND'],['BOS','ATL','CHA','CHI','WSH']],
+  West:[['DEN','HOU','PHX','DAL','UTAH'],['OKC','MIN','LAC','NO','MEM'],['SA','LAL','POR','GS','SAC']],
+  rounds:[['Quarterfinals','Dec 4–5',['20261204','20261205'],4],['Semifinals','Dec 8–9',['20261208','20261209'],2],['Championship','Dec 11',['20261211'],1]]
+}};
+function cupGroupCard(conf,idx,entries){
+  const rows=entries.map(e=>{
+    const stats=Object.fromEntries((e.stats||[]).map(s=>[s.type,s]));
+    return {team:e.team,stats,rank:Number(stats.playoffseed?.value)||99};
+  }).sort((a,b)=>a.rank-b.rank);
+  return '<article class="cup-group"><h4>Group '+String.fromCharCode(65+idx)+'</h4><table aria-label="'+conf+' Group '+String.fromCharCode(65+idx)+'"><thead><tr><th>Team</th><th>W–L</th><th>+/−</th></tr></thead><tbody>'+rows.map(({team,stats,rank})=>{
+    const logo=team.logos?.[0]?.href;
+    return `<tr><td><button type="button" data-teampage="nba|${esc(team.id)}"><span class="cup-rank">${rank===99?'—':rank}</span>${logo?`<img alt="" width="26" height="26" src="${esc(logo)}">`:''}${esc(team.shortDisplayName||team.displayName)}</button></td><td>${esc(stats.inseason?.displayValue||'—')}</td><td>${esc(stats.pointdifferential?.displayValue||'—')}</td></tr>`;
+  }).join('')+'</tbody></table></article>';
+}
+function cupBracket(draw,games){
+  const paths=['Group winners and wild cards','Two quarterfinal winners','East winner vs. West winner'];
+  return '<section id="cup-knockout"><h3>Knockout rounds</h3><p class="note">Single elimination. In each conference, the top group winner plays the wild card and the other two group winners meet.</p><div class="cup-bracket">'+draw.rounds.map(([round,date,,count],i)=>{
+    const events=games.filter(e=>e.competitions?.[0]?.notes?.some(n=>new RegExp(round,'i').test(n.headline)));
+    const cards=Array.from({length:Math.max(count,events.length)},(_,j)=>{
+      const event=events[j], c=event?.competitions?.[0], sides=c?.competitors||[];
+      const known=sides.some(t=>t.team?.abbreviation && t.team.abbreviation!=='TBD');
+      const state=c?.status?.type || event?.status?.type;
+      const label=known?sides.map(t=>'<div class="cup-side"><span>'+esc(t.team?.displayName||'To be decided')+'</span><b>'+esc(state?.state==='pre'?'':t.score??'')+'</b></div>').join(''):
+        '<strong>Matchup pending</strong>';
+      return '<div class="cup-match">'+label+'<small>'+esc(known?(state?.state==='pre'?fmtStamp(event.date):state?.shortDetail||state?.description||''):paths[i])+'</small></div>';
+    }).join('');
+    return '<div class="cup-round"><h4>'+round+'</h4><small>'+date+'</small><div class="cup-slots">'+cards+'</div></div>';
+  }).join('')+'</div></section>';
+}
+function cupTournament(data,games,partial){
+  const draw=CUP_DRAWS[data.season?.year], standings=data.standings?.name==='inseason'?data.standings:null;
+  const entries=standings?.entries||[], byTeam=new Map(entries.map(e=>[e.team?.abbreviation,e]));
+  const season=esc(data.season?.displayName||'');
+  const banner='<header class="cup-banner"><div><small>'+season+' · NBA</small><h2>NBA Cup</h2></div><p>Each team plays four group games. The six group winners and the best runner-up in each conference advance.</p></header>';
+  if(!draw || !entries.length) return banner+nbaRecordTable(standings,true);
+  const complete=['East','West'].every(conf=>draw[conf].flat().every(id=>byTeam.has(id)));
+  const groups=complete?['East','West'].map(conf=>'<section class="cup-conf"><h3>'+conf+' groups</h3><div class="cup-grid">'+draw[conf].map((ids,i)=>cupGroupCard(conf,i,ids.map(id=>byTeam.get(id)))).join('')+'</div></section>').join(''):'<p class="note">Group assignments are unavailable for this feed.</p>';
+  return '<div class="cup-page">'+banner+'<nav class="cup-links" aria-label="Cup sections"><button class="btn sm" data-cup-jump="cup-groups">Group play</button><button class="btn sm" data-cup-jump="cup-knockout">Knockout rounds ↓</button></nav><section id="cup-groups">'+groups+'</section>'+
+    cupBracket(draw,games)+(partial?'<p class="note">Some scheduled matchups could not be loaded.</p>':'')+
+    '<details class="cup-records" '+(complete?'':'open')+'><summary>Full Cup records</summary>'+nbaRecordTable(standings,true)+'</details></div>';
+}
+async function cupSchedule(draw){
+  if(!draw) return {games:[],partial:false};
+  const days=draw.rounds.flatMap(r=>r[2]);
+  const results=await Promise.allSettled(days.map(day=>getJSON(API+LG.nba.path+'/scoreboard?dates='+day,5*60e3)));
+  const events=results.flatMap(r=>r.status==='fulfilled'?r.value.events||[]:[]);
+  return {games:[...new Map(events.map(e=>[e.id,e])).values()],partial:results.some(r=>r.status==='rejected')};
+}
+function nbaBoard(data){
   const season=esc(data.season?.displayName || '');
-  if(cup){
-    const standings=data.standings?.name==='inseason' ? data.standings : null;
-    return '<h2>'+season+' NBA Cup</h2><p class="note">Group-play records · All teams by win percentage</p>'+nbaRecordTable(standings,true);
-  }
   const conferences=data.children || [];
   return '<h2>'+season+' NBA conference standings</h2>'+['East','West'].map(name=>{
     const conf=conferences.find(c=>c.abbreviation===name || c.name===name+'ern Conference');
@@ -3243,7 +3299,17 @@ async function renderLeagueBoard(lg,tok,view){
   try{
     const data=await getJSON(url,5*60e3);
     if(tok!==TOKEN) return;
-    view.innerHTML=nav+(nbaSpecial?nbaBoard(data,mode==='cup'):college?collegePollTable(lg,data):proStandingsTable(lg,data,mode==='divisions'));
+    if(nbaSpecial && mode==='cup'){
+      const layout=(games,partial)=>nav+cupTournament(data,games,partial);
+      view.innerHTML=layout([],false);
+      const {games,partial}=await cupSchedule(CUP_DRAWS[data.season?.year]);
+      const bracket=view.querySelector('#cup-knockout');
+      if(tok===TOKEN && bracket){
+        bracket.outerHTML=cupBracket(CUP_DRAWS[data.season.year],games)+(partial?'<p class="note">Some scheduled matchups could not be loaded.</p>':'');
+      }
+      return;
+    }
+    view.innerHTML=nav+(nbaSpecial?nbaBoard(data):college?collegePollTable(lg,data):proStandingsTable(lg,data,mode==='divisions'));
   }catch(e){
     if(tok===TOKEN) view.innerHTML=nav+'<p role="status">Couldn’t load ESPN data. <button class="btn sm" data-league-view="'+leagueViews[lg]+'">Retry</button></p>';
   }
@@ -5970,6 +6036,7 @@ document.addEventListener('toggle', ev=>{
 document.addEventListener('click', async ev=>{
   const t=ev.target, a=k=>{ const el=t.closest(`[data-${k}]`); return el?el.dataset[k.replace(/-([a-z])/g,(m,c)=>c.toUpperCase())]:null; };
   let v;
+  if((v=a('cup-jump'))!==null){ document.getElementById(v)?.scrollIntoView({block:'start'}); return; }
   if((v=a('league-view'))!==null && LGS.includes(TAB)){ leagueViews[TAB]=v; return render(); }
   if((v=a('theme-accent'))!==null){ if(!THEME_ACCENTS.includes(v)) return; const th=themeRead(); th.accent=v; themeApply(th,true); return; }
   if((v=a('theme-scope'))!==null){ if(v!=='title'&&v!=='app') return; const th=themeRead(); th.scope=v; themeApply(th,true); return; }
