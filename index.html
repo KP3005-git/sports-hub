@@ -736,6 +736,10 @@ footer{margin-top:auto}
 @media (max-width:899px) and (prefers-reduced-motion: reduce){
   .dock{transition:none}
 }
+.league-scroll{overflow-x:auto;max-width:100%;margin-bottom:1rem}
+.league-table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;background:var(--card)}
+.league-table td,.league-table th{padding:.55rem;text-align:left;white-space:nowrap;border-bottom:1px solid var(--line)}
+.league-table th{color:var(--mut);font-size:.82rem}
 </style>
 </head>
 <body>
@@ -3136,7 +3140,79 @@ function scoreboardURL(lg){
   else q.push('dates='+(vs.date||ymd(new Date())));
   return API+L.path+'/scoreboard?'+q.join('&');
 }
+const leagueViews = {};
+function leagueViewButtons(lg){
+  const selected = leagueViews[lg] || 'scores';
+  const options = LG[lg].college ? [['scores','Scores'],['poll','AP Top 25']] :
+    [['scores','Scores'],['league','League standings'],['divisions','Divisions']];
+  return '<div class="filters" aria-label="League view">'+options.map(([id,label])=>
+    `<button type="button" data-league-view="${id}" aria-pressed="${id===selected}" class="${id===selected?'on':''}">${label}</button>`).join('')+'</div>';
+}
+function leagueTable(headers, rows){
+  return `<div class="league-scroll" tabindex="0"><table class="league-table"><thead><tr>${headers.map(h=>'<th scope="col">'+esc(h)+'</th>').join('')}</tr></thead><tbody>${rows.map(row=>'<tr>'+row.map(cell=>'<td>'+cell+'</td>').join('')+'</tr>').join('')}</tbody></table></div>`;
+}
+function leagueTeamLink(lg, team){
+  const name = team.displayName || [team.location,team.name].filter(Boolean).join(' ') || team.abbreviation;
+  return `<button type="button" class="btn sm" data-teampage="${lg}|${esc(team.id)}">${esc(name)}</button>`;
+}
+function collegePollTable(lg, data){
+  const poll = (data.rankings || []).find(p=>p.name==='AP Top 25' || p.shortName==='AP Poll');
+  const teams = (poll?.ranks || []).filter(r=>r.team && r.current>=1 && r.current<=25).sort((a,b)=>a.current-b.current);
+  if(!teams.length) return '<p class="empty">The AP Top 25 has not been published for this period.</p>';
+  const stamp = poll.lastUpdated ? ' · '+esc(fmtStamp(poll.lastUpdated)) : '';
+  return '<h2>AP Top 25</h2><p class="note">Associated Press'+stamp+'</p>'+leagueTable(
+    ['Rank','Team','Record','Change','Poll points','First-place votes'], teams.map(r=>{
+      const delta = Number(r.previous)-Number(r.current);
+      const change = !(r.previous>=1 && r.previous<=25) ? 'New' : delta>0 ? '↑ '+delta : delta<0 ? '↓ '+(-delta) : '—';
+      return [esc(r.current),leagueTeamLink(lg,r.team),esc(r.recordSummary||'—'),change,esc(r.points??'—'),esc(r.firstPlaceVotes??'—')];
+    }));
+}
+function proStandingsTable(lg, data, byDivision){
+  const groups = [];
+  let season = '';
+  for(const conference of data.children || []){
+    for(const division of conference.children || []){
+      const standings = division.standings || {};
+      season = standings.seasonDisplayName || season;
+      const teams = (standings.entries || []).filter(e=>e.team).map(entry=>{
+        const stats = Object.fromEntries((entry.stats || []).map(s=>[s.type,s]));
+        return {team:entry.team,stats,division:division.name,pct:Number(stats.winpercent?.value)||0,seed:Number(stats.playoffseed?.value)||Infinity};
+      });
+      teams.sort((a,b)=>b.pct-a.pct || a.seed-b.seed || a.team.displayName.localeCompare(b.team.displayName));
+      teams.forEach((row,i)=>{ row.place=i+1; });
+      if(teams.length) groups.push({label:conference.name+' · '+division.name,teams});
+    }
+  }
+  if(!groups.length) return '<p class="empty">ESPN has not published division standings for this season.</p>';
+  const headers=['Team','Record','Win %','Division','Div. place','Streak','Home','Away',lg==='nba'?'Last 10':'Div. record','Conf. seed'];
+  function table(teams){
+    return leagueTable(headers,teams.map(({team,stats,division,place})=>{
+      const stat=k=>stats[k]?.displayValue;
+      const record=stat('total') || [stat('wins'),stat('losses'),lg==='nfl'?stat('ties'):null].filter(v=>v!=null).join('–');
+      return [leagueTeamLink(lg,team),...[record,stat('winpercent'),division,place,stat('streak'),stat('home'),stat('road'),stat(lg==='nba'?'lasttengames':'vsdiv'),stat('playoffseed')].map(v=>esc(v??'—'))];
+    }));
+  }
+  const all = groups.flatMap(g=>g.teams).sort((a,b)=>b.pct-a.pct || a.team.displayName.localeCompare(b.team.displayName));
+  return '<h2>'+esc(season)+' '+LG[lg].short+' standings</h2><p class="note">By win percentage. Division ties use ESPN conference seed when available.</p>'+
+    (byDivision?groups.map(g=>'<h3>'+esc(g.label)+'</h3>'+table(g.teams)).join(''):table(all));
+}
+async function renderLeagueBoard(lg,tok,view){
+  const nav=leagueViewButtons(lg), college=LG[lg].college;
+  view.innerHTML=nav+'<p role="status">Loading '+(college?'rankings':'standings')+'…</p>';
+  setRefresh([],null);
+  const url=college ? API+LG[lg].path+'/rankings' : 'https://site.api.espn.com/apis/v2/sports/'+LG[lg].path+'/standings?level=3';
+  try{
+    const data=await getJSON(url,5*60e3);
+    if(tok!==TOKEN) return;
+    view.innerHTML=nav+(college?collegePollTable(lg,data):proStandingsTable(lg,data,leagueViews[lg]==='divisions'));
+  }catch(e){
+    if(tok===TOKEN) view.innerHTML=nav+'<p role="status">Couldn’t load ESPN data. <button class="btn sm" data-league-view="'+leagueViews[lg]+'">Retry</button></p>';
+  }
+}
 async function renderLeague(lg, tok, view){
+  if(leagueViews[lg] && leagueViews[lg]!=='scores') return renderLeagueBoard(lg,tok,view);
+  if(view.dataset.scoreLeague!==lg || !view.querySelector('.navbar')) view.innerHTML=leagueViewButtons(lg)+'<p role="status">Loading scores…</p>';
+  view.dataset.scoreLeague=lg;
   const L=LG[lg], vs=VS[lg];
   if(L.mode==='day' && !vs.date) vs.date = ymd(new Date());
   if(lg==='nfl') refreshFantasyTeams().then(ch=>{ if(ch && tok===TOKEN && TAB==='nfl') render(); });
@@ -3234,7 +3310,7 @@ async function renderLeague(lg, tok, view){
       <div class="chips">${r.length?r.map(x=>`<span class="chip">${esc(x.name)} <span class="note">${esc(x.teamAbbr||'?')}</span></span>`).join(''):'<span class="note">No roster players yet — add them in Settings to get FF badges on games.</span>'}</div></div>`;
   }
   const slate = slateGames(lg, games);
-  view.innerHTML = `<div class="navbar">${nav}</div>
+  view.innerHTML = `${leagueViewButtons(lg)}<div class="navbar">${nav}</div>
     ${playersHere.length?`<h2>👑 Favorite Players</h2><div class="grid" id="plgrid" ${sortAttrs(KEY_PL, playersAll.map(p=>'p:'+p.id))}>${playersHere.map(p=>withSid(`<div class="g" id="pl-${esc(p.id)}"><div class="note">Loading ${esc(p.name)}…</div></div>`,'p:'+p.id)).join('')}</div>`:''}
     ${favList.length?`<h2>⭐ My ${esc(L.short)} Teams</h2><div class="grid" id="favgrid" ${sortAttrs(KEY_FAV, favList.map(t=>'team:'+t.id))}>${featured}</div>`:''}
     ${ffPanel}
@@ -5855,6 +5931,7 @@ document.addEventListener('toggle', ev=>{
 document.addEventListener('click', async ev=>{
   const t=ev.target, a=k=>{ const el=t.closest(`[data-${k}]`); return el?el.dataset[k.replace(/-([a-z])/g,(m,c)=>c.toUpperCase())]:null; };
   let v;
+  if((v=a('league-view'))!==null && LGS.includes(TAB)){ leagueViews[TAB]=v; return render(); }
   if((v=a('theme-accent'))!==null){ if(!THEME_ACCENTS.includes(v)) return; const th=themeRead(); th.accent=v; themeApply(th,true); return; }
   if((v=a('theme-scope'))!==null){ if(v!=='title'&&v!=='app') return; const th=themeRead(); th.scope=v; themeApply(th,true); return; }
   if((v=a('teampage'))!==null){ ev.preventDefault(); ev.stopPropagation(); const [lg,id]=v.split('|'); return openTeam(lg, id); }
