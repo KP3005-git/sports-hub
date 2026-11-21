@@ -750,6 +750,12 @@ footer{margin-top:auto}
 @media(max-width:850px){.cup-grid{grid-template-columns:repeat(auto-fit,minmax(min(225px,100%),1fr))}}
 @media(max-width:620px){.cup-banner{display:block;padding:16px}.cup-banner p{margin-top:8px}.cup-bracket{grid-template-columns:1fr}}
 .playoff-confs{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(430px,100%),1fr));gap:16px}.playoff-confs section{min-width:0}.playoff-confs h3{color:var(--gold)}.playoff-games{list-style:none;padding:0;display:grid;gap:6px}.playoff-games li{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px}.playoff-games small{color:var(--mut);margin:0 .4em}
+.gridiron{--conf:#89b8ff;font-variant-numeric:tabular-nums}.gridiron-title{padding:16px 0 14px;border-bottom:1px solid var(--line);margin-bottom:16px}.gridiron-title small,.gridiron-spot small{font:700 .73rem/1.3 system-ui;letter-spacing:.12em;text-transform:uppercase;color:var(--conf)}.gridiron-title h2{display:block;margin:4px 0;color:var(--txt);font:800 clamp(1.9rem,4vw,3rem)/1.03 system-ui;letter-spacing:-.055em;text-transform:none}.gridiron-title h2:after{display:none}.gridiron-title p{margin:7px 0 0;color:var(--mut)}
+.gridiron-pair,.gridiron-divs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:14px}.gridiron-conf,.gridiron-card{min-width:0}.gridiron-conf.afc{--conf:#ff968a;--wash:#372125}.gridiron-conf.nfc{--conf:#89b8ff;--wash:#172c49}.gridiron-conf h3{border-top:3px solid var(--conf);padding-top:7px;color:var(--conf);font:900 1.3rem/1.2 system-ui;letter-spacing:.06em;margin:12px 0}.gridiron-conf h4{margin:14px 0 8px;color:var(--txt);font:700 1rem/1.4 system-ui}
+.gridiron-spot{position:relative;overflow:hidden;display:flex;align-items:center;justify-content:space-between;width:100%;gap:10px;padding:18px 22px;text-align:left;border:1px solid var(--line);border-radius:12px;background:repeating-linear-gradient(90deg,transparent 0 53px,#ffffff0a 53px 54px),linear-gradient(110deg,var(--wash),#101823);color:#fff;cursor:pointer}.gridiron-spot span{display:grid;gap:4px}.gridiron-spot strong{font:800 clamp(1.55rem,3vw,2.4rem)/1.06 system-ui;letter-spacing:-.045em}.gridiron-spot b{font-size:1rem}.gridiron-spot .gridiron-logo{width:82px;height:70px;filter:drop-shadow(0 4px 7px #0008)}
+.gridiron-team{display:inline-flex;align-items:center;gap:8px;padding:2px 0;border:0;background:none;color:var(--txt);font:650 .88rem/1.2 system-ui;text-align:left;cursor:pointer}.gridiron-team:hover span{text-decoration:underline}.gridiron-logo{width:32px;height:29px;object-fit:contain}.gridiron-card,.gridiron-game{padding:10px 13px;border:1px solid var(--line);border-radius:10px;background:var(--card)}.gridiron-game{margin:7px 0}.gridiron-side{display:grid;grid-template-columns:24px 1fr auto 42px;gap:6px;align-items:center;min-height:38px}.gridiron-side+.gridiron-side{border-top:1px solid var(--line)}.gridiron-side i{font:700 .82rem system-ui;color:var(--conf)}.gridiron-side small{color:var(--mut)}.gridiron-side b{text-align:right}.gridiron summary{padding:10px 0;cursor:pointer;color:var(--conf)}.gridiron .gridiron-cut{padding-top:12px;border-top:1px dashed var(--conf)}
+.gridiron-card h4{color:var(--conf);margin:2px 0 10px}.gridiron-card>table{width:100%;border-collapse:collapse}.gridiron-card>table th,.gridiron-card>table td{text-align:left;padding:5px 2px;border-bottom:1px solid var(--line)}.gridiron-card>table th{font-size:.73rem;color:var(--mut)}.gridiron-streak{display:inline-block;padding:2px 7px;border-radius:5px;background:var(--line);font-weight:700}.gridiron-streak.win{background:#16362c;color:#94e9bb}.gridiron-streak.loss{background:#40272b;color:#ffb7b3}.gridiron .league-scroll{border:1px solid var(--line);border-radius:9px}.gridiron .league-table td{padding:6px 8px}.gridiron *:focus-visible{outline:2px solid var(--conf);outline-offset:2px}
+@media(max-width:720px){.gridiron-pair,.gridiron-divs{grid-template-columns:minmax(0,1fr)}.gridiron-spot{padding:13px 16px}.gridiron .league-table td{padding:5px}.gridiron-team{font-size:.81rem}}
 </style>
 </head>
 <body>
@@ -3178,6 +3184,44 @@ function collegePollTable(lg, data){
       return [esc(r.current),leagueTeamLink(lg,r.team),esc(r.recordSummary||'—'),change,esc(r.points??'—'),esc(r.firstPlaceVotes??'—')];
     }));
 }
+function nflLogo(team){
+  const src=team.logos?.[0]?.href || team.logo;
+  return src?'<img class="gridiron-logo" src="'+esc(src)+'" alt="">':'';
+}
+function nflTeam(team){
+  return '<button type="button" class="gridiron-team" data-teampage="nfl|'+esc(team.id)+'">'+nflLogo(team)+'<span>'+esc(team.shortDisplayName||team.displayName)+'</span></button>';
+}
+function nflHeading(season,title,note){
+  return '<div class="gridiron-title"><small>NFL &nbsp;/&nbsp; '+esc(season)+'</small><h2>'+title+'</h2><p>'+note+'</p></div>';
+}
+function nflSpotlight(row,label){
+  if(!row) return '';
+  const record=row.record || row.stats?.total?.displayValue || '—';
+  return '<button class="gridiron-spot" type="button" data-teampage="nfl|'+esc(row.team.id)+'"><span><small>'+esc(label)+'</small><strong>'+esc(row.team.shortDisplayName||row.team.displayName)+'</strong><b>'+esc(record)+'</b></span>'+nflLogo(row.team)+'</button>';
+}
+function nflStreak(value){
+  const trend=/^W/.test(value)?'win':/^L/.test(value)?'loss':'';
+  return '<span class="gridiron-streak '+trend+'">'+esc(value||'—')+'</span>';
+}
+function nflStandingsPage(groups,all,season,byDivision){
+  function board(teams){
+    return leagueTable(['Team','Record','Win %','Division','Place','Streak','Home','Away','Div. record','Conf. seed'],teams.map(r=>{
+      const stat=k=>esc(r.stats[k]?.displayValue??'—');
+      return [nflTeam(r.team),'<b>'+stat('total')+'</b>',stat('winpercent'),esc(r.division),esc(r.place),nflStreak(r.stats.streak?.displayValue),stat('home'),stat('road'),stat('vsdiv'),stat('playoffseed')];
+    }));
+  }
+  const panels=['AFC','NFC'].map(conf=>{
+    const divisions=groups.filter(g=>g.conf===conf);
+    if(!divisions.length) return '';
+    const cls='gridiron-conf '+conf.toLowerCase();
+    if(!byDivision) return '<div class="'+cls+'">'+nflSpotlight(divisions.flatMap(g=>g.teams).find(t=>t.seed===1),conf+' · Conference leader')+'</div>';
+    return '<section class="'+cls+'"><h3>'+conf+'</h3><div class="gridiron-divs">'+divisions.map(g=>{
+      const rows=g.teams.map(r=>'<tr><td>'+esc(r.place)+'</td><td>'+nflTeam(r.team)+'</td><td><b>'+esc(r.stats.total?.displayValue||'—')+'</b></td><td>'+nflStreak(r.stats.streak?.displayValue)+'</td></tr>').join('');
+      return '<article class="gridiron-card"><h4>'+esc(g.teams[0].division)+'</h4><table><thead><tr><th>#</th><th>Team</th><th>W–L–T</th><th>Streak</th></tr></thead><tbody>'+rows+'</tbody></table><details><summary>Full division stats</summary>'+board(g.teams)+'</details></article>';
+    }).join('')+'</div></section>';
+  }).join('');
+  return '<div class="gridiron">'+nflHeading(season,byDivision?'Division standings':'League standings','Ordered by win percentage. Division ties use conference seed when available.')+(byDivision?panels:'<div class="gridiron-pair">'+panels+'</div>'+board(all))+'</div>';
+}
 function proStandingsTable(lg, data, byDivision){
   const groups = [];
   let season = '';
@@ -3191,7 +3235,7 @@ function proStandingsTable(lg, data, byDivision){
       });
       teams.sort((a,b)=>b.pct-a.pct || a.seed-b.seed || a.team.displayName.localeCompare(b.team.displayName));
       teams.forEach((row,i)=>{ row.place=i+1; });
-      if(teams.length) groups.push({label:conference.name+' · '+division.name,teams});
+      if(teams.length) groups.push({conf:conference.abbreviation,label:conference.name+' · '+division.name,teams});
     }
   }
   if(!groups.length) return '<p class="empty">ESPN has not published division standings for this season.</p>';
@@ -3204,6 +3248,7 @@ function proStandingsTable(lg, data, byDivision){
     }));
   }
   const all = groups.flatMap(g=>g.teams).sort((a,b)=>b.pct-a.pct || a.team.displayName.localeCompare(b.team.displayName));
+  if(lg==='nfl') return nflStandingsPage(groups,all,season,byDivision);
   return '<h2>'+esc(season)+' '+LG[lg].short+' standings</h2><p class="note">By win percentage. Division ties use ESPN conference seed when available.</p>'+
     (byDivision?groups.map(g=>'<h3>'+esc(g.label)+'</h3>'+table(g.teams)).join(''):table(all));
 }
@@ -3307,19 +3352,27 @@ function nflPlayoffPicture(data){
     }).filter(r=>Number.isInteger(r.seed)&&r.seed>0).sort((a,b)=>a.seed-b.seed);
     const heading='<h3>'+name+'</h3>';
     if(!rows.length) return heading+'<p class="empty">Conference seeds are unavailable.</p>';
-    const field=new Map(rows.map(r=>[r.seed,r.team.shortDisplayName||r.team.displayName]));
+    const seeds=new Map(rows.map(r=>[r.seed,r]));
+    const pairs=[[7,2],[6,3],[5,4]].map(pair=>{
+      const sides=pair.map((seed,i)=>{
+        const row=seeds.get(seed);
+        return '<div class="gridiron-side"><i>'+seed+'</i>'+(row?nflTeam(row.team):'TBD')+'<small>'+(i?'Home':'Away')+'</small><b>'+esc(row?.record||'—')+'</b></div>';
+      }).join('');
+      return '<div class="gridiron-game">'+sides+'</div>';
+    }).join('');
     function table(list){
       return leagueTable(['Seed','Team','Record','Position'],list.map(r=>{
         const position=r.seed===1?'First-round bye':r.seed<=4?'Division leader':r.seed<=7?'Wild card':'Outside field';
-        return [esc(r.seed),leagueTeamLink('nfl',r.team),esc(r.record),esc(r.clinch?.description||position)];
+        return [esc(r.seed),nflTeam(r.team),esc(r.record),esc(r.clinch?.description||position)];
       }));
     }
     const outside=rows.filter(r=>r.seed>7),hunt=outside.filter(r=>r.clinch?.displayValue!=='e'),out=outside.filter(r=>r.clinch?.displayValue==='e');
-    return '<section>'+heading+table(rows.filter(r=>r.seed<=7))+'<h4>Wild Card matchups</h4>'+playoffMatchups(field,[[7,2],[6,3],[5,4]])+
-      (hunt.length?'<h4>In the hunt</h4>'+table(hunt):'')+
+    return '<section class="gridiron-conf '+name.toLowerCase()+'">'+heading+nflSpotlight(seeds.get(1),'#1 seed · First-round bye')+
+      '<h4>Wild Card round</h4>'+pairs+'<details><summary>Playoff seeds &amp; clinching status</summary>'+table(rows.filter(r=>r.seed<=7))+'</details>'+
+      (hunt.length?'<h4 class="gridiron-cut">In the hunt</h4>'+table(hunt):'')+
       (out.length?'<details><summary>Eliminated ('+out.length+')</summary>'+table(out)+'</details>':'')+'</section>';
   });
-  return '<h2>'+esc(data.season?.displayName||'')+' NFL playoff picture</h2><p class="note">If the season ended today: four division leaders and three wild cards per conference. The #1 seed receives a bye.</p><div class="playoff-confs">'+body.join('')+'</div>';
+  return '<div class="gridiron">'+nflHeading(data.season?.displayName||'','Playoff picture','If the season ended today · Four division leaders and three wild cards per conference.')+'<div class="gridiron-pair">'+body.join('')+'</div></div>';
 }
 function cfpPlayoffPicture(data){
   const poll=(data.rankings||[]).find(p=>p.shortName==='CFP Rankings'||p.name==='Playoff Committee Rankings');
