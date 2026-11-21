@@ -24,6 +24,7 @@
   h.setAttribute('data-scope', theme.scope);
   var meta=document.querySelector('meta[name="theme-color"]');
   if(meta) meta.setAttribute('content','#000000');
+  try{ if(localStorage.getItem('sportsHub.dock.collapsed')==='1') h.classList.add('dock-collapsed'); }catch(e){}
 })();
 </script>
 <meta name="format-detection" content="telephone=no">
@@ -638,7 +639,7 @@ body{background:#000;font:15px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text
 .glassbg{position:fixed;inset:0;z-index:0;pointer-events:none;display:grid;place-items:center;background:radial-gradient(900px 520px at 50% 42%,rgba(18,48,110,.45),transparent 68%)}
 .glowmark{width:min(78vmin,640px);height:auto;opacity:.26;filter:drop-shadow(0 0 12px #3d9bff) drop-shadow(0 0 36px rgba(30,90,255,.85))}
 .shell{position:relative;z-index:1;display:flex;align-items:flex-start;min-height:100vh}
-.dock{width:252px;flex:none;position:sticky;top:0;align-self:flex-start;height:100vh;overflow:auto;padding:16px 12px 20px;background:var(--glass);border-right:1px solid var(--glass-line);box-shadow:var(--glass-shadow);-webkit-backdrop-filter:blur(22px) saturate(1.35);backdrop-filter:blur(22px) saturate(1.35)}
+.dock{width:252px;flex:none;position:sticky;top:0;align-self:flex-start;height:100vh;overflow:auto;padding:16px 12px 20px;background:var(--glass);border-right:1px solid var(--glass-line);box-shadow:var(--glass-shadow);-webkit-backdrop-filter:blur(22px) saturate(1.35);backdrop-filter:blur(22px) saturate(1.35);z-index:25;transition:width .22s ease}
 .dockbrand{display:flex;align-items:center;gap:10px;padding:4px 8px 14px}
 .dockbrand .mark{width:36px;height:36px;border-radius:22%;overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,.7),0 0 16px rgba(61,155,255,.55);flex:none}
 .dockbrand .mark svg{width:100%;height:100%;display:block}
@@ -686,12 +687,28 @@ footer{margin-top:auto}
   .dock,header{background:#0c1018;-webkit-backdrop-filter:none;backdrop-filter:none}
   .g,.panel,.kpi,.pick,.hl,.navbar,.syncbar,.ladderbox,.parlay,.mbox{background:#121820;-webkit-backdrop-filter:none;backdrop-filter:none}
 }
+.docktoggle{display:flex;align-items:center;justify-content:center;width:100%;height:36px;margin:0 0 10px;background:rgba(255,255,255,.04);border:1px solid var(--glass-line);border-radius:999px;color:#d5deee;cursor:pointer}
+.docktoggle:hover,.docktoggle:focus-visible{color:#fff;border-color:#3d9bff;box-shadow:0 0 14px rgba(61,155,255,.55)}
+.docktoggle .chev{width:18px;height:18px;display:block}
+@media (min-width:900px){
+  html.dock-collapsed .dock{width:68px;padding-left:8px;padding-right:8px;overflow:visible}
+  html.dock-collapsed .dockbrand>div{display:none}
+  html.dock-collapsed .dockbrand{justify-content:center;padding-left:0;padding-right:0}
+  html.dock-collapsed .docktoggle{width:44px;margin-left:auto;margin-right:auto}
+  html.dock-collapsed .docktoggle .chev{transform:scaleX(-1)}
+  html.dock-collapsed nav.tabs button{justify-content:center;padding:9px 0;gap:0;position:relative}
+  html.dock-collapsed nav.tabs button .tablbl{position:absolute;left:calc(100% + 10px);top:50%;transform:translateY(-50%);opacity:0;pointer-events:none;background:rgba(8,12,20,.94);border:1px solid rgba(255,255,255,.22);color:#fff;padding:6px 10px;border-radius:10px;font-size:13px;font-weight:700;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,.45);z-index:6}
+  html.dock-collapsed nav.tabs button:hover .tablbl,html.dock-collapsed nav.tabs button:focus-visible .tablbl{opacity:1}
+  html.dock-collapsed nav.tabs button .lv{position:absolute;top:2px;right:2px;margin:0}
+}
 @media (prefers-reduced-motion: reduce){
   .glowmark{filter:drop-shadow(0 0 8px #3d9bff)}
-  nav.tabs button.on,.filters button.on,.btn.pri{box-shadow:none}
+  nav.tabs button.on,.filters button.on,.btn.pri,.docktoggle:hover,.docktoggle:focus-visible{box-shadow:none}
+  .dock{transition:none}
 }
 @media (max-width:899px){
   .shell{display:block}
+  .docktoggle{display:none}
   .dock{position:fixed;left:10px;right:10px;bottom:calc(8px + env(safe-area-inset-bottom));top:auto;width:auto;height:auto;z-index:30;border:1px solid var(--glass-line);border-radius:24px;padding:6px;overflow:visible;box-shadow:0 10px 40px rgba(0,0,0,.45);transform:translate3d(0,0,0);transition:transform .28s cubic-bezier(.2,.8,.2,1)}
   html.dock-hide .dock{transform:translate3d(0,calc(140% + env(safe-area-inset-bottom)),0)}
   html.navmore .dock{transform:translate3d(0,0,0)}
@@ -744,25 +761,26 @@ footer{margin-top:auto}
 </div>
 <div class="shell">
 <aside class="dock">
+  <button type="button" class="docktoggle" id="docktoggle" data-docktoggle="1" aria-expanded="true" aria-label="Collapse sidebar" title="Collapse sidebar"><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 6.5 9 12l5.5 5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
   <div class="dockbrand">
     <span class="mark" aria-hidden="true"><svg viewBox="0 0 180 180"><rect width="180" height="180" fill="#000"/><g fill="#fff" stroke="#000" stroke-linejoin="round"><circle cx="90" cy="56" r="38" stroke-width="8"/><circle cx="50" cy="126" r="34" stroke-width="8"/><g transform="translate(128 122) rotate(-24)"><path stroke-width="8" d="M0-40C18-30 26-14 26 0c0 14-8 30-26 40C-18 30-26 14-26 0c0-14 8-30 26-40z"/></g></g><defs><clipPath id="mkbb"><circle cx="90" cy="56" r="34"/></clipPath></defs><g fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round"><g clip-path="url(#mkbb)"><path stroke-width="7" d="M90 26c12 14 12 46 0 60"/><path stroke-width="7" d="M58 50c14 12 50 12 64-4"/></g><polygon points="50.00,111.00 64.27,121.36 58.82,138.14 41.18,138.14 35.73,121.36" fill="#000"/><g transform="translate(128 122) rotate(-24)"><path stroke-width="7" d="M0-22v44"/></g></g></svg></span>
     <div><b>Sports Hub</b><small>Scores &amp; picks</small></div>
   </div>
   <nav class="tabs" id="tabs">
-    <button class="tab-main" data-tab="mine"><span class="ico">⭐</span><span>Teams</span></button>
-    <button class="tab-lg" data-tab="cfb">🏈 CFB</button>
-    <button class="tab-lg" data-tab="cbb">🏀 CBB</button>
-    <button class="tab-main tab-lg" data-tab="nfl"><span class="ico">🏈</span><span>NFL</span></button>
-    <button class="tab-main tab-lg" data-tab="nba"><span class="ico">🏀</span><span>NBA</span></button>
-    <button data-tab="ladders">🪜 Ladders</button>
-    <button data-tab="fantasy">🏆 Fantasy</button>
-    <button data-tab="highlights">🎬 Highlights</button>
-    <button class="tab-main" data-tab="monitor"><span class="ico">📺</span><span>Monitor</span></button>
-    <button data-tab="injuries">🩹 Injuries</button>
-    <button data-tab="bets">🎟️ Bets</button>
-    <button data-tab="blitz" title="Picks Desk (Blitz &amp; Court) accuracy records">🎯 Picks Desk</button>
-    <button data-tab="settings">⚙️ Settings</button>
-    <button type="button" class="morebtn" id="navmore" data-navmore="1" aria-expanded="false"><span class="ico">•••</span><span>More</span></button>
+    <button class="tab-main" data-tab="mine" title="Teams" aria-label="Teams"><span class="ico" aria-hidden="true">⭐</span><span class="tablbl">Teams</span></button>
+    <button class="tab-lg" data-tab="cfb" title="CFB" aria-label="CFB"><span class="ico" aria-hidden="true">🏈</span><span class="tablbl">CFB</span></button>
+    <button class="tab-lg" data-tab="cbb" title="CBB" aria-label="CBB"><span class="ico" aria-hidden="true">🏀</span><span class="tablbl">CBB</span></button>
+    <button class="tab-main tab-lg" data-tab="nfl" title="NFL" aria-label="NFL"><span class="ico" aria-hidden="true">🏈</span><span class="tablbl">NFL</span></button>
+    <button class="tab-main tab-lg" data-tab="nba" title="NBA" aria-label="NBA"><span class="ico" aria-hidden="true">🏀</span><span class="tablbl">NBA</span></button>
+    <button data-tab="ladders" title="Ladders" aria-label="Ladders"><span class="ico" aria-hidden="true">🪜</span><span class="tablbl">Ladders</span></button>
+    <button data-tab="fantasy" title="Fantasy" aria-label="Fantasy"><span class="ico" aria-hidden="true">🏆</span><span class="tablbl">Fantasy</span></button>
+    <button data-tab="highlights" title="Highlights" aria-label="Highlights"><span class="ico" aria-hidden="true">🎬</span><span class="tablbl">Highlights</span></button>
+    <button class="tab-main" data-tab="monitor" title="Monitor" aria-label="Monitor"><span class="ico" aria-hidden="true">📺</span><span class="tablbl">Monitor</span></button>
+    <button data-tab="injuries" title="Injuries" aria-label="Injuries"><span class="ico" aria-hidden="true">🩹</span><span class="tablbl">Injuries</span></button>
+    <button data-tab="bets" title="Bets" aria-label="Bets"><span class="ico" aria-hidden="true">🎟️</span><span class="tablbl">Bets</span></button>
+    <button data-tab="blitz" title="Picks Desk" aria-label="Picks Desk"><span class="ico" aria-hidden="true">🎯</span><span class="tablbl">Picks Desk</span></button>
+    <button data-tab="settings" title="Settings" aria-label="Settings"><span class="ico" aria-hidden="true">⚙️</span><span class="tablbl">Settings</span></button>
+    <button type="button" class="morebtn" id="navmore" data-navmore="1" aria-expanded="false" title="More" aria-label="More"><span class="ico" aria-hidden="true">•••</span><span class="tablbl">More</span></button>
   </nav>
 </aside>
 <div class="stage">
@@ -5796,6 +5814,15 @@ document.addEventListener('click', async ev=>{
   if((v=a('teamback'))!==null){ ev.preventDefault(); return teamBack(); }
   if(t.id==='teammodal'){ teamBack(); return; }
   if(a('navmore')!==null){ ev.preventDefault(); const open=document.documentElement.classList.toggle('navmore'); if(open) document.documentElement.classList.remove('dock-hide'); const mb=document.getElementById('navmore'); if(mb) mb.setAttribute('aria-expanded', open?'true':'false'); return; }
+  if(a('docktoggle')!==null){
+    ev.preventDefault();
+    const next=!document.documentElement.classList.contains('dock-collapsed');
+    document.documentElement.classList.toggle('dock-collapsed', next);
+    try{ localStorage.setItem('sportsHub.dock.collapsed', next?'1':'0'); }catch(e){}
+    const b=document.getElementById('docktoggle');
+    if(b){ b.setAttribute('aria-expanded', next?'false':'true'); b.setAttribute('aria-label', next?'Expand sidebar':'Collapse sidebar'); b.title=next?'Expand sidebar':'Collapse sidebar'; }
+    return;
+  }
   if((v=a('tab'))!==null) return go(v);
   if((v=a('mon'))!==null){ monAction(v); return; }
   if((v=a('monpin'))!==null){
@@ -5945,6 +5972,8 @@ document.addEventListener('visibilitychange', ()=>{
 
 // ---------------- INIT ----------------
 DATA = loadData();
+{ const b=document.getElementById('docktoggle'), collapsed=document.documentElement.classList.contains('dock-collapsed');
+  if(b){ b.setAttribute('aria-expanded', collapsed?'false':'true'); b.setAttribute('aria-label', collapsed?'Expand sidebar':'Collapse sidebar'); b.title=collapsed?'Expand sidebar':'Collapse sidebar'; } }
 const startTeam=teamFromHash();
 go(parseHash() || pref.get('tab','mine'));
 try{ ladderDemoApply(); }catch(_){}
