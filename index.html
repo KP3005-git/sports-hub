@@ -3144,7 +3144,7 @@ const leagueViews = {};
 function leagueViewButtons(lg){
   const selected = leagueViews[lg] || 'scores';
   const options = LG[lg].college ? [['scores','Scores'],['poll','AP Top 25']] :
-    [['scores','Scores'],['league','League standings'],['divisions','Divisions']];
+    [['scores','Scores'],['league','League standings'],...(lg==='nba' ? [['conferences','East / West'],['cup','NBA Cup']] : [['divisions','Divisions']])];
   return '<div class="filters" aria-label="League view">'+options.map(([id,label])=>
     `<button type="button" data-league-view="${id}" aria-pressed="${id===selected}" class="${id===selected?'on':''}">${label}</button>`).join('')+'</div>';
 }
@@ -3196,15 +3196,54 @@ function proStandingsTable(lg, data, byDivision){
   return '<h2>'+esc(season)+' '+LG[lg].short+' standings</h2><p class="note">By win percentage. Division ties use ESPN conference seed when available.</p>'+
     (byDivision?groups.map(g=>'<h3>'+esc(g.label)+'</h3>'+table(g.teams)).join(''):table(all));
 }
+function nbaRecordTable(standings, cup){
+  const rows=(standings?.entries || []).filter(e=>e.team).map(entry=>{
+    const stats=Object.fromEntries((entry.stats || []).map(s=>[s.type,s]));
+    return {team:entry.team,stats};
+  });
+  if(cup){
+    rows.sort((a,b)=>(Number(b.stats.winpercent?.value)||0)-(Number(a.stats.winpercent?.value)||0) ||
+      a.team.displayName.localeCompare(b.team.displayName));
+  }else{
+    const seed=row=>Number(row.stats.playoffseed?.value)||Infinity;
+    rows.sort((a,b)=>seed(a)-seed(b) || a.team.displayName.localeCompare(b.team.displayName));
+  }
+  if(!rows.length) return '<p class="empty">Records have not been published yet.</p>';
+  const columns=cup ? ['Team','Cup record','Win %','Point diff.','Streak','Home','Away'] :
+    ['Seed','Team','Record','Win %','Games back','Streak','Home','Away','Last 10'];
+  return leagueTable(columns,rows.map(({team,stats})=>{
+    const stat=k=>esc(stats[k]?.displayValue ?? '—');
+    const link=leagueTeamLink('nba',team);
+    const record=stat(cup?'inseason':'total');
+    const first=cup?[link,record,stat('winpercent'),stat('pointdifferential')]:
+      [stat('playoffseed'),link,record,stat('winpercent'),stat('gamesbehind')];
+    return [...first,stat('streak'),stat('home'),stat('road'),...(cup?[]:[stat('lasttengames')])];
+  }));
+}
+function nbaBoard(data,cup){
+  const season=esc(data.season?.displayName || '');
+  if(cup){
+    const standings=data.standings?.name==='inseason' ? data.standings : null;
+    return '<h2>'+season+' NBA Cup</h2><p class="note">Group-play records · All teams by win percentage</p>'+nbaRecordTable(standings,true);
+  }
+  const conferences=data.children || [];
+  return '<h2>'+season+' NBA conference standings</h2>'+['East','West'].map(name=>{
+    const conf=conferences.find(c=>c.abbreviation===name || c.name===name+'ern Conference');
+    return '<h3>'+name.toUpperCase()+'</h3>'+nbaRecordTable(conf?.standings,false);
+  }).join('');
+}
 async function renderLeagueBoard(lg,tok,view){
   const nav=leagueViewButtons(lg), college=LG[lg].college;
   view.innerHTML=nav+'<p role="status">Loading '+(college?'rankings':'standings')+'…</p>';
   setRefresh([],null);
-  const url=college ? API+LG[lg].path+'/rankings' : 'https://site.api.espn.com/apis/v2/sports/'+LG[lg].path+'/standings?level=3';
+  const mode=leagueViews[lg];
+  const nbaSpecial=lg==='nba' && (mode==='cup' || mode==='conferences');
+  const query=nbaSpecial ? (mode==='cup'?'type=3&level=1':'level=2') : 'level=3';
+  const url=college ? API+LG[lg].path+'/rankings' : 'https://site.api.espn.com/apis/v2/sports/'+LG[lg].path+'/standings?'+query;
   try{
     const data=await getJSON(url,5*60e3);
     if(tok!==TOKEN) return;
-    view.innerHTML=nav+(college?collegePollTable(lg,data):proStandingsTable(lg,data,leagueViews[lg]==='divisions'));
+    view.innerHTML=nav+(nbaSpecial?nbaBoard(data,mode==='cup'):college?collegePollTable(lg,data):proStandingsTable(lg,data,mode==='divisions'));
   }catch(e){
     if(tok===TOKEN) view.innerHTML=nav+'<p role="status">Couldn’t load ESPN data. <button class="btn sm" data-league-view="'+leagueViews[lg]+'">Retry</button></p>';
   }
