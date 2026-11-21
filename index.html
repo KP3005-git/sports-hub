@@ -756,6 +756,9 @@ footer{margin-top:auto}
 .gridiron-team{display:inline-flex;align-items:center;gap:8px;padding:2px 0;border:0;background:none;color:var(--txt);font:650 .88rem/1.2 system-ui;text-align:left;cursor:pointer}.gridiron-team:hover span{text-decoration:underline}.gridiron-logo{width:32px;height:29px;object-fit:contain}.gridiron-card,.gridiron-game{padding:10px 13px;border:1px solid var(--line);border-radius:10px;background:var(--card)}.gridiron-game{margin:7px 0}.gridiron-side{display:grid;grid-template-columns:24px 1fr auto 42px;gap:6px;align-items:center;min-height:38px}.gridiron-side+.gridiron-side{border-top:1px solid var(--line)}.gridiron-side i{font:700 .82rem system-ui;color:var(--conf)}.gridiron-side small{color:var(--mut)}.gridiron-side b{text-align:right}.gridiron summary{padding:10px 0;cursor:pointer;color:var(--conf)}.gridiron .gridiron-cut{padding-top:12px;border-top:1px dashed var(--conf)}
 .gridiron-card h4{color:var(--conf);margin:2px 0 10px}.gridiron-card>table{width:100%;border-collapse:collapse}.gridiron-card>table th,.gridiron-card>table td{text-align:left;padding:5px 2px;border-bottom:1px solid var(--line)}.gridiron-card>table th{font-size:.73rem;color:var(--mut)}.gridiron-streak{display:inline-block;padding:2px 7px;border-radius:5px;background:var(--line);font-weight:700}.gridiron-streak.win{background:#16362c;color:#94e9bb}.gridiron-streak.loss{background:#40272b;color:#ffb7b3}.gridiron .league-scroll{border:1px solid var(--line);border-radius:9px}.gridiron .league-table td{padding:6px 8px}.gridiron *:focus-visible{outline:2px solid var(--conf);outline-offset:2px}
 @media(max-width:720px){.gridiron-pair,.gridiron-divs{grid-template-columns:minmax(0,1fr)}.gridiron-spot{padding:13px 16px}.gridiron .league-table td{padding:5px}.gridiron-team{font-size:.81rem}}
+.campus{--ink:#edc879;--wash:#312b20;font-variant-numeric:tabular-nums}.campus.cbb{--ink:#ffac83;--wash:#3c261e}.campus.cfb{--ink:#91dfbb;--wash:#1a322c}.campus-heading{padding:18px 0}.campus-heading small,.campus-lead small{color:var(--ink);text-transform:uppercase;font:750 .73rem/1.35 system-ui;letter-spacing:.1em}.campus-heading h2{display:block;color:var(--txt);font:850 clamp(1.9rem,4vw,3rem)/1.08 system-ui;text-transform:none;letter-spacing:-.045em;margin:4px 0}.campus-heading h2:after{display:none}.campus-heading p{color:var(--mut);margin:4px 0;font-size:.85rem}.campus-top{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:14px;margin:15px 0}
+.campus-lead,.campus-bye{border:1px solid var(--line);border-left:3px solid var(--ink);border-radius:10px;background:linear-gradient(110deg,var(--wash),#101722)}.campus-lead{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;text-align:left;color:var(--txt);cursor:pointer}.campus-lead>span{display:grid;gap:4px}.campus-lead strong{font:800 1.65rem/1.1 system-ui}.campus-lead span span{color:#c5cbd3;font-size:.85rem}.campus-lead .campus-logo{width:70px;height:65px}.campus-logo{width:30px;height:30px;object-fit:contain;flex:none}.campus-team{display:inline-flex;align-items:center;gap:8px;border:0;background:none;color:var(--txt);padding:2px 0;font-weight:700;text-align:left;cursor:pointer}.campus-team:hover span{text-decoration:underline}.campus-number,.campus-slot>b{color:var(--ink)}.campus-change{display:inline-block;min-width:34px;text-align:center;padding:2px 5px;border-radius:4px}.campus-change.up{background:#183b30;color:#a6efc8}.campus-change.down{background:#41282f;color:#ffbac4}.campus-change.new{background:#283652;color:#bdd4ff}.campus .league-scroll{border:1px solid var(--line);border-radius:10px}.campus .league-table td{padding:5px 9px}.campus .league-table th{padding:10px 9px}.campus h3{margin:20px 0 9px}.campus-bracket{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.campus-slot{display:flex;align-items:center;gap:6px}.campus-slot>b{min-width:24px;font-size:.8rem}.campus-bye,.campus-game{padding:9px}.campus-game{background:var(--card);border:1px solid var(--line);border-radius:9px}.campus-game>div{display:flex;align-items:center;justify-content:space-between;gap:4px;padding:5px 0}.campus-game>div+div{border-top:1px solid var(--line)}.campus-game small{color:var(--mut)}.campus :focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+@media(max-width:1150px){.campus-bracket{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:620px){.campus-top{grid-template-columns:1fr;gap:0}.campus-heading{padding:10px 0}.campus-game small{font-size:.67rem}.campus-slot{gap:3px}.campus-slot .campus-team{gap:4px}.campus-slot .campus-logo{width:23px;height:23px}.campus-game,.campus-bye{padding:7px}.campus .league-table td,.campus .league-table th{padding:5px}}
 </style>
 </head>
 <body>
@@ -3172,17 +3175,29 @@ function leagueTeamLink(lg, team){
   const name = team.displayName || [team.location,team.name].filter(Boolean).join(' ') || team.abbreviation;
   return `<button type="button" class="btn sm" data-teampage="${lg}|${esc(team.id)}">${esc(name)}</button>`;
 }
+function campusLogo(team){
+  const src=team.logo || team.logos?.[0]?.href;
+  return src?'<img class="campus-logo" src="'+esc(src)+'" alt="">':'';
+}
+function campusTeam(lg,team){
+  return '<button class="campus-team" type="button" data-teampage="'+lg+'|'+esc(team.id)+'">'+campusLogo(team)+'<span>'+esc(team.nickname||team.location||team.displayName||team.name)+'</span></button>';
+}
+function campusHeading(label,title,poll){
+  const when=poll.lastUpdated?'Updated '+esc(fmtStamp(poll.lastUpdated)):'';
+  return '<div class="campus-heading"><small>'+esc(label)+'</small><h2>'+esc(title)+'</h2><p>'+when+'</p></div>';
+}
 function collegePollTable(lg, data){
-  const poll = (data.rankings || []).find(p=>p.name==='AP Top 25' || p.shortName==='AP Poll');
-  const teams = (poll?.ranks || []).filter(r=>r.team && r.current>=1 && r.current<=25).sort((a,b)=>a.current-b.current);
+  const poll=(data.rankings||[]).find(p=>p.name==='AP Top 25'||p.shortName==='AP Poll');
+  const teams=(poll?.ranks||[]).filter(r=>r.team&&r.current>=1&&r.current<=25).sort((a,b)=>a.current-b.current);
   if(!teams.length) return '<p class="empty">The AP Top 25 has not been published for this period.</p>';
-  const stamp = poll.lastUpdated ? ' · '+esc(fmtStamp(poll.lastUpdated)) : '';
-  return '<h2>AP Top 25</h2><p class="note">Associated Press'+stamp+'</p>'+leagueTable(
-    ['Rank','Team','Record','Change','Poll points','First-place votes'], teams.map(r=>{
-      const delta = Number(r.previous)-Number(r.current);
-      const change = !(r.previous>=1 && r.previous<=25) ? 'New' : delta>0 ? '↑ '+delta : delta<0 ? '↓ '+(-delta) : '—';
-      return [esc(r.current),leagueTeamLink(lg,r.team),esc(r.recordSummary||'—'),change,esc(r.points??'—'),esc(r.firstPlaceVotes??'—')];
-    }));
+  const first=teams[0],name=first.team.nickname||first.team.location||first.team.displayName;
+  const leader=first.current==1?'<button type="button" class="campus-lead" data-teampage="'+lg+'|'+esc(first.team.id)+'"><span><small>Ranked No. 1</small><strong>'+esc(name)+'</strong><span>'+esc(first.recordSummary||'—')+' record · '+esc(first.points??'—')+' poll points</span></span>'+campusLogo(first.team)+'</button>':'';
+  const rows=teams.map(r=>{
+    const delta=Number(r.previous)-Number(r.current);
+    const change=!(r.previous>=1&&r.previous<=25)?['new','New']:delta>0?['up','↑ '+delta]:delta<0?['down','↓ '+(-delta)]:['same','—'];
+    return ['<b class="campus-number">'+esc(r.current)+'</b>',campusTeam(lg,r.team),esc(r.recordSummary||'—'),'<span class="campus-change '+change[0]+'">'+change[1]+'</span>',esc(r.points??'—'),esc(r.firstPlaceVotes??'—')];
+  });
+  return '<div class="campus '+lg+'"><div class="campus-top">'+campusHeading(LG[lg].name,'AP Top 25',poll)+leader+'</div>'+leagueTable(['Rank','Team','Record','Change','Poll points','First-place votes'],rows)+'</div>';
 }
 function nflLogo(team){
   const src=team.logos?.[0]?.href || team.logo;
@@ -3379,11 +3394,11 @@ function cfpPlayoffPicture(data){
   const ranked=(poll?.ranks||[]).filter(r=>r.team&&r.current>0).sort((a,b)=>a.current-b.current);
   if(!ranked.length) return '<h2>CFP playoff picture</h2><p class="empty">Committee rankings are unavailable. Check back after the next CFP release.</p>';
   const year=Number(poll.season?.year);
-  const title='<h2>'+esc(year||'')+' CFP playoff picture</h2><p class="note">Committee rankings'+(poll.lastUpdated?' · '+esc(fmtStamp(poll.lastUpdated)):'')+'</p>';
+  const title=campusHeading((year||'')+' · Committee rankings','CFP playoff picture',poll);
   function rankTable(list){
-    return leagueTable(['CFP rank','Team','Record'],list.map(r=>[esc(r.current),leagueTeamLink('cfb',r.team),esc(r.recordSummary||'—')]));
+    return leagueTable(['CFP rank','Team','Record'],list.map(r=>[esc(r.current),campusTeam('cfb',r.team),esc(r.recordSummary||'—')]));
   }
-  if(year!==2026) return title+rankTable(ranked)+'<a href="https://collegefootballplayoff.com/" target="_blank" rel="noopener">Official CFP field</a>';
+  if(year!==2026) return '<div class="campus cfp">'+title+rankTable(ranked)+'<a href="https://collegefootballplayoff.com/" target="_blank" rel="noopener">Official CFP field</a></div>';
   const bids=[['ACC'],['Big Ten'],['Big 12'],['SEC'],['American','CUSA','C-USA','Conference USA','MAC','Mountain West','MW','Pac-12','Sun Belt']];
   const entrants=bids.map((confs,i)=>{
     const rank=ranked.find(r=>confs.includes(r.team.groups?.shortName));
@@ -3396,16 +3411,22 @@ function cfpPlayoffPicture(data){
   if(nd&&!atLarge.includes(nd)) atLarge[atLarge.length-1]=nd;
   entrants.push(...atLarge.map(rank=>({rank,bid:rank===nd?'Notre Dame · top 12':'At-large'})));
   entrants.sort((a,b)=>(a.rank?.current??Infinity)-(b.rank?.current??Infinity));
-  const seeds=new Map(),inside=new Set();
+  const inside=new Set();
   const rows=entrants.map(({rank,bid},i)=>{
-    seeds.set(i+1,rank?.team.nickname||rank?.team.location||bid);
     if(rank) inside.add(rank.team.id);
-    return [esc(i+1),rank?leagueTeamLink('cfb',rank.team):'Qualifier TBD',esc(rank?.current??'—'),esc(rank?.recordSummary||'—'),esc(bid)];
+    return [esc(i+1),rank?campusTeam('cfb',rank.team):'Qualifier TBD',esc(rank?.current??'—'),esc(rank?.recordSummary||'—'),esc(bid)];
   });
-  return title+'<h3>Projected field</h3><p class="note">This projection uses the highest committee-ranked team in each automatic-bid conference as its projected champion. The first four seeds receive byes.</p>'+
-    leagueTable(['Seed','Team','CFP rank','Record','Bid'],rows)+'<h3>Projected first round</h3>'+playoffMatchups(seeds,[[12,5],[11,6],[10,7],[9,8]])+
-    '<h3>First four out</h3>'+rankTable(ranked.filter(r=>!inside.has(r.team.id)).slice(0,4))+
-    '<p><a href="https://collegefootballplayoff.com/sports/2026/8/9/bracket-place-holder" target="_blank" rel="noopener">Official 2026–27 CFP bracket ↗</a></p>';
+  function slot(seed){
+    const entry=entrants[seed-1];
+    return '<span class="campus-slot"><b>#'+seed+'</b>'+(entry?.rank?campusTeam('cfb',entry.rank.team):'Qualifier TBD')+'</span>';
+  }
+  const byes=[1,2,3,4].map(n=>'<div class="campus-bye">'+slot(n)+'</div>').join('');
+  const matches=[[12,5],[11,6],[10,7],[9,8]].map(([away,home])=>'<article class="campus-game"><div>'+slot(away)+'<small>Away</small></div><div>'+slot(home)+'<small>Host</small></div></article>').join('');
+  return '<div class="campus cfp">'+title+'<h3>Projected first-round byes</h3><div class="campus-bracket">'+byes+'</div>'+
+    '<h3>Projected first round</h3><div class="campus-bracket">'+matches+'</div>'+
+    '<h3>Projected field</h3><p class="note">The highest committee-ranked team in each automatic-bid conference is its projected champion.</p>'+
+    leagueTable(['Seed','Team','CFP rank','Record','Bid'],rows)+'<h3>First four out</h3>'+rankTable(ranked.filter(r=>!inside.has(r.team.id)).slice(0,4))+
+    '<p><a href="https://collegefootballplayoff.com/sports/2026/8/9/bracket-place-holder" target="_blank" rel="noopener">Official 2026–27 CFP bracket ↗</a></p></div>';
 }
 async function renderLeagueBoard(lg,tok,view){
   const nav=leagueViewButtons(lg), college=LG[lg].college;
