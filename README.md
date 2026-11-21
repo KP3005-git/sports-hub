@@ -1,18 +1,18 @@
-**Live site:** https://kp3005-git.github.io/sports-hub/
+[Open Sports Hub](https://kp3005-git.github.io/sports-hub/)
 
 GitHub Pages serves `index.html` from the `main` branch (folder `/`). That file is the site; an empty `.nojekyll` keeps Pages from processing it with Jekyll.
 
 # Sports Hub
 
-> **Rebranded (Oct 20, 2026):** the site is **Sports Hub**. It was "Game Day HQ" and, before that, "BLITZ ⚡ Sports Hub". The shared picks area (Blitz + Court) is the **🎯 Picks Desk**. The per-pick analyst tags (⚡ Blitz / 🏀 Court) and the All / Blitz / Court selector still name the individual analyst. The file name (`sports-hub.html`), the tab id `blitz` / `#records` link, and every localStorage key are unchanged, so saved teams, bets, layouts and settings carry over.
+> **Rebranded (Oct 20, 2026):** the site is **Sports Hub**. It was "Game Day HQ" and, before that, "BLITZ ⚡ Sports Hub". The shared picks area (Blitz + Court) is the **🎯 Picks Desk**. The per-pick analyst tags (⚡ Blitz / 🏀 Court) and the All / Blitz / Court selector still name the individual analyst. The tab id `blitz` / `#records` link, and every localStorage key are unchanged, so saved teams, bets, layouts and settings carry over.
 
 A personal, season-long scoreboard and bet tracker for **College Football, Men's College Basketball, NFL and NBA**.
-It's a single file, `sports-hub.html`. No server, no account, no install, and nothing is published anywhere.
+It's a single file, `index.html`. No server, no account, no install, and nothing is published anywhere.
 
-## Open it
-1. Copy `sports-hub.html` anywhere on your computer (Desktop is fine).
+## Open a local copy
+1. Copy `index.html` anywhere on your computer (Desktop is fine).
 2. Double-click it to open it in Chrome, Edge, Firefox or Safari. You need an internet connection, because scores come live from ESPN's free public feed.
-3. Bookmark it. Links like `sports-hub.html#cfb/live`, `#nba`, `#bets` and `#mine` open straight to a tab or filter. The short `#live` link also works.
+3. Bookmark it. Links like `index.html#cfb/live`, `#nba`, `#bets` and `#mine` open straight to a tab or filter. The short `#live` link also works.
 
 Tabs: **⭐ My Teams · CFB · CBB · NFL · NBA · Bets · Settings**
 - CFB and NFL go **by week**: ◀ ▶, a week dropdown, a date picker, and "This week". CBB and NBA go **by day**: the arrows skip to the next or previous day with games, and there's a date picker and "Today".
@@ -30,8 +30,8 @@ Grab the small **⠿⠿ handle** at the top of any card and drag it, with a mous
 
 ## On your phone (iPhone / Android)
 No hosting needed: your PC serves the file over your home Wi-Fi.
-1. On the PC, in the folder that holds `sports-hub.html`, run `python -m http.server 8000` (keep that window open). Find the PC's local IP (`ipconfig` on Windows, e.g. `192.168.1.23`). Windows may ask to allow Python through the firewall on **private** networks; allow it.
-2. On the iPhone (same Wi-Fi), open Safari at `http://<pc-ip>:8000/sports-hub.html`.
+1. On the PC, in the folder that holds `index.html`, run `python -m http.server 8000` (keep that window open). Find the PC's local IP (`ipconfig` on Windows, e.g. `192.168.1.23`). Windows may ask to allow Python through the firewall on **private** networks; allow it.
+2. On the iPhone (same Wi-Fi), open Safari at `http://<pc-ip>:8000/index.html`.
 3. Share → **Add to Home Screen**. It opens full-screen as **Sports Hub** with its hub icon.
 - Only devices on your home network can reach it while the server runs; nothing is published online. Away from home it won't load (by design).
 - Data lives **per browser**: the phone has its own localStorage, separate from the PC's (and the Home Screen app can be separate from Safari tabs). Picks still come from the Google Sheet, but your teams, favorite players, fantasy roster and hub-only bets need to be copied over once with **Settings → Backup & restore** (export on the PC, import on the phone), or re-added.
@@ -45,7 +45,7 @@ No hosting needed: your PC serves the file over your home Wi-Fi.
 - are pinned at the top of their league tab and highlighted in gold. If a team is on a bye or has no game today, its next game is shown instead.
 - show up in the **⭐ My Teams** tab, which lists every favorite's live, today's or next game across all leagues.
 
-You can also set them in the file. At the top of the `<script>` in `sports-hub.html`, edit:
+You can also set them in the file. At the top of the `<script>` in `index.html`, edit:
 ```js
 const MY_TEAMS = { cfb:[{id:'2509',name:'Purdue Boilermakers',abbr:'PUR'}], cbb:[], nfl:[], nba:[] };
 const MY_PLAYERS = [ {id:'1966', league:'nba', name:'LeBron James'} ];
