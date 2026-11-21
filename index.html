@@ -749,6 +749,7 @@ footer{margin-top:auto}
 .cup-round{display:flex;flex-direction:column}.cup-slots{flex:1;display:flex;flex-direction:column;justify-content:space-around;gap:10px;margin-top:10px}.cup-match{background:var(--bg);border-left:2px solid #b4914d;border-radius:5px;padding:11px}.cup-match small{display:block;color:var(--mut);margin-top:4px}.cup-side{display:flex;justify-content:space-between;gap:6px}.cup-records{margin:18px 0}.cup-records summary{cursor:pointer;padding:10px 0}
 @media(max-width:850px){.cup-grid{grid-template-columns:repeat(auto-fit,minmax(min(225px,100%),1fr))}}
 @media(max-width:620px){.cup-banner{display:block;padding:16px}.cup-banner p{margin-top:8px}.cup-bracket{grid-template-columns:1fr}}
+.playoff-confs{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(430px,100%),1fr));gap:16px}.playoff-confs section{min-width:0}.playoff-confs h3{color:var(--gold)}.playoff-games{list-style:none;padding:0;display:grid;gap:6px}.playoff-games li{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px}.playoff-games small{color:var(--mut);margin:0 .4em}
 </style>
 </head>
 <body>
@@ -3154,6 +3155,7 @@ function leagueViewButtons(lg){
   const selected = leagueViews[lg] || 'scores';
   const options = LG[lg].college ? [['scores','Scores'],['poll','AP Top 25']] :
     [['scores','Scores'],['league','League standings'],...(lg==='nba' ? [['conferences','East / West'],['cup','NBA Cup']] : [['divisions','Divisions']])];
+  if(lg==='cfb' || lg==='nfl') options.push(['playoffs','Playoff picture']);
   return '<div class="filters" aria-label="League view">'+options.map(([id,label])=>
     `<button type="button" data-league-view="${id}" aria-pressed="${id===selected}" class="${id===selected?'on':''}">${label}</button>`).join('')+'</div>';
 }
@@ -3288,17 +3290,86 @@ function nbaBoard(data){
     return '<h3>'+name.toUpperCase()+'</h3>'+nbaRecordTable(conf?.standings,false);
   }).join('');
 }
+function playoffMatchups(field, pairs){
+  const slots=pairs.map(([away,home])=>{
+    const visitor=field.get(away),host=field.get(home);
+    return '<li><span>#'+away+' '+esc(visitor||'TBD')+'</span> <small>at</small> <strong>#'+home+' '+esc(host||'TBD')+'</strong></li>';
+  });
+  return '<ul class="playoff-games">'+slots.join('')+'</ul>';
+}
+function nflPlayoffPicture(data){
+  const groups=data.children||[];
+  const body=['AFC','NFC'].map(name=>{
+    const conf=groups.find(c=>c.abbreviation===name);
+    const rows=(conf?.standings?.entries||[]).filter(e=>e.team).map(e=>{
+      const stats=Object.fromEntries((e.stats||[]).map(s=>[s.type,s]));
+      return {team:e.team,seed:Number(stats.playoffseed?.value),record:stats.total?.displayValue||'—',clinch:stats.clincher};
+    }).filter(r=>Number.isInteger(r.seed)&&r.seed>0).sort((a,b)=>a.seed-b.seed);
+    const heading='<h3>'+name+'</h3>';
+    if(!rows.length) return heading+'<p class="empty">Conference seeds are unavailable.</p>';
+    const field=new Map(rows.map(r=>[r.seed,r.team.shortDisplayName||r.team.displayName]));
+    function table(list){
+      return leagueTable(['Seed','Team','Record','Position'],list.map(r=>{
+        const position=r.seed===1?'First-round bye':r.seed<=4?'Division leader':r.seed<=7?'Wild card':'Outside field';
+        return [esc(r.seed),leagueTeamLink('nfl',r.team),esc(r.record),esc(r.clinch?.description||position)];
+      }));
+    }
+    const outside=rows.filter(r=>r.seed>7),hunt=outside.filter(r=>r.clinch?.displayValue!=='e'),out=outside.filter(r=>r.clinch?.displayValue==='e');
+    return '<section>'+heading+table(rows.filter(r=>r.seed<=7))+'<h4>Wild Card matchups</h4>'+playoffMatchups(field,[[7,2],[6,3],[5,4]])+
+      (hunt.length?'<h4>In the hunt</h4>'+table(hunt):'')+
+      (out.length?'<details><summary>Eliminated ('+out.length+')</summary>'+table(out)+'</details>':'')+'</section>';
+  });
+  return '<h2>'+esc(data.season?.displayName||'')+' NFL playoff picture</h2><p class="note">If the season ended today: four division leaders and three wild cards per conference. The #1 seed receives a bye.</p><div class="playoff-confs">'+body.join('')+'</div>';
+}
+function cfpPlayoffPicture(data){
+  const poll=(data.rankings||[]).find(p=>p.shortName==='CFP Rankings'||p.name==='Playoff Committee Rankings');
+  const ranked=(poll?.ranks||[]).filter(r=>r.team&&r.current>0).sort((a,b)=>a.current-b.current);
+  if(!ranked.length) return '<h2>CFP playoff picture</h2><p class="empty">Committee rankings are unavailable. Check back after the next CFP release.</p>';
+  const year=Number(poll.season?.year);
+  const title='<h2>'+esc(year||'')+' CFP playoff picture</h2><p class="note">Committee rankings'+(poll.lastUpdated?' · '+esc(fmtStamp(poll.lastUpdated)):'')+'</p>';
+  function rankTable(list){
+    return leagueTable(['CFP rank','Team','Record'],list.map(r=>[esc(r.current),leagueTeamLink('cfb',r.team),esc(r.recordSummary||'—')]));
+  }
+  if(year!==2026) return title+rankTable(ranked)+'<a href="https://collegefootballplayoff.com/" target="_blank" rel="noopener">Official CFP field</a>';
+  const bids=[['ACC'],['Big Ten'],['Big 12'],['SEC'],['American','CUSA','C-USA','Conference USA','MAC','Mountain West','MW','Pac-12','Sun Belt']];
+  const entrants=bids.map((confs,i)=>{
+    const rank=ranked.find(r=>confs.includes(r.team.groups?.shortName));
+    return {rank,bid:i===4?'Six-conference qualifier':confs[0]+' champion projection'};
+  });
+  const taken=new Set(entrants.map(e=>e.rank?.team.id));
+  const available=ranked.filter(r=>!taken.has(r.team.id));
+  const atLarge=available.slice(0,7);
+  const nd=available.find(r=>r.team.abbreviation==='ND'&&r.current<=12);
+  if(nd&&!atLarge.includes(nd)) atLarge[atLarge.length-1]=nd;
+  entrants.push(...atLarge.map(rank=>({rank,bid:rank===nd?'Notre Dame · top 12':'At-large'})));
+  entrants.sort((a,b)=>(a.rank?.current??Infinity)-(b.rank?.current??Infinity));
+  const seeds=new Map(),inside=new Set();
+  const rows=entrants.map(({rank,bid},i)=>{
+    seeds.set(i+1,rank?.team.nickname||rank?.team.location||bid);
+    if(rank) inside.add(rank.team.id);
+    return [esc(i+1),rank?leagueTeamLink('cfb',rank.team):'Qualifier TBD',esc(rank?.current??'—'),esc(rank?.recordSummary||'—'),esc(bid)];
+  });
+  return title+'<h3>Projected field</h3><p class="note">This projection uses the highest committee-ranked team in each automatic-bid conference as its projected champion. The first four seeds receive byes.</p>'+
+    leagueTable(['Seed','Team','CFP rank','Record','Bid'],rows)+'<h3>Projected first round</h3>'+playoffMatchups(seeds,[[12,5],[11,6],[10,7],[9,8]])+
+    '<h3>First four out</h3>'+rankTable(ranked.filter(r=>!inside.has(r.team.id)).slice(0,4))+
+    '<p><a href="https://collegefootballplayoff.com/sports/2026/8/9/bracket-place-holder" target="_blank" rel="noopener">Official 2026–27 CFP bracket ↗</a></p>';
+}
 async function renderLeagueBoard(lg,tok,view){
   const nav=leagueViewButtons(lg), college=LG[lg].college;
   view.innerHTML=nav+'<p role="status">Loading '+(college?'rankings':'standings')+'…</p>';
   setRefresh([],null);
   const mode=leagueViews[lg];
   const nbaSpecial=lg==='nba' && (mode==='cup' || mode==='conferences');
-  const query=nbaSpecial ? (mode==='cup'?'type=3&level=1':'level=2') : 'level=3';
+  const query=mode==='playoffs'?'level=2':nbaSpecial ? (mode==='cup'?'type=3&level=1':'level=2') : 'level=3';
   const url=college ? API+LG[lg].path+'/rankings' : 'https://site.api.espn.com/apis/v2/sports/'+LG[lg].path+'/standings?'+query;
   try{
     const data=await getJSON(url,5*60e3);
     if(tok!==TOKEN) return;
+    if(mode==='playoffs'){
+      view.innerHTML=nav+(lg==='nfl'?nflPlayoffPicture(data):cfpPlayoffPicture(data));
+      RT=setTimeout(()=>{ if(tok===TOKEN) render(); },5*60e3);
+      return;
+    }
     if(nbaSpecial && mode==='cup'){
       const layout=(games,partial)=>nav+cupTournament(data,games,partial);
       view.innerHTML=layout([],false);
