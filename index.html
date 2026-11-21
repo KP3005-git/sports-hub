@@ -778,6 +778,31 @@ hub-live-odds .lo-pregame{border-top:1px solid var(--line);padding-top:7px;margi
   .g[data-ev]>.foot>span:last-child{display:flex;align-items:center;flex-wrap:wrap;gap:5px}
   .g[data-ev]>hub-live-odds{padding:8px;font-size:.82rem}
 }
+/* Scoreboards progressively disclose secondary details as the viewport grows. */
+.g[data-ev] .score-abbr{display:none;text-decoration:none}
+@media(max-width:1199px){
+  .grid:has(> .g[data-ev]){grid-template-columns:repeat(auto-fill,minmax(min(100%,280px),1fr));gap:9px}
+  .g[data-ev]{padding:12px}.g[data-ev]>.row{min-height:32px}
+  .g[data-ev]>.row .rbtn,.g[data-ev] .score-tv{display:none}
+  .g[data-ev]>hub-live-odds{margin:7px 0;padding:7px;font-size:.8rem}
+  .g[data-ev]>hub-live-odds :is(th,td){padding:2px;white-space:normal}
+}
+@media(max-width:760px),(max-height:520px){
+  .grid:has(> .g[data-ev]){grid-template-columns:repeat(auto-fill,minmax(min(100%,165px),1fr));gap:7px;align-items:start}
+  .g[data-ev]{padding:9px 8px 5px}
+  .g[data-ev]>.row{min-height:24px;gap:4px;padding:1px 0}
+  .g[data-ev]>.row img{width:20px;height:20px}
+  .g[data-ev]>.row .nm{white-space:nowrap;font-size:.85rem}
+  .g[data-ev]>.row .sc{font-size:19px;min-width:21px}
+  .g[data-ev] .score-abbr{display:inline}
+  .g[data-ev] :is(.score-name,.rec,.rbtn,.score-tv,.addslip,.score-details-label),
+  .g[data-ev]>:is(hub-live-odds,.sit,.tags){display:none}
+  .g[data-ev]>.lgtag{margin:0;font-size:.63rem}
+  .g[data-ev]>.lgtag>span:nth-child(2){display:none}
+  .g[data-ev]>.foot{gap:3px;margin-top:3px;padding-top:2px;flex-wrap:nowrap;font-size:.7rem}
+  .g[data-ev]>.foot .gdbtn{min-height:25px;min-width:26px;padding:2px 5px;margin:0}
+  .g[data-ev]>.foot>span:last-child{margin-left:auto}
+}
 </style>
 </head>
 <body>
@@ -1406,7 +1431,7 @@ function teamRow(g, s, favs){
   const poss = g.sit && g.sit.poss && g.sit.poss===s.id && g.state==='in';
   return `<div class="row ${lose?'lose':''} ${fav?'favt':''}">
     ${s.logo?teamLogoBtn(g.lg, s.id, s.logo):'<span style="width:24px"></span>'}
-    <div class="nm">${s.rank?`<span class="rk">${s.rank}</span>`:''}${fav?'⭐ ':''}${esc(s.name)}${poss?'<span class="pos" title="Possession">🏈</span>':''}<span class="rec">${esc(s.record)}</span></div>
+    <div class="nm">${s.rank?`<span class="rk">${s.rank}</span>`:''}${fav?'⭐ ':''}<span class="score-name">${esc(s.name)}</span><abbr class="score-abbr" title="${esc(s.full||s.name)}">${esc(s.abbr||s.name)}</abbr>${poss?'<span class="pos" title="Possession">🏈</span>':''}<span class="rec">${esc(s.record)}</span></div>
     ${mlSpan(g, s===g.home?'home':'away')}
     ${s.id?`<button type="button" class="rbtn" data-roster="${esc(g.lg)}|${esc(s.id)}" title="Roster · ${esc(s.full||s.name)}">Roster</button>`:''}
     <div class="sc">${g.state==='pre'||s.score==null?'':s.score}</div>
@@ -1430,7 +1455,7 @@ function gameCard(g, opts={}){
   return `<div class="${cls}" data-ev="${esc(g.id)}" data-lg="${g.lg}"${opts.noPicks?' data-nopicks="1"':''}>
     ${top}${teamRow(g,g.away,favs)}${teamRow(g,g.home,favs)}
     ${liveOddsPanel(g)}${sit}${tags?`<div class="tags">${tags}</div>`:''}
-    <div class="foot"><span class="st ${g.state==='in'?'l':''}">${g.state==='in'?'● ':''}${esc(statusTxt(g))}</span><span>${`<button class="gdbtn" data-gd="${esc(g.id)}" data-lg="${g.lg}" title="Game details (or double-click the card)">▶ details</button>`}📺 ${esc(g.tv)} ${opts.noSlip||g.snap?'':`<button class="addslip" data-addslip="${esc(g.id)}" data-lg="${g.lg}" title="Add this game to a bet slip">+ slip</button>`}</span></div>
+    <div class="foot"><span class="st ${g.state==='in'?'l':''}">${g.state==='in'?'● ':''}${esc(statusTxt(g))}</span><span>${`<button class="gdbtn" data-gd="${esc(g.id)}" data-lg="${g.lg}" title="Game details (or double-click the card)" aria-label="Game details">▶<span class="score-details-label"> details</span></button>`}<span class="score-tv">📺 ${esc(g.tv)}</span> ${opts.noSlip||g.snap?'':`<button class="addslip" data-addslip="${esc(g.id)}" data-lg="${g.lg}" title="Add this game to a bet slip">+ slip</button>`}</span></div>
   </div>`;
 }
 const EVSTORE = new Map(); // id -> normalized event (latest seen), used by "+ slip"
