@@ -885,8 +885,21 @@ function freshData(){
     recommendations: []
   };
 }
+let storageBlocked = false;
 function loadData(){
-  try{ const s = localStorage.getItem(KEY); if(s){ const d = JSON.parse(s); return normalizeData(d); } }catch(e){ console.warn('storage read failed', e); }
+  let raw;
+  try{
+    raw = localStorage.getItem(KEY);
+    if(raw !== null){
+      const saved = JSON.parse(raw);
+      if(!saved || typeof saved !== 'object' || Array.isArray(saved)) throw new Error('Invalid profile');
+      return normalizeData(saved);
+    }
+  }catch(e){
+    storageBlocked = true;
+    showSaveRecovery(raw);
+    return freshData();
+  }
   const d = freshData(); saveData(d); return d;
 }
 function normalizeData(d){
@@ -896,7 +909,32 @@ function normalizeData(d){
   try{ if(!localStorage.getItem('sportsHub.mig.cbbPurdue')){ if(!f.myTeams.cbb.some(t=>String(t.id)==='2509')) f.myTeams.cbb.push({id:'2509',name:'Purdue Boilermakers',abbr:'PUR'}); localStorage.setItem('sportsHub.mig.cbbPurdue','1'); try{ localStorage.setItem(KEY, JSON.stringify(f)); }catch(_){} } }catch(_){}
   return f;
 }
+function showSaveRecovery(raw){
+  const panel = document.createElement('dialog');
+  panel.setAttribute('aria-label', 'Saved profile recovery');
+  panel.innerHTML = '<h2>Couldn’t open your saved profile</h2><p>Retry to open your teams and bets.</p><button type="button">Retry</button>';
+  panel.querySelector('button').onclick = () => location.reload();
+  if(typeof raw === 'string'){
+    const backup = document.createElement('button');
+    backup.textContent = 'Download original save';
+    backup.onclick = () => download('sports-hub-original.json', raw, 'application/json');
+    const reset = document.createElement('button');
+    reset.textContent = 'Reset profile';
+    reset.onclick = () => {
+      if(!confirm('Discard this saved profile and start over?')) return;
+      try{
+        if(localStorage.getItem(KEY) === raw) localStorage.removeItem(KEY);
+        location.reload();
+      }catch(e){ panel.querySelector('p').textContent = 'Browser storage is unavailable. Enable storage and retry.'; }
+    };
+    panel.append(backup, reset);
+  }
+  panel.addEventListener('cancel', e => e.preventDefault());
+  document.body.appendChild(panel);
+  panel.showModal();
+}
 function saveData(d=DATA){
+  if(storageBlocked) return;
   try{
     const copy=JSON.parse(JSON.stringify(d));
     if(copy){ copy.placedBets=(copy.placedBets||[]).filter(b=>b.source!=='demo'); copy.recommendations=(copy.recommendations||[]).filter(b=>b.source!=='demo'); }
@@ -3702,6 +3740,7 @@ function addGameToSlip(evId, lg){
   go('bets');
 }
 const GAMESBY = {};
+const gameLoadErrors = new Set();
 async function gamesFor(lg, isoDate){
   const k=lg+isoDate; if(GAMESBY[k]) return GAMESBY[k];
   const L=LG[lg]; const d = await getJSON(API+L.path+'/scoreboard?'+(L.sb?L.sb+'&':'')+'dates='+isoDate.replace(/-/g,''), 120000);
@@ -3721,9 +3760,10 @@ function syncDraft(){
 }
 function legRowHTML(l,i,single){
   const opts = GAMESBY[l.league+l.date];
+  const failed = !opts && gameLoadErrors.has(l.league+l.date);
   const gameSel = l.market==='prop' && !l.eventId && !opts
     ? `<input name="leg${i}_gameText" placeholder="Game (optional)" value="${esc(l.game)}">`
-    : `<select name="leg${i}_eventId"><option value="">${opts?(opts.length?'— pick game —':'no games this date'):'loading games…'}</option>${(opts||[]).map(g=>`<option value="${esc(g.id)}" ${g.id===l.eventId?'selected':''}>${esc(g.away.name)} at ${esc(g.home.name)} · ${g.state==='post'?'F '+g.away.score+'-'+g.home.score:g.state==='in'?'LIVE':fmtTime(g.date)}</option>`).join('')}${l.eventId&&!(opts||[]).some(g=>g.id===l.eventId)?`<option value="${esc(l.eventId)}" selected>${esc(l.game||l.eventId)}</option>`:''}</select>`;
+    : `<select name="leg${i}_eventId"><option value="">${opts?(opts.length?'— pick game —':'no games this date'):failed?'Couldn’t load games':'loading games…'}</option>${(opts||[]).map(g=>`<option value="${esc(g.id)}" ${g.id===l.eventId?'selected':''}>${esc(g.away.name)} at ${esc(g.home.name)} · ${g.state==='post'?'F '+g.away.score+'-'+g.home.score:g.state==='in'?'LIVE':fmtTime(g.date)}</option>`).join('')}${l.eventId&&!(opts||[]).some(g=>g.id===l.eventId)?`<option value="${esc(l.eventId)}" selected>${esc(l.game||l.eventId)}</option>`:''}</select>`;
   let selCtl;
   if(l.market==='total') selCtl = `<select name="leg${i}_selection"><option value="over" ${l.selection!=='under'?'selected':''}>Over</option><option value="under" ${l.selection==='under'?'selected':''}>Under</option></select>`;
   else if(l.market==='prop') selCtl = `<input name="leg${i}_selection" placeholder="e.g. LeBron O 24.5 pts" value="${esc(l.selection)}">`;
@@ -3732,6 +3772,7 @@ function legRowHTML(l,i,single){
     <label class="f">League<select name="leg${i}_league">${LGS.map(k=>`<option value="${k}" ${k===l.league?'selected':''}>${LG[k].short}</option>`).join('')}</select></label>
     <label class="f">Game date<input type="date" name="leg${i}_date" value="${esc(l.date)}"></label>
     <label class="f">Game${gameSel}</label>
+    ${failed?'<button type="button" class="btn sm" data-retrygames="1">Retry loading games</button>':''}
     <label class="f">Market<select name="leg${i}_market" ${single?'disabled':''}>${Object.entries(MARKETS).map(([k,v])=>`<option value="${k}" ${k===l.market?'selected':''}>${v}</option>`).join('')}</select></label>
     <label class="f">Selection${selCtl}</label>
     <label class="f">Line<input name="leg${i}_line" inputmode="decimal" placeholder="${l.market==='spread'?'-2.5':l.market==='total'?'51.5':'—'}" value="${esc(l.line??'')}" ${l.market==='moneyline'?'disabled':''}></label>
@@ -3766,7 +3807,12 @@ function slipFormHTML(){
 }
 async function refreshFormGames(){
   if(!DRAFT) return;
-  await Promise.all(DRAFT.legs.map(l=>l.league&&l.date?gamesFor(l.league,l.date).catch(()=>{GAMESBY[l.league+l.date]=[];}):null));
+  await Promise.all(DRAFT.legs.map(async ({league,date})=>{
+    if(!league || !date) return;
+    const key = league+date;
+    try{ await gamesFor(league,date); gameLoadErrors.delete(key); }
+    catch(e){ gameLoadErrors.add(key); }
+  }));
   if(TAB==='bets' && DRAFT && $('#slipform')){ syncDraft(); $('#slipwrap').innerHTML=slipFormHTML(); }
 }
 function saveDraft(){
@@ -5877,6 +5923,7 @@ document.addEventListener('click', async ev=>{
   if((v=a('addslip'))!==null){ return addGameToSlip(v, t.closest('[data-addslip]').dataset.lg); }
   if((v=a('newslip'))!==null){ DRAFT=newDraft(v); return render(); }
   if((v=a('kind'))!==null && t.closest('#slipform')){ syncDraft(); DRAFT.kind=v; if(v==='rec'){DRAFT.stake='';} $('#slipwrap').innerHTML=slipFormHTML(); return; }
+  if(a('retrygames')) return refreshFormGames();
   if(a('addleg')){ syncDraft(); DRAFT.legs.push(blankLeg(DRAFT.legs[DRAFT.legs.length-1].league)); $('#slipwrap').innerHTML=slipFormHTML(); return refreshFormGames(); }
   if((v=a('rmleg'))!==null){ syncDraft(); DRAFT.legs.splice(+v,1); if(!DRAFT.legs.length) DRAFT.legs=[blankLeg()]; $('#slipwrap').innerHTML=slipFormHTML(); return; }
   if(a('cancelslip')){ DRAFT=null; return render(); }
@@ -5973,6 +6020,7 @@ document.addEventListener('visibilitychange', ()=>{
 
 // ---------------- INIT ----------------
 DATA = loadData();
+if(!storageBlocked){
 { const b=document.getElementById('docktoggle'), collapsed=document.documentElement.classList.contains('dock-collapsed');
   if(b){ b.setAttribute('aria-expanded', collapsed?'false':'true'); b.setAttribute('aria-label', collapsed?'Expand sidebar':'Collapse sidebar'); b.title=collapsed?'Expand sidebar':'Collapse sidebar'; } }
 const startTeam=teamFromHash();
@@ -5982,6 +6030,7 @@ if(startTeam){ history.replaceState({hubTeam:0}, '', '#team/'+startTeam.lg+'/'+s
 syncSheet().then(()=>{ if(TAB==='bets' && !$('#slipform')) render(); });
 // Even when nothing is live (score tabs don't auto-refresh), pick up new rows from Blitz while the page sits open: chips patch in place.
 setInterval(()=>{ if(!document.hidden && SHEET_BG_TABS.includes(TAB)) syncSheet(false, SHEET_BG_MS).catch(()=>{}); }, SHEET_BG_MS);
+}
 </script>
 </body>
 </html>
