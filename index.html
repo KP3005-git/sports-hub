@@ -761,6 +761,23 @@ footer{margin-top:auto}
 @media(max-width:1150px){.campus-bracket{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:620px){.campus-top{grid-template-columns:1fr;gap:0}.campus-heading{padding:10px 0}.campus-game small{font-size:.67rem}.campus-slot{gap:3px}.campus-slot .campus-team{gap:4px}.campus-slot .campus-logo{width:23px;height:23px}.campus-game,.campus-bye{padding:7px}.campus .league-table td,.campus .league-table th{padding:5px}}
 .research-controls,.research-games{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr));gap:10px;margin:12px 0}.research-controls label{min-width:0}.research-controls select,[data-resume-team],[data-resume-net]{display:block;max-width:100%;margin:5px 0}.research-games h4,.research-games p{margin:6px 0}.research-games small{color:var(--mut)}#compare-prompt{color:var(--mut);padding:5px}
 hub-live-odds{display:block;margin:8px 0;padding:9px 11px;border:1px solid var(--line);border-left:3px solid var(--ok);border-radius:8px;background:var(--card);color:var(--txt);font:600 .79rem/1.35 system-ui;font-variant-numeric:tabular-nums}hub-live-odds[hidden]{display:none}hub-live-odds .lo-head{display:flex;justify-content:space-between;align-items:baseline;gap:6px;flex-wrap:wrap}hub-live-odds .lo-head b{color:var(--ok)}hub-live-odds small{color:var(--mut)}hub-live-odds table{width:100%;border-collapse:collapse;margin-top:5px}hub-live-odds th,hub-live-odds td{text-align:right;padding:3px 2px}hub-live-odds th:first-child{text-align:left}hub-live-odds thead th{font-size:.69rem;color:var(--mut)}hub-live-odds tbody tr{border-top:1px solid var(--line)}
+hub-live-odds .lo-pregame{border-top:1px solid var(--line);padding-top:7px;margin-top:5px;color:var(--mut);font-size:.77rem}
+@media(max-width:380px){.g[data-ev]>hub-live-odds :is(td,th){white-space:normal}.g[data-ev]>hub-live-odds td small{display:block}}
+/* Give scorecards room for team controls and the four-column odds panel. */
+.grid:has(> .g[data-ev]){grid-template-columns:repeat(auto-fill,minmax(min(100%,410px),1fr));gap:14px}
+.g[data-ev]{min-width:0;padding:clamp(14px,1.4vw,20px)}
+.g[data-ev]>.row{min-height:42px;gap:9px}
+.g[data-ev]>.row .nm{white-space:normal;line-height:1.25}
+.g[data-ev]>.row .sc{font-size:26px}
+.g[data-ev]>.row .rbtn,.g[data-ev]>.foot button{min-height:32px;padding:4px 8px}
+.g[data-ev]>hub-live-odds{margin:12px 0;padding:10px 12px;font-size:.875rem}
+.g[data-ev]>hub-live-odds td,.g[data-ev]>hub-live-odds th{padding:5px 2px}
+.g[data-ev]>.foot{flex-wrap:wrap;row-gap:8px;padding-top:9px}
+@media(max-width:600px){
+  .g[data-ev]>.row .rbtn,.g[data-ev]>.foot button{min-height:40px}
+  .g[data-ev]>.foot>span:last-child{display:flex;align-items:center;flex-wrap:wrap;gap:5px}
+  .g[data-ev]>hub-live-odds{padding:8px;font-size:.82rem}
+}
 </style>
 </head>
 <body>
@@ -1052,6 +1069,17 @@ const fmtMl = n=>{ const v=Math.round(+n); return (v>0?'+':'')+v; };
 function liveOddsPanel(g){
   return g.state==='in' && !g.snap ? '<hub-live-odds data-league="'+esc(g.lg)+'" data-event="'+esc(g.id)+'">Checking live odds…</hub-live-odds>' : '';
 }
+function pregameLineMarkup(book,team){
+  // Keep each pair from the same snapshot, preferring the line at kickoff.
+  for(const phase of ['close','open']){
+    const sides=['away','home'].flatMap(side=>{
+      const price=mlNumber(book.moneyline?.[side]?.[phase]?.odds);
+      return price==null?[]:[esc(team(side))+' '+esc(fmtMl(price))];
+    });
+    if(sides.length)return '<div class="lo-pregame"><b>Pregame moneyline</b> · '+(phase==='close'?'Closing':'Opening')+' · '+sides.join(' / ')+'</div>';
+  }
+  return '';
+}
 function liveOddsMarkup(summaryData,checked){
   const competition=summaryData.header?.competitions?.[0];
   const status=competition?.status?.type;
@@ -1059,7 +1087,10 @@ function liveOddsMarkup(summaryData,checked){
   if(status?.state!=='in' && !LIVE_NAMES.has(status?.name)) return '<small>Live odds unavailable</small>';
   const team=side=>competition.competitors?.find(c=>c.homeAway===side)?.team?.abbreviation||side;
   const books=[summaryData.pickcenter,summaryData.odds,competition.odds].flatMap(x=>Array.isArray(x)?x:x?[x]:[]);
+  let fallback='';
   for(const book of books){
+    const pregame=pregameLineMarkup(book,team);
+    if(!fallback && pregame)fallback=pregame;
     function quote(market,side){
       const live=book[market]?.[side]?.live;
       if(!live || live.suspended || live.available===false) return '—';
@@ -1073,9 +1104,9 @@ function liveOddsMarkup(summaryData,checked){
     const rows=['away','home'].map((side,i)=>[esc(team(side)),quote('moneyline',side),quote('pointSpread',side),quote('total',i?'under':'over')]);
     if(!rows.some(r=>r.slice(1).some(v=>v!=='—')))continue;
     return '<div class="lo-head"><b>Live odds</b><small>'+esc(book.provider?.name||'ESPN')+' · checked '+esc(fmtTime(new Date(checked)))+'</small></div><table aria-label="Live betting odds"><thead><tr><th>Team</th><th>Moneyline</th><th>Spread</th><th>Total</th></tr></thead><tbody>'+
-      rows.map(([name,ml,spread,total],i)=>'<tr><th scope="row">'+name+'</th><td>'+ml+'</td><td>'+spread+'</td><td>'+(total==='—'?total:(i?'U ':'O ')+total)+'</td></tr>').join('')+'</tbody></table>';
+      rows.map(([name,ml,spread,total],i)=>'<tr><th scope="row">'+name+'</th><td>'+ml+'</td><td>'+spread+'</td><td>'+(total==='—'?total:(i?'U ':'O ')+total)+'</td></tr>').join('')+'</tbody></table>'+pregame;
   }
-  return '<small>Live odds unavailable · checked '+esc(fmtTime(new Date(checked)))+'</small>';
+  return '<small>Live odds unavailable · checked '+esc(fmtTime(new Date(checked)))+'</small>'+fallback;
 }
 const liveOddsPending=new Map();
 function loadLiveOdds(lg,id){
