@@ -803,6 +803,21 @@ hub-live-odds .lo-pregame{border-top:1px solid var(--line);padding-top:7px;margi
   .g[data-ev]>.foot .gdbtn{min-height:25px;min-width:26px;padding:2px 5px;margin:0}
   .g[data-ev]>.foot>span:last-child{margin-left:auto}
 }
+.score-density{margin:4px 0 8px}.score-density[aria-pressed=true]{background:var(--accent-fill);color:var(--accent-ink)}
+@media(max-width:760px),(max-height:520px){.score-density{display:none}}
+.score-wall:not(.reorder) .grid:has(> .g[data-ev]){grid-template-columns:repeat(auto-fill,minmax(min(100%,80px),1fr));gap:4px;align-items:stretch}
+.score-wall:not(.reorder) .grid:has(> .g[data-ev])>:not(.g[data-ev]){grid-column:1/-1}
+.score-wall:not(.reorder) .grid>.g[data-ev]{padding:6px 4px 4px;border-radius:6px;min-width:0;position:relative}
+.score-wall:not(.reorder) .grid>.g[data-ev]>.row{display:flex;min-height:22px;padding:0;gap:2px}
+.score-wall:not(.reorder) .grid>.g[data-ev]>.row .nm{font:750 12px/1.2 system-ui;white-space:nowrap;min-width:0}
+.score-wall:not(.reorder) .grid>.g[data-ev]>.row .sc{font-size:16px;min-width:0;line-height:1.2}
+.score-wall:not(.reorder) .grid>.g[data-ev] .score-abbr{display:inline}
+.score-wall:not(.reorder) .grid>.g[data-ev] :is(.score-name,.rk,.pos,.rec,.rbtn,.tlogo,.ml,.score-tv,.addslip,.score-details-label),
+.score-wall:not(.reorder) .grid>.g[data-ev]>:is(.dh,.mv,.sit,.tags,.lgtag,.watchpill,hub-live-odds),
+.score-wall:not(.reorder) .grid>.g[data-ev]>.row>img,.score-wall:not(.reorder) .grid>.g[data-ev]>.row>span:first-child{display:none}
+.score-wall:not(.reorder) .grid>.g[data-ev]>.foot{display:block;margin:3px 0 0;padding:3px 0 0;font:650 10px/1.22 system-ui;overflow-wrap:anywhere}
+.score-wall:not(.reorder) .grid>.g[data-ev]>.foot .gdbtn{position:absolute;inset:0;width:100%;height:100%;min-height:0;min-width:0;margin:0;padding:0;font-size:0;border:0;background:transparent;cursor:pointer}
+.score-wall:not(.reorder) .grid>.g[data-ev]:focus-within{outline:2px solid var(--blue)}
 </style>
 </head>
 <body>
@@ -1455,7 +1470,7 @@ function gameCard(g, opts={}){
   return `<div class="${cls}" data-ev="${esc(g.id)}" data-lg="${g.lg}"${opts.noPicks?' data-nopicks="1"':''}>
     ${top}${teamRow(g,g.away,favs)}${teamRow(g,g.home,favs)}
     ${liveOddsPanel(g)}${sit}${tags?`<div class="tags">${tags}</div>`:''}
-    <div class="foot"><span class="st ${g.state==='in'?'l':''}">${g.state==='in'?'● ':''}${esc(statusTxt(g))}</span><span>${`<button class="gdbtn" data-gd="${esc(g.id)}" data-lg="${g.lg}" title="Game details (or double-click the card)" aria-label="Game details">▶<span class="score-details-label"> details</span></button>`}<span class="score-tv">📺 ${esc(g.tv)}</span> ${opts.noSlip||g.snap?'':`<button class="addslip" data-addslip="${esc(g.id)}" data-lg="${g.lg}" title="Add this game to a bet slip">+ slip</button>`}</span></div>
+    <div class="foot"><span class="st ${g.state==='in'?'l':''}">${g.state==='in'?'● ':''}${esc(statusTxt(g))}</span><span>${`<button class="gdbtn" data-gd="${esc(g.id)}" data-lg="${g.lg}" title="Game details (or double-click the card)" aria-label="Game details: ${esc(g.away.abbr)} at ${esc(g.home.abbr)}">▶<span class="score-details-label"> details</span></button>`}<span class="score-tv">📺 ${esc(g.tv)}</span> ${opts.noSlip||g.snap?'':`<button class="addslip" data-addslip="${esc(g.id)}" data-lg="${g.lg}" title="Add this game to a bet slip">+ slip</button>`}</span></div>
   </div>`;
 }
 const EVSTORE = new Map(); // id -> normalized event (latest seen), used by "+ slip"
@@ -3465,6 +3480,13 @@ async function bubbleBoard(data,tok,view,nav){
   }catch(_){if(tok===TOKEN)document.getElementById('resume-wins').textContent='Notable wins could not load.';}
 }
 
+const narrowScores=matchMedia('(max-width:760px), (max-height:520px)');
+let pinCompactScores=pref.get('compactScores','0')==='1';
+function syncCompactScores(){
+  document.documentElement.classList.toggle('score-wall',pinCompactScores||narrowScores.matches);
+}
+syncCompactScores();
+narrowScores.addEventListener('change',syncCompactScores);
 const leagueViews = {};
 function leagueViewButtons(lg){
   const selected = leagueViews[lg] || 'scores';
@@ -3872,7 +3894,7 @@ async function renderLeague(lg, tok, view){
       <div class="chips">${r.length?r.map(x=>`<span class="chip">${esc(x.name)} <span class="note">${esc(x.teamAbbr||'?')}</span></span>`).join(''):'<span class="note">No roster players yet — add them in Settings to get FF badges on games.</span>'}</div></div>`;
   }
   const slate = slateGames(lg, games);
-  view.innerHTML = `${leagueViewButtons(lg)}<div class="navbar">${nav}</div>
+  view.innerHTML = `${leagueViewButtons(lg)}<button class="btn sm score-density" data-density="1" aria-pressed="${pinCompactScores}">Compact grid</button><div class="navbar">${nav}</div>
     ${playersHere.length?`<h2>👑 Favorite Players</h2><div class="grid" id="plgrid" ${sortAttrs(KEY_PL, playersAll.map(p=>'p:'+p.id))}>${playersHere.map(p=>withSid(`<div class="g" id="pl-${esc(p.id)}"><div class="note">Loading ${esc(p.name)}…</div></div>`,'p:'+p.id)).join('')}</div>`:''}
     ${favList.length?`<h2>⭐ My ${esc(L.short)} Teams</h2><div class="grid" id="favgrid" ${sortAttrs(KEY_FAV, favList.map(t=>'team:'+t.id))}>${featured}</div>`:''}
     ${ffPanel}
@@ -6016,16 +6038,18 @@ function monBoardURL(lg){
 }
 function monPhoneLandscape(){ try{ return matchMedia('(orientation: landscape) and (max-height: 520px)').matches; }catch(_){ return false; } }
 function monIsLandscape(){ try{ return matchMedia('(orientation: landscape)').matches; }catch(_){ return innerWidth>innerHeight; } }
-function monWantBoard(){ if(TAB!=='monitor') return false; if(MON.force) return true; if(MON.hold) return false; return monPhoneLandscape(); }
+function desktopMonitor(){return matchMedia('(hover:hover) and (pointer:fine), (min-width:900px)').matches;}
+function monWantBoard(){ if(TAB!=='monitor') return false; if(MON.force) return true; if(MON.hold) return false; return desktopMonitor() || monPhoneLandscape(); }
 function monLeave(){ MON.force=false; MON.hold=false; MON.on=false; clearTimeout(MON.rot); const b=$('#monboard'); if(b) b.hidden=true; document.documentElement.classList.remove('mon-on'); monReleaseWake(); }
 function monExit(){ MON.force=false; MON.hold=true; monApplyMode(); }
-function monAction(v){ if(v==='enter'){ MON.force=true; MON.hold=false; monApplyMode(); } else if(v==='exit') monExit(); }
+document.addEventListener('keydown',e=>{if(e.key==='Escape' && TAB==='monitor' && MON.on){e.preventDefault();monExit();$('#monenter')?.focus();}});
+function monAction(v){ if(v==='enter'){ MON.force=true; MON.hold=false; monApplyMode(); } else if(v==='exit') monExit(); else if(v==='next' && MON.on && MON.games.length) monNext(); }
 function monApplyMode(){
   const want=monWantBoard();
   MON.on=want;
   document.documentElement.classList.toggle('mon-on', want);
   let board=$('#monboard');
-  if(!board){ document.body.insertAdjacentHTML('beforeend', '<div id="monboard" hidden><div class="monbar"><span class="who" id="monwho"></span><span class="monwake" id="monwake"><i></i><span></span></span><button type="button" class="btn sm" data-mon="exit">Exit</button></div><div id="monstage"></div><div class="mondots" id="mondots"></div></div>'); board=$('#monboard'); }
+  if(!board){ document.body.insertAdjacentHTML('beforeend', '<div id="monboard" hidden><div class="monbar"><span class="who" id="monwho"></span><span class="monwake" id="monwake"><i></i><span></span></span><button type="button" class="btn sm" data-mon="next">Next panel</button><button type="button" class="btn sm" data-mon="exit">Settings / Exit</button></div><div id="monstage"></div><div class="mondots" id="mondots"></div></div>'); board=$('#monboard'); }
   board.hidden=!want;
   if(want){ if(typeof closeRoster==='function') closeRoster(); if(typeof closeGame==='function') closeGame(); monPaint(); }
   const ent=$('#monenter'); if(ent) ent.textContent=want?'TV board is on':'Enter monitor';
@@ -6325,7 +6349,7 @@ function monPaint(){
 function monSetupHTML(){
   const on=monEnabled(), iv=monInterval(), follow=pref.get('monitor.follow','rotate');
   return `<h2>Monitor</h2>
-    <p class="note">Landscape TV board for a phone on a stand. On a phone, turning sideways opens it. Portrait keeps these controls. Wake lock runs only while the board is up in landscape.</p>
+    <p class="note">The board opens automatically on desktop and when a phone turns sideways. Use Next panel to advance, or Settings / Exit to change which games and panels appear.</p>
     <div class="panel">
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <button type="button" class="btn pri" id="monenter" data-mon="enter">Enter monitor</button>
@@ -6457,11 +6481,11 @@ async function renderMonitor(tok, view){
 }
 try{
   matchMedia('(orientation: landscape)').addEventListener('change', ()=>{
-    if(!matchMedia('(orientation: landscape)').matches) MON.hold=false;
+    if(!desktopMonitor() && !monIsLandscape()) MON.hold=false;
     if(TAB==='monitor') monApplyMode();
   });
 }catch(_){}
-window.addEventListener('resize', ()=>{ if(TAB!=='monitor') return; clearTimeout(MON._rz); MON._rz=setTimeout(()=>{ if(!monPhoneLandscape()) MON.hold=false; monApplyMode(); }, 120); });
+window.addEventListener('resize', ()=>{ if(TAB!=='monitor') return; clearTimeout(MON._rz); MON._rz=setTimeout(()=>{ if(!desktopMonitor() && !monPhoneLandscape()) MON.hold=false; monApplyMode(); }, 120); });
 document.addEventListener('click', ev=>{
   const b=ev.target.closest&&ev.target.closest('[data-monplay]');
   if(!b) return;
@@ -6498,6 +6522,7 @@ document.addEventListener('click', async ev=>{
   const t=ev.target, a=k=>{ const el=t.closest(`[data-${k}]`); return el?el.dataset[k.replace(/-([a-z])/g,(m,c)=>c.toUpperCase())]:null; };
   let v;
   if((v=a('cup-jump'))!==null){ document.getElementById(v)?.scrollIntoView({block:'start'}); return; }
+  if(a('density')!==null){pinCompactScores=!pinCompactScores;pref.set('compactScores',pinCompactScores?'1':'0');syncCompactScores();t.closest('[data-density]').setAttribute('aria-pressed',String(pinCompactScores));return;}
   if((v=a('league-view'))!==null && LGS.includes(TAB)){ comparePick=null; leagueViews[TAB]=v; return render(); }
   if((v=a('theme-accent'))!==null){ if(!THEME_ACCENTS.includes(v)) return; const th=themeRead(); th.accent=v; themeApply(th,true); return; }
   if((v=a('theme-scope'))!==null){ if(v!=='title'&&v!=='app') return; const th=themeRead(); th.scope=v; themeApply(th,true); return; }
