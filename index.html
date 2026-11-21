@@ -760,6 +760,7 @@ footer{margin-top:auto}
 .campus-lead,.campus-bye{border:1px solid var(--line);border-left:3px solid var(--ink);border-radius:10px;background:linear-gradient(110deg,var(--wash),#101722)}.campus-lead{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;text-align:left;color:var(--txt);cursor:pointer}.campus-lead>span{display:grid;gap:4px}.campus-lead strong{font:800 1.65rem/1.1 system-ui}.campus-lead span span{color:#c5cbd3;font-size:.85rem}.campus-lead .campus-logo{width:70px;height:65px}.campus-logo{width:30px;height:30px;object-fit:contain;flex:none}.campus-team{display:inline-flex;align-items:center;gap:8px;border:0;background:none;color:var(--txt);padding:2px 0;font-weight:700;text-align:left;cursor:pointer}.campus-team:hover span{text-decoration:underline}.campus-number,.campus-slot>b{color:var(--ink)}.campus-change{display:inline-block;min-width:34px;text-align:center;padding:2px 5px;border-radius:4px}.campus-change.up{background:#183b30;color:#a6efc8}.campus-change.down{background:#41282f;color:#ffbac4}.campus-change.new{background:#283652;color:#bdd4ff}.campus .league-scroll{border:1px solid var(--line);border-radius:10px}.campus .league-table td{padding:5px 9px}.campus .league-table th{padding:10px 9px}.campus h3{margin:20px 0 9px}.campus-bracket{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.campus-slot{display:flex;align-items:center;gap:6px}.campus-slot>b{min-width:24px;font-size:.8rem}.campus-bye,.campus-game{padding:9px}.campus-game{background:var(--card);border:1px solid var(--line);border-radius:9px}.campus-game>div{display:flex;align-items:center;justify-content:space-between;gap:4px;padding:5px 0}.campus-game>div+div{border-top:1px solid var(--line)}.campus-game small{color:var(--mut)}.campus :focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 @media(max-width:1150px){.campus-bracket{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:620px){.campus-top{grid-template-columns:1fr;gap:0}.campus-heading{padding:10px 0}.campus-game small{font-size:.67rem}.campus-slot{gap:3px}.campus-slot .campus-team{gap:4px}.campus-slot .campus-logo{width:23px;height:23px}.campus-game,.campus-bye{padding:7px}.campus .league-table td,.campus .league-table th{padding:5px}}
 .research-controls,.research-games{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr));gap:10px;margin:12px 0}.research-controls label{min-width:0}.research-controls select,[data-resume-team],[data-resume-net]{display:block;max-width:100%;margin:5px 0}.research-games h4,.research-games p{margin:6px 0}.research-games small{color:var(--mut)}#compare-prompt{color:var(--mut);padding:5px}
+hub-live-odds{display:block;margin:8px 0;padding:9px 11px;border:1px solid var(--line);border-left:3px solid var(--ok);border-radius:8px;background:var(--card);color:var(--txt);font:600 .79rem/1.35 system-ui;font-variant-numeric:tabular-nums}hub-live-odds[hidden]{display:none}hub-live-odds .lo-head{display:flex;justify-content:space-between;align-items:baseline;gap:6px;flex-wrap:wrap}hub-live-odds .lo-head b{color:var(--ok)}hub-live-odds small{color:var(--mut)}hub-live-odds table{width:100%;border-collapse:collapse;margin-top:5px}hub-live-odds th,hub-live-odds td{text-align:right;padding:3px 2px}hub-live-odds th:first-child{text-align:left}hub-live-odds thead th{font-size:.69rem;color:var(--mut)}hub-live-odds tbody tr{border-top:1px solid var(--line)}
 </style>
 </head>
 <body>
@@ -1048,7 +1049,67 @@ function spreadAbsFromList(list){
   return null;
 }
 const fmtMl = n=>{ const v=Math.round(+n); return (v>0?'+':'')+v; };
+function liveOddsPanel(g){
+  return g.state==='in' && !g.snap ? '<hub-live-odds data-league="'+esc(g.lg)+'" data-event="'+esc(g.id)+'">Checking live odds…</hub-live-odds>' : '';
+}
+function liveOddsMarkup(summaryData,checked){
+  const competition=summaryData.header?.competitions?.[0];
+  const status=competition?.status?.type;
+  if(status?.completed || status?.state==='post') return '';
+  if(status?.state!=='in' && !LIVE_NAMES.has(status?.name)) return '<small>Live odds unavailable</small>';
+  const team=side=>competition.competitors?.find(c=>c.homeAway===side)?.team?.abbreviation||side;
+  const books=[summaryData.pickcenter,summaryData.odds,competition.odds].flatMap(x=>Array.isArray(x)?x:x?[x]:[]);
+  for(const book of books){
+    function quote(market,side){
+      const live=book[market]?.[side]?.live;
+      if(!live || live.suspended || live.available===false) return '—';
+      const odds=String(live.odds??'').trim().replace('−','-');
+      if(!/^(?:[+-]?\d{3,}|EVEN)$/i.test(odds) || (odds.toUpperCase()!=='EVEN' && Math.abs(Number(odds))<100))return '—';
+      const price=odds.toUpperCase()==='EVEN'?'+100':fmtMl(Number(odds));
+      if(market==='moneyline')return esc(price);
+      if(live.line==null || live.line==='')return '—';
+      return esc(String(live.line).replace(/^[ou](?=\d)/i,''))+' <small>('+esc(price)+')</small>';
+    }
+    const rows=['away','home'].map((side,i)=>[esc(team(side)),quote('moneyline',side),quote('pointSpread',side),quote('total',i?'under':'over')]);
+    if(!rows.some(r=>r.slice(1).some(v=>v!=='—')))continue;
+    return '<div class="lo-head"><b>Live odds</b><small>'+esc(book.provider?.name||'ESPN')+' · checked '+esc(fmtTime(new Date(checked)))+'</small></div><table aria-label="Live betting odds"><thead><tr><th>Team</th><th>Moneyline</th><th>Spread</th><th>Total</th></tr></thead><tbody>'+
+      rows.map(([name,ml,spread,total],i)=>'<tr><th scope="row">'+name+'</th><td>'+ml+'</td><td>'+spread+'</td><td>'+(total==='—'?total:(i?'U ':'O ')+total)+'</td></tr>').join('')+'</tbody></table>';
+  }
+  return '<small>Live odds unavailable · checked '+esc(fmtTime(new Date(checked)))+'</small>';
+}
+const liveOddsPending=new Map();
+function loadLiveOdds(lg,id){
+  const key=lg+'|'+id;
+  if(!liveOddsPending.has(key)){
+    const url=API+LG[lg].path+'/summary?event='+encodeURIComponent(id);
+    const request=summary(lg,id).then(d=>liveOddsMarkup(d,JC.get(url)?.t||Date.now())).finally(()=>liveOddsPending.delete(key));
+    liveOddsPending.set(key,request);
+  }
+  return liveOddsPending.get(key);
+}
+class HubLiveOdds extends HTMLElement{
+  connectedCallback(){
+    this.observer=new IntersectionObserver(entries=>{
+      if(entries.at(-1).isIntersecting){if(!this.timer){this.refresh();this.timer=setInterval(()=>this.refresh(),30000);}}
+      else this.stop();
+    });
+    this.observer.observe(this);
+  }
+  stop(){clearInterval(this.timer);this.timer=null;}
+  disconnectedCallback(){this.observer?.disconnect();this.stop();}
+  async refresh(){
+    if(document.hidden || this.busy)return;
+    this.busy=true;
+    try{
+      const html=await loadLiveOdds(this.dataset.league,this.dataset.event);
+      if(this.isConnected){this.innerHTML=html;if(!html){this.hidden=true;this.stop();}}
+    }catch(e){if(this.isConnected)this.textContent='Live odds unavailable · connection error';}
+    finally{this.busy=false;}
+  }
+}
+customElements.define('hub-live-odds',HubLiveOdds);
 function mlSpan(g, side){
+  if(g?.state==='in') return '';
   const ml=g&&g.ml; if(!ml || ml[side]==null) return '';
   const fav=ml.fav===side;
   return `<span class="ml${fav?' fav':''}" title="${fav?'Favorite to win':''}">${esc(fmtMl(ml[side]))}</span>`;
@@ -1337,7 +1398,7 @@ function gameCard(g, opts={}){
   const top = opts.showLg||g.note ? `<div class="lgtag"><span>${opts.showLg?esc(LG[g.lg].icon+' '+LG[g.lg].short):''}</span><span>${esc(g.note)}</span></div>`:'';
   return `<div class="${cls}" data-ev="${esc(g.id)}" data-lg="${g.lg}"${opts.noPicks?' data-nopicks="1"':''}>
     ${top}${teamRow(g,g.away,favs)}${teamRow(g,g.home,favs)}
-    ${sit}${tags?`<div class="tags">${tags}</div>`:''}
+    ${liveOddsPanel(g)}${sit}${tags?`<div class="tags">${tags}</div>`:''}
     <div class="foot"><span class="st ${g.state==='in'?'l':''}">${g.state==='in'?'● ':''}${esc(statusTxt(g))}</span><span>${`<button class="gdbtn" data-gd="${esc(g.id)}" data-lg="${g.lg}" title="Game details (or double-click the card)">▶ details</button>`}📺 ${esc(g.tv)} ${opts.noSlip||g.snap?'':`<button class="addslip" data-addslip="${esc(g.id)}" data-lg="${g.lg}" title="Add this game to a bet slip">+ slip</button>`}</span></div>
   </div>`;
 }
@@ -2382,7 +2443,7 @@ async function openGame(lg, id, opts={}){
     $('#gdbody').innerHTML = `<div class="note">${esc(LG[lg].icon+' '+LG[lg].name)}${g.cup?' '+cupBadge(g):(g.note?' · '+esc(g.note):'')}</div>
       <div class="gdscore">${side(g.away)}${side(g.home)}</div>
       <div class="gdmeta"><span class="st ${g.state==='in'?'l':''}">${g.state==='in'?'● ':''}${esc(statusTxt(g))}</span> · ${esc(fmtDay(g.date))} ${esc(fmtTime(g.date))} · 📺 ${esc(g.tv)}${venue?' · '+esc(venue):''}${g.state==='in'?` · <span class="note" id="gdupd">updated ${esc(fmtTime(new Date()))} · refreshes every ${GD_REFRESH_MS/1000}s</span>`:''}</div>
-      ${gdField(d, lg, g, groups)}
+      ${liveOddsPanel(g)}${gdField(d, lg, g, groups)}
       ${sit?`<div class="gdsit" id="gdsit">${sit.dd?`<div><span class="note">Situation</span><b>${esc(sit.dd)}</b>${sit.rz?' <span class="badge b-r">RED ZONE</span>':''}</div>`:''}${sit.poss&&isFootball(lg)?`<div><span class="note">Possession</span><b>${esc(sit.poss.name)}</b></div>`:''}${sit.last?`<div class="lp"><span class="note">Last play</span>${esc(sit.last)}</div>`:''}</div>`:''}
       ${np?`<table class="ls"><tr><th></th>${Array.from({length:np},(_,i)=>`<th>${plbl(i)}</th>`).join('')}<th>T</th></tr><tr><td>${esc(g.away.abbr)}</td>${Array.from({length:np},(_,i)=>`<td>${esc(la[i]??'')}</td>`).join('')}<td><b>${g.away.score??''}</b></td></tr><tr><td>${esc(g.home.abbr)}</td>${Array.from({length:np},(_,i)=>`<td>${esc(lh[i]??'')}</td>`).join('')}<td><b>${g.home.score??''}</b></td></tr></table>`:''}
       <div class="toolrow">${g.state!=='post'?`<button class="addslip" data-addslip="${esc(g.id)}" data-lg="${lg}">+ slip</button>`:''}${espnLink?`<a class="btn sm" href="${esc(espnLink)}" target="_blank" rel="noopener noreferrer">Open on ESPN ↗</a>`:''}</div>
@@ -6093,7 +6154,7 @@ function monScoreHTML(g){
   const w=monWatch();
   const pill=w && String(w.id)===String(g.id) && w.lg===g.lg ? watchMark(w.reason) : '';
   return `${pill}<div class="monkicker">${esc(LG[g.lg].short)} · ${tag}${g.state==='post'?' · not live':''}${g.cup?' '+cupBadge(g):''}</div>
-    <div class="monscore">${side(g.away, leadA)}<div><div class="monclk">${esc(g.state==='in'?statusTxt(g):g.state==='post'?(g.detail||'Final'):fmtTime(g.date))}</div><div class="monsub">${esc(sub)}</div></div>${side(g.home, leadH)}</div>${last?`<div class="monlast">${esc(last)}</div>`:''}`;
+    <div class="monscore">${side(g.away, leadA)}<div><div class="monclk">${esc(g.state==='in'?statusTxt(g):g.state==='post'?(g.detail||'Final'):fmtTime(g.date))}</div><div class="monsub">${esc(sub)}</div></div>${side(g.home, leadH)}</div>${liveOddsPanel(g)}${last?`<div class="monlast">${esc(last)}</div>`:''}`;
 }
 function monPlaysHTML(g, d){
   if(!d) return '<div class="empty">Loading plays…</div>';
