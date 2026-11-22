@@ -820,6 +820,8 @@ hub-live-odds .lo-pregame{border-top:1px solid var(--line);padding-top:7px;margi
 .phone-scores:not(.score-wall) .g[data-ev]>.foot .score-tv{display:inline}
 .phone-scores:not(.score-wall) .g[data-ev]>.foot .st.l{color:var(--ok)}
 .phone-scores:not(.score-wall) .g[data-ev]>hub-live-odds{margin:10px 0;padding:8px 10px;border-radius:8px}
+.tourney-switch{margin:12px 0}.tourney-rounds{display:grid;grid-template-columns:repeat(var(--rounds),minmax(0,1fr));gap:16px;margin:12px 0 22px}.tourney-rounds section{display:flex;flex-direction:column;min-width:0}.tourney-rounds h4{margin:0 0 8px;color:var(--mut)}.tourney-games{flex:1;display:flex;flex-direction:column;justify-content:space-around;gap:8px}.tourney-game{position:relative;border:1px solid var(--line);border-left:3px solid var(--accent-fill);border-radius:8px;background:var(--card);padding:8px}.tourney-game small{color:var(--mut)}.tourney-game>div{padding:4px 0;font-weight:650}.tourney-game>div+div{border-top:1px solid var(--line)}.tourney-rounds section:not(:last-child) .tourney-game:after{content:'';position:absolute;left:100%;top:50%;width:9px;border-top:1px solid var(--line)}
+@media(max-width:750px){.tourney-rounds{display:flex;overflow-x:auto;scroll-snap-type:x proximity;padding-bottom:9px}.tourney-rounds section{flex:0 0 min(74vw,250px);scroll-snap-align:start}}
 </style>
 </head>
 <body>
@@ -3696,6 +3698,39 @@ function playoffMatchups(field, pairs){
   });
   return '<ul class="playoff-games">'+slots.join('')+'</ul>';
 }
+const tourneyViews={};
+function tourneyControls(lg){
+  return '<div class="filters tourney-switch" aria-label="Tournament display">'+['Overview','Tournament bracket'].map((label,i)=>{
+    const on=Boolean(tourneyViews[lg])===Boolean(i);
+    return '<button data-tourney="'+i+'" aria-pressed="'+on+'" class="'+(on?'on':'')+'">'+label+'</button>';
+  }).join('')+'</div>';
+}
+function tourneyGame(label,a,b){
+  return '<article class="tourney-game"><small>'+esc(label)+'</small><div>'+a+'</div><div>'+b+'</div></article>';
+}
+function tourneyRounds(rounds){
+  return '<div class="tourney-rounds" style="--rounds:'+rounds.length+'">'+rounds.map(([label,games])=>'<section><h4>'+esc(label)+'</h4><div class="tourney-games">'+games.join('')+'</div></section>').join('')+'</div>';
+}
+function nbaCupTree(data,games,partial){
+  const draw=CUP_DRAWS[data.season?.year];
+  if(!draw)return '<p class="empty">Knockout schedule unavailable for this season.</p>';
+  const rounds=draw.rounds.map(([round,date,,count],i)=>{
+    const matches=games.filter(e=>e.competitions?.[0]?.notes?.some(n=>new RegExp(round,'i').test(n.headline)));
+    const cards=Array.from({length:Math.max(count,matches.length)},(_,j)=>{
+      const c=matches[j]?.competitions?.[0],state=c?.status?.type;
+      const conf=j<2?'East':'West';
+      const pending=i===0?(j%2?['#2 group winner','#3 group winner']:['#1 group winner','Wild card']):i===1?['Quarterfinal winner','Quarterfinal winner']:['East champion','West champion'];
+      const sides=c?.competitors||[];
+      const known=sides.some(t=>t.team?.abbreviation&&t.team.abbreviation!=='TBD');
+      const teams=known?sides.map(t=>esc(t.team?.shortDisplayName||t.team?.displayName||'TBD')+(state?.state!=='pre'&&t.score!=null?' <b>'+esc(t.score)+'</b>':'')):pending;
+      const placeholders=matches.some(e=>e.competitions?.[0]?.competitors?.some(t=>t.team?.abbreviation&&t.team.abbreviation!=='TBD'));
+      const label=known?(state?.state==='pre'?fmtStamp(matches[j].date):state?.shortDetail||round):placeholders?'Matchup pending':i===0?conf:i===1?(j?'West':'East'):'NBA Cup final';
+      return tourneyGame(label,(!known&&placeholders?'Qualifier TBD':teams[0])||'TBD',(!known&&placeholders?'Qualifier TBD':teams[1])||'TBD');
+    });
+    return [round+' · '+date,cards];
+  });
+  return '<h2>NBA Cup bracket</h2><p class="note">Three group winners and one wild card per conference advance. Confirmed matchups and scores appear as ESPN publishes them.</p>'+tourneyRounds(rounds)+(partial?'<p class="note">Some game updates are unavailable.</p>':'');
+}
 function nflPlayoffPicture(data){
   const groups=data.children||[];
   const body=['AFC','NFC'].map(name=>{
@@ -3707,6 +3742,14 @@ function nflPlayoffPicture(data){
     const heading='<h3>'+name+'</h3>';
     if(!rows.length) return heading+'<p class="empty">Conference seeds are unavailable.</p>';
     const seeds=new Map(rows.map(r=>[r.seed,r]));
+    if(tourneyViews.nfl){
+      const team=n=>'<b>#'+n+'</b> '+(seeds.has(n)?nflTeam(seeds.get(n).team):'TBD');
+      return heading+tourneyRounds([
+        ['Wild Card',[[7,2],[6,3],[5,4]].map(([away,home])=>tourneyGame('At #'+home,team(away),team(home)))],
+        ['Divisional',[tourneyGame('Top seed · first-round bye',team(1),'Lowest remaining seed'),tourneyGame('Higher seed hosts','Other Wild Card winner','Other Wild Card winner')]],
+        ['Conference championship',[tourneyGame(name+' title','Divisional winner','Divisional winner')]]
+      ]);
+    }
     const pairs=[[7,2],[6,3],[5,4]].map(pair=>{
       const sides=pair.map((seed,i)=>{
         const row=seeds.get(seed);
@@ -3726,6 +3769,7 @@ function nflPlayoffPicture(data){
       (hunt.length?'<h4 class="gridiron-cut">In the hunt</h4>'+table(hunt):'')+
       (out.length?'<details><summary>Eliminated ('+out.length+')</summary>'+table(out)+'</details>':'')+'</section>';
   });
+  if(tourneyViews.nfl)return '<div class="gridiron">'+nflHeading(data.season?.displayName||'','NFL playoff bracket','Projected from current seeds. Teams are reseeded after Wild Card weekend.')+body.join('')+tourneyRounds([['Super Bowl',[tourneyGame('NFL championship','AFC champion','NFC champion')]]])+'</div>';
   return '<div class="gridiron">'+nflHeading(data.season?.displayName||'','Playoff picture','If the season ended today · Four division leaders and three wild cards per conference.')+'<div class="gridiron-pair">'+body.join('')+'</div></div>';
 }
 function cfpPlayoffPicture(data){
@@ -3759,6 +3803,15 @@ function cfpPlayoffPicture(data){
     const entry=entrants[seed-1];
     return '<span class="campus-slot"><b>#'+seed+'</b>'+(entry?.rank?campusTeam('cfb',entry.rank.team):'Qualifier TBD')+'</span>';
   }
+  if(tourneyViews.cfb){
+    const paths=[[8,9,1],[5,12,4],[7,10,2],[6,11,3]];
+    return '<div class="campus cfp">'+title+'<p class="note">Projected 12-team bracket. The top four seeds enter in the quarterfinals.</p>'+tourneyRounds([
+      ['First round',paths.map(([host,away])=>tourneyGame('At #'+host,slot(away),slot(host)))],
+      ['Quarterfinals',paths.map(([host,away,bye],i)=>tourneyGame('QF '+(i+1),slot(bye),'Winner of #'+host+' / #'+away))],
+      ['Semifinals',[tourneyGame('SF 1','QF 1 winner','QF 2 winner'),tourneyGame('SF 2','QF 3 winner','QF 4 winner')]],
+      ['National championship',[tourneyGame('Title game','SF 1 winner','SF 2 winner')]]
+    ])+'</div>';
+  }
   const byes=[1,2,3,4].map(n=>'<div class="campus-bye">'+slot(n)+'</div>').join('');
   const matches=[[12,5],[11,6],[10,7],[9,8]].map(([away,home])=>'<article class="campus-game"><div>'+slot(away)+'<small>Away</small></div><div>'+slot(home)+'<small>Host</small></div></article>').join('');
   return '<div class="campus cfp">'+title+'<h3>Projected first-round byes</h3><div class="campus-bracket">'+byes+'</div>'+
@@ -3781,12 +3834,18 @@ async function renderLeagueBoard(lg,tok,view){
     if(mode==='compare')return comparisonBoard(lg,data,tok,view,nav);
     if(mode==='bubble')return bubbleBoard(data,tok,view,nav);
     if(mode==='playoffs'){
-      view.innerHTML=nav+(lg==='nfl'?nflPlayoffPicture(data):cfpPlayoffPicture(data));
+      view.innerHTML=nav+tourneyControls(lg)+(lg==='nfl'?nflPlayoffPicture(data):cfpPlayoffPicture(data));
       RT=setTimeout(()=>{ if(tok===TOKEN) render(); },5*60e3);
       return;
     }
     if(nbaSpecial && mode==='cup'){
-      const layout=(games,partial)=>nav+cupTournament(data,games,partial);
+      if(tourneyViews.nba){
+        view.innerHTML=nav+tourneyControls(lg)+'<p role="status">Loading Cup bracket…</p>';
+        const {games,partial}=await cupSchedule(CUP_DRAWS[data.season?.year]);
+        if(tok===TOKEN)view.innerHTML=nav+tourneyControls(lg)+nbaCupTree(data,games,partial);
+        return;
+      }
+      const layout=(games,partial)=>nav+tourneyControls(lg)+cupTournament(data,games,partial);
       view.innerHTML=layout([],false);
       const {games,partial}=await cupSchedule(CUP_DRAWS[data.season?.year]);
       const bracket=view.querySelector('#cup-knockout');
@@ -6530,6 +6589,7 @@ document.addEventListener('toggle', ev=>{
 document.addEventListener('click', async ev=>{
   const t=ev.target, a=k=>{ const el=t.closest(`[data-${k}]`); return el?el.dataset[k.replace(/-([a-z])/g,(m,c)=>c.toUpperCase())]:null; };
   let v;
+  if((v=a('tourney'))!==null){tourneyViews[TAB]=v==='1';return render();}
   if((v=a('cup-jump'))!==null){ document.getElementById(v)?.scrollIntoView({block:'start'}); return; }
   if(a('density')!==null){
     if(phoneScores.matches){phoneCompactScores=!phoneCompactScores;pref.set('phoneCompactScores',phoneCompactScores?'1':'0');}
