@@ -474,6 +474,21 @@ tr.injmine td{background:rgb(var(--tint-rgb) / .07)}
 html.mon-on,html.mon-on body{overflow:hidden;background:#000000;color-scheme:dark}
 #monboard{color-scheme:dark;position:fixed;inset:0;z-index:90;background:#000000;color:#f4f7ff;display:flex;flex-direction:column;gap:8px;
   padding:max(10px,env(safe-area-inset-top)) max(28px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(28px,env(safe-area-inset-left))}
+#monboard [hidden],#monsetup [hidden]{display:none}
+.mon-scope{display:inline-flex;align-items:center;gap:8px;font-weight:750;font-size:.84rem}.mon-scope select{font:inherit;max-width:55vw;padding:7px 9px}
+#monsetup .mon-scope{margin:4px 0 12px}
+.league-wall{--wall-edge:#385170;color:#eaf2ff;background:linear-gradient(125deg,#162a44,#091221 60%);border-radius:14px;border:1px solid var(--wall-edge);padding:clamp(10px,1.5vw,22px);min-width:0}
+.wall-heading,.wall-status,.wall-filters{display:flex;align-items:center;gap:8px}.wall-heading,.wall-status{justify-content:space-between}.wall-heading small{color:#89c5ff;font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.14em}.league-wall h2{color:white;font-size:clamp(20px,3vw,35px);margin:3px 0 4px;line-height:1.1}.wall-updated{font-size:.77rem;color:#c0d2e9}
+.wall-filters{flex-wrap:wrap;margin:9px 0 14px}.wall-filters button{background:#111e32;color:#d5e5fa;border:1px solid #425872;border-radius:8px;padding:7px 10px;font-weight:700;cursor:pointer}.wall-filters button[aria-pressed=true]{background:#cae5ff;color:#12243d;border-color:#cae5ff}.wall-filters b{font-variant-numeric:tabular-nums;margin-left:3px}
+.wall-games{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,226px),1fr));gap:9px}.wall-card{overflow:hidden;min-width:0;background:#111c2b;border:1px solid #3a4b62;border-radius:10px;padding:8px 10px}.wall-card.live{border-top:2px solid #59e2ac}.wall-status{font-size:.72rem;color:#bed1e9}.wall-status strong{text-transform:uppercase;letter-spacing:.05em}.live .wall-status strong{color:#70e6b6}.wall-team{margin-top:6px;display:grid;align-items:center;grid-template-columns:26px 1fr auto;gap:7px;font-weight:700;border-left:3px solid var(--team);padding-left:5px}.wall-team img{width:26px;height:26px;object-fit:contain}.wall-team b{font-size:1.22rem;color:#c0cde0;font-variant-numeric:tabular-nums}.wall-team b.leading{color:white}.wall-team b.changed{background:#ffe085;color:#251b00;border-radius:4px;padding:0 4px}.wall-info,.wall-notice{font-size:.78rem;color:#c1d1e6}.wall-info{margin-top:8px;border-top:1px solid #334254;padding-top:5px}.wall-notice:not(:empty){padding:8px 0 14px}
+#monboard.league-mode .who,#monboard.league-mode .mondots{display:none}#monboard.league-mode .monbar>[data-mon=exit]{margin-left:auto}
+@media(max-width:740px){#monboard{padding-left:max(9px,env(safe-area-inset-left));padding-right:max(9px,env(safe-area-inset-right))}.monbar{flex-wrap:wrap;gap:5px}.monbar .monwake span{display:none}.monbar .who:empty{display:none}.wall-filters button{min-height:40px}.wall-heading{align-items:start}.wall-updated{max-width:100px;text-align:right}}
+@media(min-width:355px) and (max-width:600px){
+ .wall-games{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+ .wall-card{padding:6px}.wall-team{grid-template-columns:20px minmax(0,1fr) auto;gap:4px;padding-left:3px;font-size:.78rem;line-height:1.14;overflow-wrap:anywhere}
+ .wall-team img{width:20px;height:20px}.wall-team b{font-size:1.02rem}
+ .wall-status{align-items:start;gap:3px;font-size:.65rem}.wall-status span{text-align:right}.wall-info{font-size:.66rem}
+}
 #monboard[hidden]{display:none}
 #monboard.watch{box-shadow:inset 0 0 0 2px var(--accent-fill)}
 html[data-scope="title"] #monboard.watch{box-shadow:inset 0 0 0 1px var(--accent-fill)}
@@ -6206,6 +6221,98 @@ const MON_PANELS = [
   {id:'clips', label:'Clips'}
 ];
 const MON = { on:false, force:false, hold:false, pool:[], games:[], gi:0, pi:0, panels:['score'], sums:new Map(), prev:new Map(), flash:null, flashUntil:0, rot:null, fallback:false, err:'', ctx:null, wake:null, wakeNote:'', playedClip:'' };
+const leagueWall={
+  league:LGS.includes(pref.get('monitor.league',''))?pref.get('monitor.league',''):'',
+  filter:pref.get('monitor.leagueFilter','all'), feeds:new Map(), request:0
+};
+if(!['all','live','close'].includes(leagueWall.filter)) leagueWall.filter='all';
+function monitorLeagueSelect(){
+  return '<label class="mon-scope">Watch<select data-monitor-scope><option value="">Game rotation</option>'+
+    LGS.map(lg=>'<option value="'+lg+'"'+(leagueWall.league===lg?' selected':'')+'>'+esc(LG[lg].short)+' · All teams</option>').join('')+'</select></label>';
+}
+function leagueWallShell(){
+  return '<div class="league-wall"><div class="wall-heading"><div><small>League monitor</small><h2></h2></div><span class="wall-updated"></span></div>'+
+    '<div class="wall-filters" role="group" aria-label="Score filter">'+[['all','All games'],['live','Live only'],['close','Close games']].map(([key,label])=>'<button type="button" data-wall-filter="'+key+'">'+label+' <b></b></button>').join('')+'</div>'+
+    '<div class="wall-notice" role="status"></div><div class="wall-games"></div></div>';
+}
+function wallCard(g){
+  const live=isLive(g),close=g.away.score!=null&&isClose(g),tag=live?'Live':g.state==='post'?'Final':g.statusName&&g.statusName!=='STATUS_SCHEDULED'?'Game status':'Scheduled';
+  const detail=statusTxt(g);
+  function side(which){
+    const team=g[which],other=g[which==='away'?'home':'away'];
+    const changed=g.changed?.includes(which),lead=g.state!=='pre'&&team.score!=null&&other.score!=null&&team.score>other.score;
+    return '<div class="wall-team" style="--team:'+ (team.color||'#506486')+'">'+(team.logo?'<img src="'+esc(team.logo)+'" alt="" loading="lazy">':'<i aria-hidden="true"></i>')+'<span>'+(team.rank?'#'+team.rank+' ':'')+esc(team.name)+'</span><b class="'+(lead?'leading ':'')+(changed?'changed':'')+'"'+(changed?' title="Score changed on the latest refresh"':'')+'>'+(g.state==='pre'?'–':esc(team.score??'–'))+'</b></div>';
+  }
+  return '<article class="wall-card '+(live?'live':'')+'"><div class="wall-status"><strong>'+tag+'</strong><span>'+(detail.toLowerCase()===tag.toLowerCase()?'':esc(detail))+'</span></div>'+side('away')+side('home')+
+    ((g.cup||close||g.sit?.rz||g.tv&&g.tv!=='—')?'<div class="wall-info">'+[g.cup,close?'Close game':'',g.sit?.rz&&live?'Red zone':'',g.tv==='—'?'':g.tv].filter(Boolean).map(esc).join(' · ')+'</div>':'')+'</article>';
+}
+function paintLeagueWall(){
+  const lg=leagueWall.league;
+  if(!lg)return;
+  const feed=leagueWall.feeds.get(lg),games=feed?.games||[],live=games.filter(isLive),close=live.filter(g=>g.away.score!=null&&isClose(g));
+  const lists={all:games,live,close},shown=lists[leagueWall.filter];
+  for(const wall of document.querySelectorAll('.league-wall')){
+    wall.querySelector('h2').textContent=LG[lg].name+' scores';
+    wall.querySelector('.wall-updated').textContent=feed?.updated?'Updated '+fmtTime(new Date(feed.updated)):'';
+    wall.querySelectorAll('[data-wall-filter]').forEach(b=>{
+      b.setAttribute('aria-pressed',String(b.dataset.wallFilter===leagueWall.filter));
+      b.querySelector('b').textContent=lists[b.dataset.wallFilter].length;
+    });
+    wall.querySelector('.wall-notice').textContent=feed?.error?(feed.updated?'Scores may be stale. Refresh failed. Retrying automatically.':'Scoreboard unavailable. Retrying automatically.') :
+      !feed?.updated?'Loading scores…':!shown.length?(leagueWall.filter==='all'?'No games on this slate.':leagueWall.filter==='live'?'No games are live right now.':'No close games late in play right now.'):'';
+    wall.querySelector('.wall-games').innerHTML=shown.map(wallCard).join('');
+  }
+}
+async function loadLeagueWall(tok,lg){
+  const request=++leagueWall.request;
+  // Include overnight games still in progress on the previous basketball slate.
+  const today=etYmd(new Date()),previous=parseYmd(today);
+  previous.setDate(previous.getDate()-1);
+  const url=API+LG[lg].path+'/scoreboard?';
+  const daily=LG[lg].mode==='day';
+  const query=LG[lg].sb||'limit=300';
+  const queries=daily?[ymd(previous),today].map(day=>query+'&dates='+day):
+    lg==='cfb'?[query,'groups=81&limit=300']:[query];
+  const feed=leagueWall.feeds.get(lg)||{games:[],updated:0};
+  try{
+    const boards=await Promise.all(queries.map(q=>getJSON(url+q,10000)));
+    if(tok!==TOKEN||request!==leagueWall.request)return;
+    const prior=new Map(feed.games.map(g=>[g.id,g]));
+    const games=new Map();
+    for(const [index,board] of boards.entries()){
+      if(!Array.isArray(board.events))throw Error('Missing scoreboard');
+      for(const e of board.events){
+        const g=normEvent(e,lg);
+        if(daily&&index===0&&!isLive(g))continue;
+        const old=prior.get(g.id);
+        if(old?.state==='in'&&g.state!=='pre')g.changed=['away','home'].filter(k=>old[k].score!=null&&g[k].score!=null&&old[k].score!==g[k].score);
+        games.set(g.id,g);
+      }
+    }
+    const order={in:0,pre:1,post:2};
+    feed.games=[...games.values()].sort((a,b)=>order[a.state]-order[b.state]||(a.state==='post'?b.date-a.date:a.date-b.date)||a.id.localeCompare(b.id));
+    feed.updated=Date.now();feed.error=false;
+  }catch(e){
+    if(tok!==TOKEN||request!==leagueWall.request)return;
+    feed.error=true;
+  }
+  leagueWall.feeds.set(lg,feed);
+  paintLeagueWall();
+  const count=feed.games.filter(isLive).length;
+  $('#cnt').textContent=LG[lg].short+' monitor'+(feed.updated?' · '+count+' live':'');
+  const wait=count||feed.error?30000:60000;
+  $('#rf').textContent='· refreshes every '+wait/1000+'s';
+  clearTimeout(RT);
+  if(!document.hidden)RT=setTimeout(()=>{if(TAB==='monitor'&&tok===TOKEN&&!document.hidden)monRefresh();},wait);
+}
+document.addEventListener('change',e=>{
+  if(!e.target.matches('[data-monitor-scope]')||TAB!=='monitor')return;
+  leagueWall.league=LGS.includes(e.target.value)?e.target.value:'';
+  pref.set('monitor.league',leagueWall.league);
+  MON.flash=null;MON.flashUntil=0;
+  document.querySelectorAll('[data-monitor-scope]').forEach(el=>el.value=leagueWall.league);
+  render();
+});
 function monInterval(){ const n=+pref.get('monitor.interval','12'); return [8,12,20].includes(n)?n:12; }
 function monPins(){
   const raw=pref.get('monitor.pins','');
@@ -6282,8 +6389,11 @@ function monApplyMode(){
   MON.on=want;
   document.documentElement.classList.toggle('mon-on', want);
   let board=$('#monboard');
-  if(!board){ document.body.insertAdjacentHTML('beforeend', '<div id="monboard" hidden><div class="monbar"><span class="who" id="monwho"></span><span class="monwake" id="monwake"><i></i><span></span></span><button type="button" class="btn sm" data-mon="next">Next panel</button><button type="button" class="btn sm" data-mon="exit">Settings / Exit</button></div><div id="monstage"></div><div class="mondots" id="mondots"></div></div>'); board=$('#monboard'); }
+  if(!board){ document.body.insertAdjacentHTML('beforeend', '<div id="monboard" hidden><div class="monbar">'+monitorLeagueSelect()+'<span class="who" id="monwho"></span><span class="monwake" id="monwake"><i></i><span></span></span><button type="button" class="btn sm" data-mon="next">Next panel</button><button type="button" class="btn sm" data-mon="exit">Settings / Exit</button></div><div id="monstage"></div><div class="mondots" id="mondots"></div></div>'); board=$('#monboard'); }
   board.hidden=!want;
+  board.querySelector('[data-monitor-scope]').value=leagueWall.league;
+  board.querySelector('[data-mon="next"]').hidden=Boolean(leagueWall.league);
+  board.classList.toggle('league-mode',Boolean(leagueWall.league));
   if(want){ if(typeof closeRoster==='function') closeRoster(); if(typeof closeGame==='function') closeGame(); monPaint(); }
   const ent=$('#monenter'); if(ent) ent.textContent=want?'TV board is on':'Enter monitor';
   monWakeSync(); monArmRotation();
@@ -6321,7 +6431,7 @@ async function monReleaseWake(){
 }
 function monArmRotation(){
   clearTimeout(MON.rot);
-  if(!MON.on || document.hidden || TAB!=='monitor') return;
+  if(leagueWall.league || !MON.on || document.hidden || TAB!=='monitor') return;
   if(MON.flash && MON.flashUntil>Date.now()){
     MON.rot=setTimeout(()=>{ MON.flash=null; MON.flashUntil=0; monPaint(); monArmRotation(); }, Math.max(200, MON.flashUntil-Date.now()));
     return;
@@ -6329,6 +6439,7 @@ function monArmRotation(){
   MON.rot=setTimeout(monNext, monInterval()*1000);
 }
 function monNext(){
+  if(leagueWall.league)return;
   if(MON.flash){ MON.flash=null; MON.flashUntil=0; }
   const g=MON.games[MON.gi];
   MON.panels=g?monPanelsFor(g):['score'];
@@ -6551,6 +6662,11 @@ function monPaint(){
   const who=$('#monwho'), stage=$('#monstage'), dots=$('#mondots');
   const board=$('#monboard');
   if(!stage) return;
+  if(leagueWall.league){
+    board.classList.remove('watch');who.textContent='';dots.innerHTML='';
+    if(!stage.querySelector('.league-wall'))stage.innerHTML=leagueWallShell();
+    paintLeagueWall();return;
+  }
   if(!g){ if(who) who.textContent='Monitor'; stage.innerHTML=`<div class="empty">${esc(MON.err||'No games on the scoreboard right now.')}</div>`; if(dots) dots.innerHTML=''; if(board) board.classList.remove('watch'); return; }
   const d=MON.sums.get(g.lg+'|'+g.id)||null;
   MON.panels=monPanelsFor(g);
@@ -6582,14 +6698,13 @@ function monPaint(){
 function monSetupHTML(){
   const on=monEnabled(), iv=monInterval(), follow=pref.get('monitor.follow','rotate');
   return `<h2>Monitor</h2>
-    <p class="note">The board opens automatically on desktop and when a phone turns sideways. Use Next panel to advance, or Settings / Exit to change which games and panels appear.</p>
+    <p class="note">The board opens automatically on desktop and when a phone turns sideways. Choose a league to see all its games together, or use Game rotation to follow individual matchups.</p>
     <div class="panel">
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <button type="button" class="btn pri" id="monenter" data-mon="enter">Enter monitor</button>
         <span class="monwake" id="monwake2"><i></i><span id="monwakenote">Checking wake lock…</span></span>
       </div>
-      <p class="note">Screen Wake Lock is in Safari and iOS Safari from 16.4, and in Home Screen web apps from iOS 18.4. It needs HTTPS. If the API is missing, the board still works and the screen may dim. <a href="https://developer.mozilla.org/en-US/docs/Web/API/Screen_Wake_Lock_API" target="_blank" rel="noopener">MDN</a> · <a href="https://caniuse.com/wake-lock" target="_blank" rel="noopener">caniuse</a> · <a href="https://developer.apple.com/documentation/safari-release-notes/safari-18_4-release-notes#Home-Screen-Web-Apps" target="_blank" rel="noopener">Safari 18.4</a></p>
-      <div class="filters" style="margin-top:8px">
+      ${monitorLeagueSelect()}<div id="mon-wall-preview" hidden></div><div id="mon-rotation-settings"><div class="filters" style="margin-top:8px">
         <span class="note" style="align-self:center">Each panel</span>
         ${[8,12,20].map(n=>`<label class="btn ${n===iv?'pri':''}" style="display:inline-flex;gap:6px;align-items:center"><input type="radio" name="monint" value="${n}" ${n===iv?'checked':''}> ${n}s</label>`).join('')}
       </div>
@@ -6601,7 +6716,8 @@ function monSetupHTML(){
       <p class="note">Clips plays the newest public MP4 from that game’s ESPN summary (<span class="note">links.source</span> on espnmedia-cdn), muted and inline. Login-gated streams are ignored. The panel hides when a game has no such clip.</p>
       <div id="monpins"></div>
       <div id="monlist" class="monlist"><div class="note">Loading scoreboards…</div></div>
-      <p class="note" id="monfoot"></p>
+      <p class="note" id="monfoot"></p></div>
+      <details><summary>Screen wake lock</summary><p class="note">Screen Wake Lock is in Safari and iOS Safari from 16.4, and in Home Screen web apps from iOS 18.4. It needs HTTPS. If the API is missing, the board still works and the screen may dim. <a href="https://developer.mozilla.org/en-US/docs/Web/API/Screen_Wake_Lock_API" target="_blank" rel="noopener">MDN</a> · <a href="https://caniuse.com/wake-lock" target="_blank" rel="noopener">caniuse</a> · <a href="https://developer.apple.com/documentation/safari-release-notes/safari-18_4-release-notes#Home-Screen-Web-Apps" target="_blank" rel="noopener">Safari 18.4</a></p></details>
     </div>`;
 }
 function monPinsHTML(pins){
@@ -6650,6 +6766,7 @@ function monPaintSetup(opts){
   });
 }
 async function monLoad(tok){
+  if(leagueWall.league)return loadLeagueWall(tok,leagueWall.league);
   MON.ctx = MON.ctx || await monContext();
   if(tok!==TOKEN) return;
   const lists=await Promise.all(LGS.map(async lg=>{
@@ -6688,6 +6805,7 @@ async function monLoad(tok){
   if(tok!==TOKEN) return;
   monDetectFlash(MON.games.filter(isLive));
   if(cur){ try{ await injEnsure([cur.lg]); }catch(_){} }
+  if(tok!==TOKEN)return;
   MON.panels=cur?monPanelsFor(cur):['score'];
   if(MON.pi>=MON.panels.length) MON.pi=0;
   const nLive=live.length;
@@ -6708,6 +6826,13 @@ async function monRefresh(){
 }
 async function renderMonitor(tok, view){
   if(!$('#monsetup')) view.innerHTML='<div id="monsetup">'+monSetupHTML()+'</div>';
+  const preview=$('#mon-wall-preview'),lg=leagueWall.league;
+  $('#mon-rotation-settings').hidden=Boolean(lg);
+  preview.hidden=!lg;
+  if(lg&&!preview.firstChild)preview.innerHTML=leagueWallShell();
+  $('#monsetup [data-monitor-scope]').value=lg;
+  if(lg)paintLeagueWall();
+  monApplyMode();
   try{ await monLoad(tok); }
   catch(e){ if(tok!==TOKEN) return; MON.err=e.message; monPaintSetup(); throw e; }
   monWakeSync();
@@ -6789,6 +6914,9 @@ document.addEventListener('click', async ev=>{
     return;
   }
   if((v=a('tab'))!==null) return go(v);
+  if((v=a('wall-filter'))!==null){
+    leagueWall.filter=v;pref.set('monitor.leagueFilter',v);paintLeagueWall();return;
+  }
   if((v=a('mon'))!==null){ monAction(v); return; }
   if((v=a('monpin'))!==null){
     if(!v.includes('|')) return;
