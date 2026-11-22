@@ -481,6 +481,9 @@ html.mon-on,html.mon-on body{overflow:hidden;background:#000000;color-scheme:dar
 .wall-heading,.wall-status,.wall-filters{display:flex;align-items:center;gap:8px}.wall-heading,.wall-status{justify-content:space-between}.wall-heading small{color:#89c5ff;font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.14em}.league-wall h2{color:white;font-size:clamp(20px,3vw,35px);margin:3px 0 4px;line-height:1.1}.wall-updated{font-size:.77rem;color:#c0d2e9}
 .wall-filters{flex-wrap:wrap;margin:9px 0 14px}.wall-filters button{background:#111e32;color:#d5e5fa;border:1px solid #425872;border-radius:8px;padding:7px 10px;font-weight:700;cursor:pointer}.wall-filters button[aria-pressed=true]{background:#cae5ff;color:#12243d;border-color:#cae5ff}.wall-filters b{font-variant-numeric:tabular-nums;margin-left:3px}
 .wall-games{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,226px),1fr));gap:9px}.wall-card{overflow:hidden;min-width:0;background:#111c2b;border:1px solid #3a4b62;border-radius:10px;padding:8px 10px}.wall-card.live{border-top:2px solid #59e2ac}.wall-status{font-size:.72rem;color:#bed1e9}.wall-status strong{text-transform:uppercase;letter-spacing:.05em}.live .wall-status strong{color:#70e6b6}.wall-team{margin-top:6px;display:grid;align-items:center;grid-template-columns:26px 1fr auto;gap:7px;font-weight:700;border-left:3px solid var(--team);padding-left:5px}.wall-team img{width:26px;height:26px;object-fit:contain}.wall-team b{font-size:1.22rem;color:#c0cde0;font-variant-numeric:tabular-nums}.wall-team b.leading{color:white}.wall-team b.changed{background:#ffe085;color:#251b00;border-radius:4px;padding:0 4px}.wall-info,.wall-notice{font-size:.78rem;color:#c1d1e6}.wall-info{margin-top:8px;border-top:1px solid #334254;padding-top:5px}.wall-notice:not(:empty){padding:8px 0 14px}
+.wall-stats-toggle{margin-top:8px;padding:5px 9px;border:1px solid #425872;border-radius:6px;background:#192b42;color:#eaf2ff;cursor:pointer}
+.wall-stats .gdh{display:none}.wall-stats{margin-top:6px;font-size:.78rem;color:#c1d1e6}
+.league-wall .wall-stats table.tstats,#monboard .wall-stats table.tstats{display:table;font-size:.8rem;color:#edf4ff}.league-wall .wall-stats table.tstats :is(th,td),#monboard .wall-stats table.tstats :is(th,td){padding:4px 3px;color:inherit;overflow-wrap:anywhere;border-color:#34465c}
 #monboard.league-mode .who,#monboard.league-mode .mondots{display:none}#monboard.league-mode .monbar>[data-mon=exit]{margin-left:auto}
 @media(max-width:740px){#monboard{padding-left:max(9px,env(safe-area-inset-left));padding-right:max(9px,env(safe-area-inset-right))}.monbar{flex-wrap:wrap;gap:5px}.monbar .monwake span{display:none}.monbar .who:empty{display:none}.wall-filters button{min-height:40px}.wall-heading{align-items:start}.wall-updated{max-width:100px;text-align:right}}
 @media(min-width:355px) and (max-width:600px){
@@ -6223,7 +6226,7 @@ const MON_PANELS = [
 const MON = { on:false, force:false, hold:false, pool:[], games:[], gi:0, pi:0, panels:['score'], sums:new Map(), prev:new Map(), flash:null, flashUntil:0, rot:null, fallback:false, err:'', ctx:null, wake:null, wakeNote:'', playedClip:'' };
 const leagueWall={
   league:LGS.includes(pref.get('monitor.league',''))?pref.get('monitor.league',''):'',
-  filter:pref.get('monitor.leagueFilter','all'), feeds:new Map(), request:0
+  filter:pref.get('monitor.leagueFilter','all'), feeds:new Map(), request:0, stats:null
 };
 if(!['all','live','close'].includes(leagueWall.filter)) leagueWall.filter='all';
 function monitorLeagueSelect(){
@@ -6235,6 +6238,28 @@ function leagueWallShell(){
     '<div class="wall-filters" role="group" aria-label="Score filter">'+[['all','All games'],['live','Live only'],['close','Close games']].map(([key,label])=>'<button type="button" data-wall-filter="'+key+'">'+label+' <b></b></button>').join('')+'</div>'+
     '<div class="wall-notice" role="status"></div><div class="wall-games"></div></div>';
 }
+function wallStats(g){
+  const stats=leagueWall.stats;
+  const open=stats?.id===g.id && stats.lg===g.lg;
+  const button='<button type="button" class="wall-stats-toggle" data-wall-stats="'+esc(g.id)+'" aria-expanded="'+open+'" aria-label="Team stats for '+esc(g.away.name+' at '+g.home.name)+'">Team stats</button>';
+  if(!open)return button;
+  const message=g.state==='pre'?'Game stats will appear after play begins.':
+    stats.error?'Couldn’t refresh team stats.':!stats.loaded?'Loading team stats…':
+    !stats.html?'No team stats reported for this game.':'';
+  return button+'<div class="wall-stats"><span role="status">'+message+'</span>'+stats.html+'</div>';
+}
+async function refreshWallStats(g){
+  const stats=leagueWall.stats;
+  if(!stats || stats.lg!==g.lg || stats.id!==g.id || stats.pending || g.state==='pre')return;
+  stats.pending=true;
+  try{
+    stats.html=gdTeamStats(await summary(g.lg,g.id),g);
+    stats.loaded=true;
+    stats.error=false;
+  }catch(_){ stats.error=true; }
+  finally{ stats.pending=false; }
+  if(leagueWall.stats===stats && TAB==='monitor')paintLeagueWall();
+}
 function wallCard(g){
   const live=isLive(g),close=g.away.score!=null&&isClose(g),tag=live?'Live':g.state==='post'?'Final':g.statusName&&g.statusName!=='STATUS_SCHEDULED'?'Game status':'Scheduled';
   const detail=statusTxt(g);
@@ -6244,7 +6269,7 @@ function wallCard(g){
     return '<div class="wall-team" style="--team:'+ (team.color||'#506486')+'">'+(team.logo?'<img src="'+esc(team.logo)+'" alt="" loading="lazy">':'<i aria-hidden="true"></i>')+'<span>'+(team.rank?'#'+team.rank+' ':'')+esc(team.name)+'</span><b class="'+(lead?'leading ':'')+(changed?'changed':'')+'"'+(changed?' title="Score changed on the latest refresh"':'')+'>'+(g.state==='pre'?'–':esc(team.score??'–'))+'</b></div>';
   }
   return '<article class="wall-card '+(live?'live':'')+'"><div class="wall-status"><strong>'+tag+'</strong><span>'+(detail.toLowerCase()===tag.toLowerCase()?'':esc(detail))+'</span></div>'+side('away')+side('home')+
-    ((g.cup||close||g.sit?.rz||g.tv&&g.tv!=='—')?'<div class="wall-info">'+[g.cup,close?'Close game':'',g.sit?.rz&&live?'Red zone':'',g.tv==='—'?'':g.tv].filter(Boolean).map(esc).join(' · ')+'</div>':'')+'</article>';
+    ((g.cup||close||g.sit?.rz||g.tv&&g.tv!=='—')?'<div class="wall-info">'+[g.cup,close?'Close game':'',g.sit?.rz&&live?'Red zone':'',g.tv==='—'?'':g.tv].filter(Boolean).map(esc).join(' · ')+'</div>':'')+wallStats(g)+'</article>';
 }
 function paintLeagueWall(){
   const lg=leagueWall.league;
@@ -6260,7 +6285,13 @@ function paintLeagueWall(){
     });
     wall.querySelector('.wall-notice').textContent=feed?.error?(feed.updated?'Scores may be stale. Refresh failed. Retrying automatically.':'Scoreboard unavailable. Retrying automatically.') :
       !feed?.updated?'Loading scores…':!shown.length?(leagueWall.filter==='all'?'No games on this slate.':leagueWall.filter==='live'?'No games are live right now.':'No close games late in play right now.'):'';
-    wall.querySelector('.wall-games').innerHTML=shown.map(wallCard).join('');
+    const grid=wall.querySelector('.wall-games');
+    const focus=grid.contains(document.activeElement)?document.activeElement.dataset.wallStats:null;
+    const scroll=grid.querySelector('.wall-stats .tscroll')?.scrollTop;
+    grid.innerHTML=shown.map(wallCard).join('');
+    if(focus)Array.from(grid.querySelectorAll('[data-wall-stats]')).find(b=>b.dataset.wallStats===focus)?.focus({preventScroll:true});
+    const table=grid.querySelector('.wall-stats .tscroll');
+    if(table && scroll)table.scrollTop=scroll;
   }
 }
 async function loadLeagueWall(tok,lg){
@@ -6298,6 +6329,8 @@ async function loadLeagueWall(tok,lg){
   }
   leagueWall.feeds.set(lg,feed);
   paintLeagueWall();
+  const selected=feed.games.find(g=>g.id===leagueWall.stats?.id);
+  if(selected)refreshWallStats(selected);
   const count=feed.games.filter(isLive).length;
   $('#cnt').textContent=LG[lg].short+' monitor'+(feed.updated?' · '+count+' live':'');
   const wait=count||feed.error?30000:60000;
@@ -6307,6 +6340,7 @@ async function loadLeagueWall(tok,lg){
 }
 document.addEventListener('change',e=>{
   if(!e.target.matches('[data-monitor-scope]')||TAB!=='monitor')return;
+  leagueWall.stats=null;
   leagueWall.league=LGS.includes(e.target.value)?e.target.value:'';
   pref.set('monitor.league',leagueWall.league);
   MON.flash=null;MON.flashUntil=0;
@@ -6914,6 +6948,14 @@ document.addEventListener('click', async ev=>{
     return;
   }
   if((v=a('tab'))!==null) return go(v);
+  if((v=a('wall-stats'))!==null){
+    const g=leagueWall.feeds.get(leagueWall.league)?.games.find(game=>game.id===v);
+    if(!g)return;
+    leagueWall.stats=leagueWall.stats?.id===v?null:{lg:g.lg,id:v,html:'',loaded:false,error:false,pending:false};
+    paintLeagueWall();
+    if(leagueWall.stats)refreshWallStats(g);
+    return;
+  }
   if((v=a('wall-filter'))!==null){
     leagueWall.filter=v;pref.set('monitor.leagueFilter',v);paintLeagueWall();return;
   }
