@@ -820,8 +820,68 @@ hub-live-odds .lo-pregame{border-top:1px solid var(--line);padding-top:7px;margi
 .phone-scores:not(.score-wall) .g[data-ev]>.foot .score-tv{display:inline}
 .phone-scores:not(.score-wall) .g[data-ev]>.foot .st.l{color:var(--ok)}
 .phone-scores:not(.score-wall) .g[data-ev]>hub-live-odds{margin:10px 0;padding:8px 10px;border-radius:8px}
-.tourney-switch{margin:12px 0}.tourney-rounds{display:grid;grid-template-columns:repeat(var(--rounds),minmax(0,1fr));gap:16px;margin:12px 0 22px}.tourney-rounds section{display:flex;flex-direction:column;min-width:0}.tourney-rounds h4{margin:0 0 8px;color:var(--mut)}.tourney-games{flex:1;display:flex;flex-direction:column;justify-content:space-around;gap:8px}.tourney-game{position:relative;border:1px solid var(--line);border-left:3px solid var(--accent-fill);border-radius:8px;background:var(--card);padding:8px}.tourney-game small{color:var(--mut)}.tourney-game>div{padding:4px 0;font-weight:650}.tourney-game>div+div{border-top:1px solid var(--line)}.tourney-rounds section:not(:last-child) .tourney-game:after{content:'';position:absolute;left:100%;top:50%;width:9px;border-top:1px solid var(--line)}
-@media(max-width:750px){.tourney-rounds{display:flex;overflow-x:auto;scroll-snap-type:x proximity;padding-bottom:9px}.tourney-rounds section{flex:0 0 min(74vw,250px);scroll-snap-align:start}}
+.tourney-switch{margin:12px 0}
+.tourney-board{--bracket:#80d6be;--arena:#115745;--arena-dark:#092b2a;min-width:0}
+.tourney-board.nba{--bracket:#f9bd78;--arena:#744028;--arena-dark:#291824}
+.tourney-board.cfb{--bracket:#e5c078;--arena:#65502c;--arena-dark:#24202b}
+.tourney-hero{position:relative;isolation:isolate;overflow:hidden;display:grid;align-content:center;min-height:156px;box-sizing:border-box;padding:24px clamp(18px,3vw,38px);border-radius:16px;border:1px solid color-mix(in srgb,var(--bracket) 55%,#222);background:linear-gradient(105deg,var(--arena-dark),var(--arena) 84%);color:#fff}
+.tourney-hero svg{position:absolute;z-index:-1;right:-1%;top:50%;transform:translateY(-50%) rotate(-10deg);width:38%;height:155%;color:var(--bracket);opacity:.64}
+.tourney-hero small,.tourney-game small,.tourney-rounds h4,.tourney-side h3{font-family:system-ui,sans-serif}
+.tourney-hero small{color:var(--bracket);text-transform:uppercase;font-size:.71rem;font-weight:800;letter-spacing:.15em}
+.tourney-hero h2{font-size:clamp(1.75rem,3.3vw,2.8rem);line-height:1.05;letter-spacing:-.035em;color:#fff;margin:7px 0 9px}
+.tourney-hero p{margin:0;max-width:min(64%,64ch);line-height:1.45;color:#f2f3f0;font-size:.91rem}
+.tourney-side{--bracket:#ff9c92}.tourney-side.nfc{--bracket:#91baff}
+.tourney-side h3{display:flex;align-items:center;gap:10px;margin:20px 0 5px;font-size:1.1rem;color:var(--txt);letter-spacing:.03em}
+.tourney-side h3:before{content:'';width:8px;height:20px;transform:skew(-14deg);border-radius:2px;background:var(--bracket)}
+.tourney-side h3:after{content:'';height:1px;flex:1;background:linear-gradient(90deg,var(--bracket),transparent)}
+.tourney-bracket{margin:12px 0 22px;border:1px solid var(--line);border-radius:14px;padding:clamp(12px,2vw,22px);background:linear-gradient(140deg,color-mix(in srgb,var(--bracket) 9%,var(--navy)),var(--navy) 54%)}
+.tourney-rounds{--lane:clamp(14px,2vw,28px);display:grid;grid-template-columns:repeat(var(--rounds),minmax(0,1fr));gap:var(--lane)}
+.tourney-rounds section{display:flex;flex-direction:column;min-width:0}
+.tourney-rounds h4{border-top:3px solid color-mix(in srgb,var(--bracket) 65%,var(--line));padding-top:8px;margin:0 0 12px;color:var(--txt);font-size:.94rem}
+.tourney-rounds h4 span{display:block;margin-top:3px;font-size:.74rem;font-weight:500;color:var(--mut)}
+.tourney-games{flex:1;display:flex;flex-direction:column;justify-content:space-around;gap:12px}
+.tourney-game{position:relative;border:1px solid var(--line);border-radius:10px;background:var(--card);box-shadow:0 3px 9px #0002;min-width:0}
+.tourney-game small{display:block;padding:5px 10px;border-radius:9px 9px 0 0;background:color-mix(in srgb,var(--bracket) 13%,var(--card));font-size:.69rem;font-weight:750;letter-spacing:.045em;color:var(--txt)}
+.tourney-game>div{display:flex;align-items:center;gap:8px;min-height:34px;margin:0 10px;padding:3px 0;font-size:.84rem;font-weight:600;overflow-wrap:anywhere}
+.tourney-game>div+div{border-top:1px solid var(--line)}
+.tourney-game>div>b:first-child,.tourney-game .campus-slot>b{display:inline-grid;place-items:center;min-width:26px;padding:3px;border-radius:5px;color:var(--txt);background:var(--chip);font-size:.74rem;font-variant-numeric:tabular-nums}
+.tourney-game .campus-slot{display:flex;align-items:center;gap:8px}
+.tourney-game button{font-size:inherit}.tourney-game .tourney-record{margin-left:auto;color:var(--mut);font-size:.76rem;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tourney-game .tourney-pending{color:var(--mut);font-weight:550}
+.tourney-pending:before{content:'';flex:none;width:8px;height:8px;transform:rotate(45deg);border:1px dashed currentColor;margin:0 5px}
+.tourney-rounds section:last-of-type .tourney-game{border-color:color-mix(in srgb,var(--bracket) 60%,var(--line))}
+.tourney-rounds{position:relative}
+hub-round-links{position:absolute;inset:0;pointer-events:none;color:color-mix(in srgb,var(--bracket) 55%,var(--line))}
+@media(max-width:750px){hub-round-links{display:none}}
+.tourney-round-picker{display:none}
+@media(max-width:750px){
+ .tourney-hero{min-height:150px;padding:17px}.tourney-hero svg{right:-14%;width:55%;opacity:.32}.tourney-hero p{max-width:85%;font-size:.85rem}
+ .tourney-round-picker{display:flex;align-items:center;gap:10px;color:var(--txt);font-size:.8rem;font-weight:700;margin:0 0 12px}
+ .tourney-round-picker select{flex:1;min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:7px;color:var(--txt);background:var(--card);font:inherit}
+ .tourney-rounds{display:block}.tourney-rounds section:not(.selected){display:none}.tourney-rounds section h4{margin-bottom:8px}
+ .tourney-round-picker + .tourney-rounds h4{font-size:0;border:0;margin:0;padding:0}.tourney-round-picker + .tourney-rounds h4 span{margin:0 0 8px}
+}
+:where(.btn,.filters button,.tabs button):focus-visible{outline:2px solid var(--txt);outline-offset:2px}
+@media(hover:hover){.btn:enabled:hover{border-color:var(--title);box-shadow:0 2px 6px #0003}}
+@media(prefers-reduced-motion:no-preference){
+ .btn,.filters button{transition:background-color .14s,border-color .14s,box-shadow .14s}
+ .btn:enabled:active,.filters button:enabled:active{transform:translateY(1px)}
+}
+.league-view-nav,.tourney-switch{gap:5px;max-width:100%}
+.league-view-nav button,.tourney-switch button{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:38px;padding:7px 12px;border-radius:9px;line-height:1.15}
+.league-view-nav svg,.tourney-switch svg{width:17px;height:17px;flex:none;pointer-events:none}
+.league-view-nav button:not(.on):hover,.tourney-switch button:not(.on):hover{border-color:var(--title);background:var(--hover)}
+.league-view-nav button.on,.tourney-switch button.on{box-shadow:inset 0 -2px 0 currentColor}
+.league-view-nav button:focus-visible,.tourney-switch button:focus-visible{outline:2px solid var(--txt);outline-offset:2px}
+.tourney-switch{display:flex;width:fit-content;box-sizing:border-box;padding:4px;border:1px solid var(--line);border-radius:13px;background:var(--chip)}
+.tourney-switch button:not(.on){background:transparent;border-color:transparent}
+[data-pick-compare].btn{min-height:32px;padding:5px 10px;border-radius:7px}
+@media(max-width:600px){
+ .league-view-nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+ .league-view-nav button{justify-content:flex-start;text-align:left}
+ .league-view-nav button,.tourney-switch button,[data-pick-compare].btn{min-height:44px}
+}
+
 </style>
 </head>
 <body>
@@ -3499,6 +3559,17 @@ syncCompactScores();
 narrowScores.addEventListener('change',syncCompactScores);
 phoneScores.addEventListener('change',syncCompactScores);
 const leagueViews = {};
+function leagueViewIcon(view){
+  const paths={
+    scores:'M2 12h4l3-7 5 14 3-7h5',league:'M4 20v-6h4v6zm6 0V5h4v15zm6 0V9h4v11z',
+    divisions:'M12 3v6M5 15V9h14v6M2 16h6v5H2zm14 0h6v5h-6z',conferences:'M2 12h20M7 7l-5 5 5 5m10-10 5 5-5 5',
+    cup:'M7 3h10v5a5 5 0 0 1-10 0zM7 5H3v2a4 4 0 0 0 5 4m9-6h4v2a4 4 0 0 1-5 4m-4 2v6m-5 2h10',
+    playoffs:'M3 3v5h5V3m-5 13v5h5v-5m0-10h5v12H8m5-6h8',
+    compare:'M4 8h15l-4-4m5 12H5l4 4',poll:'M3 6h3m4 0h11M3 12h3m4 0h11M3 18h3m4 0h11',
+    bubble:'M4 17a9 9 0 1 1 16 0M12 14l5-6',overview:'M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3zm11 0h7v7h-7z'
+  };
+  return '<svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="'+paths[view]+'"/></svg>';
+}
 function leagueViewButtons(lg){
   const selected = leagueViews[lg] || 'scores';
   const options = LG[lg].college ? [['scores','Scores'],['poll','AP Top 25']] :
@@ -3506,8 +3577,8 @@ function leagueViewButtons(lg){
   if(lg==='cfb' || lg==='nfl') options.push(['playoffs','Playoff picture']);
   options.push(['compare','Compare teams']);
   if(lg==='cbb') options.push(['bubble','Bubble Watch']);
-  return '<div class="filters" aria-label="League view">'+options.map(([id,label])=>
-    `<button type="button" data-league-view="${id}" aria-pressed="${id===selected}" class="${id===selected?'on':''}">${label}</button>`).join('')+'</div>'+(['league','divisions','poll','playoffs','conferences','cup'].includes(selected)?'<button class="btn sm" data-pick-compare="1">Select two teams to compare</button><span role="status" id="compare-prompt"></span>':'');
+  return '<div class="filters league-view-nav" role="group" aria-label="League view">'+options.map(([id,label])=>
+    `<button type="button" data-league-view="${id}" aria-pressed="${id===selected}" class="${id===selected?'on':''}">${leagueViewIcon(id)}${label}</button>`).join('')+'</div>'+(['league','divisions','poll','playoffs','conferences','cup'].includes(selected)?'<button class="btn sm" data-pick-compare="1">Select two teams to compare</button><span role="status" id="compare-prompt"></span>':'');
 }
 function leagueTable(headers, rows){
   return `<div class="league-scroll" tabindex="0"><table class="league-table"><thead><tr>${headers.map(h=>'<th scope="col">'+esc(h)+'</th>').join('')}</tr></thead><tbody>${rows.map(row=>'<tr>'+row.map(cell=>'<td>'+cell+'</td>').join('')+'</tr>').join('')}</tbody></table></div>`;
@@ -3700,17 +3771,67 @@ function playoffMatchups(field, pairs){
 }
 const tourneyViews={};
 function tourneyControls(lg){
-  return '<div class="filters tourney-switch" aria-label="Tournament display">'+['Overview','Tournament bracket'].map((label,i)=>{
+  return '<div class="filters tourney-switch" role="group" aria-label="Tournament display">'+['Overview','Tournament bracket'].map((label,i)=>{
     const on=Boolean(tourneyViews[lg])===Boolean(i);
-    return '<button data-tourney="'+i+'" aria-pressed="'+on+'" class="'+(on?'on':'')+'">'+label+'</button>';
+    return '<button data-tourney="'+i+'" aria-pressed="'+on+'" class="'+(on?'on':'')+'">'+leagueViewIcon(i?'playoffs':'overview')+label+'</button>';
   }).join('')+'</div>';
 }
+function tourneyHero(lg,edition,title,summary){
+  const floor=lg==='nba'
+    ? '<rect x="16" y="14" width="260" height="144" rx="3"/><path d="M146 14v144M16 61h40v50H16m260-50h-40v50h40M16 31h15a56 56 0 0 1 0 110H16m260-110h-15a56 56 0 0 0 0 110h15"/><circle cx="146" cy="86" r="20"/><circle cx="56" cy="86" r="18"/><circle cx="236" cy="86" r="18"/>'
+    : '<rect x="16" y="14" width="260" height="144" rx="3"/><path opacity=".65" d="M40 14v144m27-144v144m26-144v144m26-144v144m27-144v144m27-144v144m26-144v144m26-144v144m27-144v144"/><path stroke-dasharray="2 6" d="M40 51h212M40 121h212"/><path stroke-width="3" d="M60 120h44l40-58h67m-11-10 12 10-12 10"/><circle cx="51" cy="120" r="6"/>';
+  return '<header class="tourney-hero"><svg aria-hidden="true" viewBox="0 0 292 172" fill="none" stroke="currentColor" stroke-width="2">'+floor+'</svg><small>'+esc(edition)+'</small><h2>'+esc(title)+'</h2><p>'+esc(summary)+'</p></header>';
+}
 function tourneyGame(label,a,b){
-  return '<article class="tourney-game"><small>'+esc(label)+'</small><div>'+a+'</div><div>'+b+'</div></article>';
+  function side(html){
+    const pending=!html.includes('<');
+    return '<div'+(pending?' class="tourney-pending"':'')+'>'+html+'</div>';
+  }
+  return '<article class="tourney-game"><small>'+esc(label)+'</small>'+side(a)+side(b)+'</article>';
 }
-function tourneyRounds(rounds){
-  return '<div class="tourney-rounds" style="--rounds:'+rounds.length+'">'+rounds.map(([label,games])=>'<section><h4>'+esc(label)+'</h4><div class="tourney-games">'+games.join('')+'</div></section>').join('')+'</div>';
+const tourneySelectedRound=new Map();
+function tourneyRounds(rounds,board,connections){
+  const active=Math.min(tourneySelectedRound.get(board)||0,rounds.length-1);
+  const options=rounds.map(([label],i)=>'<option value="'+i+'"'+(i===active?' selected':'')+'>'+esc(label.split(' · ')[0])+'</option>').join('');
+  const picker=rounds.length>1?'<label class="tourney-round-picker">Round<select aria-label="'+esc(board)+' round">'+options+'</select></label>':'';
+  const sections=rounds.map(([label,games],i)=>{
+    const [name,date]=label.split(' · ');
+    const caption=(date?date+' · ':'')+games.length+(games.length===1?' game':' games');
+    return '<section class="'+(i===active?'selected':'')+'"><h4>'+esc(name)+'<span>'+esc(caption)+'</span></h4><div class="tourney-games">'+games.join('')+'</div></section>';
+  });
+  return '<div class="tourney-bracket" data-round-board="'+esc(board)+'"'+(connections?' data-round-links="'+connections+'"':'')+'>'+picker+'<div class="tourney-rounds" style="--rounds:'+rounds.length+'">'+sections.join('')+(connections?'<hub-round-links aria-hidden="true"></hub-round-links>':'')+'</div></div>';
 }
+document.addEventListener('change',event=>{
+  if(!event.target.matches('.tourney-round-picker select'))return;
+  const bracket=event.target.closest('.tourney-bracket');
+  tourneySelectedRound.set(bracket.dataset.roundBoard,event.target.selectedIndex);
+  const sections=bracket.querySelectorAll('.tourney-rounds > section');
+  sections.forEach((section,i)=>section.classList.toggle('selected',i===event.target.selectedIndex));
+});
+customElements.define('hub-round-links',class extends HTMLElement{
+  connectedCallback(){
+    const grid=this.parentElement;
+    const draw=()=>{
+      if(!this.offsetWidth)return;
+      const area=grid.getBoundingClientRect();
+      const rounds=[...grid.querySelectorAll('section')].map(round=>[...round.querySelectorAll('.tourney-game')]);
+      const paths=[];
+      for(let i=1;i<rounds.length;i++){
+        const previous=rounds[i-1],current=rounds[i];
+        previous.forEach((game,j)=>{
+          const from=game.getBoundingClientRect(),to=current[Math.floor(j*current.length/previous.length)].getBoundingClientRect();
+          const x=from.right-area.left,y=from.top-area.top+from.height/2;
+          paths.push('M'+x+' '+y+' H'+((x+to.left-area.left)/2)+' V'+(to.top-area.top+to.height/2)+' H'+(to.left-area.left));
+        });
+      }
+      this.innerHTML='<svg width="100%" height="100%"><path d="'+paths.join(' ')+'" fill="none" stroke="currentColor"/></svg>';
+    };
+    this.observer=new ResizeObserver(draw);
+    grid.querySelectorAll('.tourney-game').forEach(game=>this.observer.observe(game));
+    this.observer.observe(grid);
+  }
+  disconnectedCallback(){this.observer.disconnect();}
+});
 function nbaCupTree(data,games,partial){
   const draw=CUP_DRAWS[data.season?.year];
   if(!draw)return '<p class="empty">Knockout schedule unavailable for this season.</p>';
@@ -3722,14 +3843,19 @@ function nbaCupTree(data,games,partial){
       const pending=i===0?(j%2?['#2 group winner','#3 group winner']:['#1 group winner','Wild card']):i===1?['Quarterfinal winner','Quarterfinal winner']:['East champion','West champion'];
       const sides=c?.competitors||[];
       const known=sides.some(t=>t.team?.abbreviation&&t.team.abbreviation!=='TBD');
-      const teams=known?sides.map(t=>esc(t.team?.shortDisplayName||t.team?.displayName||'TBD')+(state?.state!=='pre'&&t.score!=null?' <b>'+esc(t.score)+'</b>':'')):pending;
+      const teams=known?sides.map(t=>{
+        if(!t.team?.id||t.team.abbreviation==='TBD')return 'Qualifier TBD';
+        const score=t.score?.displayValue??t.score;
+        return '<button type="button" class="gridiron-team" data-teampage="nba|'+esc(t.team.id)+'">'+campusLogo(t.team)+'<span>'+esc(t.team.shortDisplayName||t.team.displayName)+'</span></button>'+
+          (state?.state!=='pre'&&score!=null?'<b class="tourney-record">'+esc(score)+'</b>':'');
+      }):pending;
       const placeholders=matches.some(e=>e.competitions?.[0]?.competitors?.some(t=>t.team?.abbreviation&&t.team.abbreviation!=='TBD'));
       const label=known?(state?.state==='pre'?fmtStamp(matches[j].date):state?.shortDetail||round):placeholders?'Matchup pending':i===0?conf:i===1?(j?'West':'East'):'NBA Cup final';
       return tourneyGame(label,(!known&&placeholders?'Qualifier TBD':teams[0])||'TBD',(!known&&placeholders?'Qualifier TBD':teams[1])||'TBD');
     });
     return [round+' · '+date,cards];
   });
-  return '<h2>NBA Cup bracket</h2><p class="note">Three group winners and one wild card per conference advance. Confirmed matchups and scores appear as ESPN publishes them.</p>'+tourneyRounds(rounds)+(partial?'<p class="note">Some game updates are unavailable.</p>':'');
+  return '<div class="tourney-board nba">'+tourneyHero('nba',data.season?.displayName||'NBA Cup','NBA Cup bracket','Three group winners and one wild card from each conference advance to the knockout rounds.')+tourneyRounds(rounds,'NBA Cup',games.some(e=>e.competitions?.[0]?.competitors?.some(t=>t.team?.abbreviation&&t.team.abbreviation!=='TBD'))?'':'cup')+(partial?'<p class="note">Some game updates are unavailable.</p>':'')+'</div>';
 }
 function nflPlayoffPicture(data){
   const groups=data.children||[];
@@ -3743,12 +3869,12 @@ function nflPlayoffPicture(data){
     if(!rows.length) return heading+'<p class="empty">Conference seeds are unavailable.</p>';
     const seeds=new Map(rows.map(r=>[r.seed,r]));
     if(tourneyViews.nfl){
-      const team=n=>'<b>#'+n+'</b> '+(seeds.has(n)?nflTeam(seeds.get(n).team):'TBD');
-      return heading+tourneyRounds([
+      const team=n=>'<b>#'+n+'</b> '+(seeds.has(n)?nflTeam(seeds.get(n).team)+'<span class="tourney-record">'+esc(seeds.get(n).record)+'</span>':'TBD');
+      return '<div class="tourney-side '+name.toLowerCase()+'">'+heading+tourneyRounds([
         ['Wild Card',[[7,2],[6,3],[5,4]].map(([away,home])=>tourneyGame('At #'+home,team(away),team(home)))],
         ['Divisional',[tourneyGame('Top seed · first-round bye',team(1),'Lowest remaining seed'),tourneyGame('Higher seed hosts','Other Wild Card winner','Other Wild Card winner')]],
         ['Conference championship',[tourneyGame(name+' title','Divisional winner','Divisional winner')]]
-      ]);
+      ],name)+'</div>';
     }
     const pairs=[[7,2],[6,3],[5,4]].map(pair=>{
       const sides=pair.map((seed,i)=>{
@@ -3769,7 +3895,7 @@ function nflPlayoffPicture(data){
       (hunt.length?'<h4 class="gridiron-cut">In the hunt</h4>'+table(hunt):'')+
       (out.length?'<details><summary>Eliminated ('+out.length+')</summary>'+table(out)+'</details>':'')+'</section>';
   });
-  if(tourneyViews.nfl)return '<div class="gridiron">'+nflHeading(data.season?.displayName||'','NFL playoff bracket','Projected from current seeds. Teams are reseeded after Wild Card weekend.')+body.join('')+tourneyRounds([['Super Bowl',[tourneyGame('NFL championship','AFC champion','NFC champion')]]])+'</div>';
+  if(tourneyViews.nfl)return '<div class="tourney-board nfl">'+tourneyHero('nfl',data.season?.displayName||'NFL postseason','NFL playoff bracket','Projected from current seeds. After Wild Card weekend, the No. 1 seed hosts the lowest remaining seed.')+body.join('')+tourneyRounds([['Super Bowl',[tourneyGame('NFL championship','AFC champion','NFC champion')]]],'Super Bowl')+'</div>';
   return '<div class="gridiron">'+nflHeading(data.season?.displayName||'','Playoff picture','If the season ended today · Four division leaders and three wild cards per conference.')+'<div class="gridiron-pair">'+body.join('')+'</div></div>';
 }
 function cfpPlayoffPicture(data){
@@ -3805,12 +3931,12 @@ function cfpPlayoffPicture(data){
   }
   if(tourneyViews.cfb){
     const paths=[[8,9,1],[5,12,4],[7,10,2],[6,11,3]];
-    return '<div class="campus cfp">'+title+'<p class="note">Projected 12-team bracket. The top four seeds enter in the quarterfinals.</p>'+tourneyRounds([
+    return '<div class="tourney-board cfb">'+tourneyHero('cfb',year+' · Committee rankings','College Football Playoff','Projected 12-team field. The top four seeds earn byes. Seeds 5–8 host the first round.')+tourneyRounds([
       ['First round',paths.map(([host,away])=>tourneyGame('At #'+host,slot(away),slot(host)))],
       ['Quarterfinals',paths.map(([host,away,bye],i)=>tourneyGame('QF '+(i+1),slot(bye),'Winner of #'+host+' / #'+away))],
       ['Semifinals',[tourneyGame('SF 1','QF 1 winner','QF 2 winner'),tourneyGame('SF 2','QF 3 winner','QF 4 winner')]],
       ['National championship',[tourneyGame('Title game','SF 1 winner','SF 2 winner')]]
-    ])+'</div>';
+    ],'College Football Playoff','cfp')+'</div>';
   }
   const byes=[1,2,3,4].map(n=>'<div class="campus-bye">'+slot(n)+'</div>').join('');
   const matches=[[12,5],[11,6],[10,7],[9,8]].map(([away,home])=>'<article class="campus-game"><div>'+slot(away)+'<small>Away</small></div><div>'+slot(home)+'<small>Host</small></div></article>').join('');
