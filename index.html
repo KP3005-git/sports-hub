@@ -992,6 +992,31 @@ html:not([data-score-size="auto"]) .wall-card :is(.wall-team,.wall-status,.wall-
 html:not([data-score-size="auto"]) .g[data-ev]>hub-live-odds :is(th,td){white-space:normal}
 html:not([data-score-size="auto"]) .monscore{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);overflow-wrap:anywhere}
 @media(max-width:600px){.score-size-control select{min-height:40px}#monboard .score-size-control{gap:4px}}
+/* Favorite player cards contain both a player stat line and a full game card. */
+:is(#plgrid,#mplgrid){grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr))}
+.g[data-player]{min-width:0;container:favorite-player / inline-size}
+.player-layout{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start}
+.player-bio,.player-matchup{min-width:0}
+.player-line-label{margin:12px 0 6px}
+.player-bio .statline{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}
+.player-bio .statline>div{padding:5px 2px;border-radius:6px;background:var(--chip);overflow-wrap:anywhere}
+.player-bio .statline span{letter-spacing:.06em}
+.player-matchup>.note{margin-bottom:5px}
+.player-matchup .g[data-ev]>.row .nm{white-space:normal;overflow-wrap:anywhere}
+.player-matchup .g[data-ev]>.row .rec{display:block;margin-left:0}
+.player-matchup .g[data-ev]>.foot{flex-wrap:wrap;gap:5px}
+.player-matchup hub-live-odds{min-width:0;container:player-odds / inline-size}
+.player-matchup hub-live-odds table{width:100%;min-width:0;table-layout:fixed}
+.player-matchup hub-live-odds table :is(th,td){white-space:normal;overflow-wrap:anywhere}
+.player-matchup hub-live-odds th:first-child{width:17%}
+@container player-odds (max-width:300px){
+ .player-matchup hub-live-odds :is(th,td){letter-spacing:0;padding:4px 2px}
+ .player-matchup hub-live-odds td small{display:block}
+}
+@container favorite-player (min-width:700px){
+ .player-layout{grid-template-columns:minmax(225px,.8fr) minmax(0,1.35fr);gap:20px}
+ .player-bio{padding:6px}
+}
 </style>
 </head>
 <body>
@@ -1952,10 +1977,10 @@ async function playerCardHTML(p){
   const lineLbl = lineG ? (lineG.state==='in'?'<span class="badge b-g">LIVE STAT LINE</span>':`<span class="note">${lineG===cur?'Tonight (final)':'Last game'+(lineG.seasonType===1?' (preseason)':'')}: ${esc(lineG.away.abbr)} ${lineG.away.score??''} @ ${esc(lineG.home.abbr)} ${lineG.home.score??''} · ${esc(fmtDay(lineG.date))}</span>`) : '';
   const showG = cur || tg.next;
   const gcard = showG ? gameCard(showG,{favs:new Set([String(info.team.id)]), extraTags:`<span class="badge b-gold">👑 ${esc(info.name)}</span>`}) : '<div class="note">No upcoming games on the schedule (off-season).</div>';
-  return `<div class="g fav" data-player="${esc(p.id)}"><div class="pcard">${head}<div style="flex:1;min-width:0"><div class="pn">⭐ ${esc(info.name)} <span class="pt">${esc(info.pos)} ${info.jersey?esc(String(info.jersey).startsWith('#')?info.jersey:'#'+info.jersey):''}</span></div>
+  return `<div class="g fav" data-player="${esc(p.id)}"><div class="player-layout"><section class="player-bio"><div class="pcard">${head}<div style="flex:1;min-width:0"><div class="pn">⭐ ${esc(info.name)} <span class="pt">${esc(info.pos)} ${info.jersey?esc(String(info.jersey).startsWith('#')?info.jersey:'#'+info.jersey):''}</span></div>
     <div class="pt">${info.team.logo?teamLogoBtn(p.league, info.team.id, info.team.logo, 'tmini')+' ':''}${esc(info.team.displayName)} <span class="note">(team from ESPN, live)</span></div><div class="tags">${badges}</div>
-    ${lineLbl?`<div style="margin-top:6px">${lineLbl}</div>`:''}${statHTML}</div></div>
-    <div style="margin-top:8px">${showG?`<div class="note" style="margin-bottom:4px">${cur?(cur.state==='in'?'Playing now':'Today'):'Next game'}</div>`:''}${gcard}</div></div>`;
+    </div></div>${lineLbl?`<div class="player-line-label">${lineLbl}</div>`:''}${statHTML}</section>
+    <div class="player-matchup">${showG?`<div class="note">${cur?(cur.state==='in'?'Playing now':'Today'):'Next game'}</div>`:''}${gcard}</div></div></div>`;
 }
 async function playerTeamIds(lg){ // teamId -> [player names] for favorite players in this league
   const m = new Map();
