@@ -354,6 +354,7 @@ table.gl tr.glsum td{font-weight:800}
 table.gl tr.glavg td{color:var(--mut);font-weight:700}
 @media(max-width:520px){.rgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .gdsc{font-size:30px;font-weight:900;color:var(--gold2)}
+.gdweather{margin:0 0 10px;font-size:13px}.gdweather strong{margin-right:5px}
 .gdmeta{color:var(--mut);font-size:13px;margin-bottom:8px}
 table.ls{border-collapse:collapse;margin:6px 0 10px;font-size:13px}table.ls th,table.ls td{padding:3px 9px;text-align:center;border-bottom:1px solid var(--line)}table.ls td:first-child{text-align:left;font-weight:800}
 .g[data-ev]{cursor:default}.g[data-ev] .teams,.g[data-ev]{user-select:none;-webkit-user-select:none}
@@ -2677,6 +2678,34 @@ function gdPlayersRender(){ // re-render only the Players section from the last 
   const {d,lg,g,groups}=GD.last; const h=gdPlayersHTML(d,lg,g,groups); el.innerHTML=h; el.dataset.h=strHash(h);
   el.querySelectorAll('.pscroll').forEach(x=>{ if(sc.has(x.dataset.psk)) x.scrollLeft=sc.get(x.dataset.psk); });
 }
+// ESPN game summaries use AccuWeather icon numbers or a condition in plain text.
+const GAME_WEATHER_CONDITIONS={
+  1:'Sunny', 2:'Mostly sunny', 3:'Partly sunny', 4:'Intermittent clouds', 5:'Hazy sunshine',
+  6:'Mostly cloudy', 7:'Cloudy', 8:'Overcast', 11:'Fog', 12:'Showers', 13:'Mostly cloudy with showers',
+  14:'Partly sunny with showers', 15:'Thunderstorms', 16:'Mostly cloudy with thunderstorms',
+  17:'Partly sunny with thunderstorms', 18:'Rain', 19:'Flurries', 20:'Mostly cloudy with flurries',
+  21:'Partly sunny with flurries', 22:'Snow', 23:'Mostly cloudy with snow', 24:'Ice', 25:'Sleet',
+  26:'Freezing rain', 29:'Rain and snow', 30:'Hot', 31:'Cold', 32:'Windy', 33:'Clear', 34:'Mostly clear',
+  35:'Partly cloudy', 36:'Intermittent clouds', 37:'Hazy moonlight', 38:'Mostly cloudy',
+  39:'Partly cloudy with showers', 40:'Mostly cloudy with showers', 41:'Partly cloudy with thunderstorms',
+  42:'Mostly cloudy with thunderstorms', 43:'Mostly cloudy with flurries', 44:'Mostly cloudy with snow'
+};
+function gdWeather(d, lg, g){
+  if(!isFootball(lg)) return '';
+  const weather=d.gameInfo?.weather||{};
+  const code=String(weather.conditionId??'').trim();
+  const condition=/^\d+$/.test(code)?GAME_WEATHER_CONDITIONS[code]:code;
+  const parts=condition?[condition]:[];
+  function add(value, prefix, unit){
+    if(value==null || String(value).trim()==='' || !Number.isFinite(Number(value))) return;
+    parts.push(prefix+Number(value)+unit);
+  }
+  add(weather.temperature,'','°F');
+  add(weather.gust,'Gusts ',' mph');
+  add(weather.precipitation,'Precipitation chance ','%');
+  const label=g.state==='pre'?'Stadium forecast':'Stadium weather';
+  return '<div class="gdweather"><strong>'+label+'</strong> '+(parts.length?parts.map(esc).join(' · '):'Unavailable')+'</div>';
+}
 async function openGame(lg, id, opts={}){
   if(!LG[lg]||!id) return;
   id=String(id);
@@ -2714,6 +2743,7 @@ async function openGame(lg, id, opts={}){
     $('#gdbody').innerHTML = `<div class="note">${esc(LG[lg].icon+' '+LG[lg].name)}${g.cup?' '+cupBadge(g):(g.note?' · '+esc(g.note):'')}</div>
       <div class="gdscore">${side(g.away)}${side(g.home)}</div>
       <div class="gdmeta"><span class="st ${g.state==='in'?'l':''}">${g.state==='in'?'● ':''}${esc(statusTxt(g))}</span> · ${esc(fmtDay(g.date))} ${esc(fmtTime(g.date))} · 📺 ${esc(g.tv)}${venue?' · '+esc(venue):''}${g.state==='in'?` · <span class="note" id="gdupd">updated ${esc(fmtTime(new Date()))} · refreshes every ${GD_REFRESH_MS/1000}s</span>`:''}</div>
+      ${gdWeather(d, lg, g)}
       ${liveOddsPanel(g)}${gdField(d, lg, g, groups)}
       ${sit?`<div class="gdsit" id="gdsit">${sit.dd?`<div><span class="note">Situation</span><b>${esc(sit.dd)}</b>${sit.rz?' <span class="badge b-r">RED ZONE</span>':''}</div>`:''}${sit.poss&&isFootball(lg)?`<div><span class="note">Possession</span><b>${esc(sit.poss.name)}</b></div>`:''}${sit.last?`<div class="lp"><span class="note">Last play</span>${esc(sit.last)}</div>`:''}</div>`:''}
       ${np?`<table class="ls"><tr><th></th>${Array.from({length:np},(_,i)=>`<th>${plbl(i)}</th>`).join('')}<th>T</th></tr><tr><td>${esc(g.away.abbr)}</td>${Array.from({length:np},(_,i)=>`<td>${esc(la[i]??'')}</td>`).join('')}<td><b>${g.away.score??''}</b></td></tr><tr><td>${esc(g.home.abbr)}</td>${Array.from({length:np},(_,i)=>`<td>${esc(lh[i]??'')}</td>`).join('')}<td><b>${g.home.score??''}</b></td></tr></table>`:''}
