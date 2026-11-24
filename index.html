@@ -850,6 +850,10 @@ hub-live-odds .lo-pregame{border-top:1px solid var(--line);padding-top:7px;margi
 .wall-detail header h3{margin:2px 0;color:#fff;font-size:1.35rem}
 .wall-picker{display:flex;align-items:center;gap:10px;padding:9px 14px;border-block:1px solid #395069;color:#ccdeef;font-size:.83rem}
 .wall-picker select{flex:1;min-width:0;background:#122238;color:#fff;border:1px solid #526881;padding:7px 10px}
+.wall-rotation{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px 12px;padding:7px 14px;border-bottom:1px solid #395069;color:#ccdeef;font-size:.8rem}
+.wall-rotation button,.wall-rotation select{padding:6px 9px;border:1px solid #526881;border-radius:7px;background:#122238;color:#eaf3ff;font:inherit;cursor:pointer}
+.wall-rotation button{display:inline-flex;align-items:center;gap:7px;font-weight:700}.wall-rotation button:before{content:'';width:8px;height:8px;border:1px solid currentColor;border-radius:50%}
+.wall-rotation button[aria-pressed=true]{color:#bdf5db;border-color:#5caa8a;background:#183b33}.wall-rotation button[aria-pressed=true]:before{background:#70e6b6}
 .wall-panel-body{padding:14px;overflow:auto;max-height:58vh;font-size:.92rem}.wall-detail-status:not(:empty){padding:8px 14px;color:#ffdc94}
 .wall-panel-body .monscore{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)}.wall-panel-body .monname{font-size:1.06rem}.wall-panel-body .monpts{font-size:clamp(1.85rem,4vw,3.5rem);margin:5px 0}
 .wall-panel-body .monmeta,.wall-panel-body .monsub,.wall-panel-body .monlast,.wall-panel-body .monplay,.wall-panel-body .monrun{font-size:.86rem}
@@ -6374,7 +6378,8 @@ const MON_PANELS = [
 const MON = { on:false, force:false, hold:false, pool:[], games:[], gi:0, pi:0, panels:['score'], sums:new Map(), prev:new Map(), flash:null, flashUntil:0, rot:null, fallback:false, err:'', ctx:null, wake:null, wakeNote:'', playedClip:'' };
 const leagueWall={
   league:LGS.includes(pref.get('monitor.league',''))?pref.get('monitor.league',''):'',
-  filter:pref.get('monitor.leagueFilter','all'), feeds:new Map(), request:0, stats:null, detail:null
+  filter:pref.get('monitor.leagueFilter','all'), feeds:new Map(), request:0, stats:null, detail:null,
+  autoRotate:pref.get('monitor.panelAutoRotate','0')==='1', panelTimer:null
 };
 if(!['all','live','close'].includes(leagueWall.filter)) leagueWall.filter='all';
 function monitorLeagueSelect(){
@@ -6421,6 +6426,26 @@ function wallPanelContent(detail,g){
   }
   return monPanelHTML(id,g,d);
 }
+function wallPanelOptions(lg){
+  return MON_PANELS.filter(p=>(p.id!=='field'||isFootball(lg))&&(p.id!=='fantasy'||lg==='nfl'));
+}
+function closeWallDetail(){
+  clearTimeout(leagueWall.panelTimer);
+  leagueWall.panelTimer=null;
+  leagueWall.detail=null;
+}
+function armWallPanelTimer(){
+  clearTimeout(leagueWall.panelTimer);
+  leagueWall.panelTimer=null;
+  const detail=leagueWall.detail;
+  if(!detail||!leagueWall.autoRotate||document.hidden||TAB!=='monitor')return;
+  leagueWall.panelTimer=setTimeout(()=>{
+    if(detail!==leagueWall.detail||document.hidden||TAB!=='monitor'||!leagueWall.autoRotate)return;
+    const views=wallPanelOptions(detail.lg);
+    const next=(views.findIndex(p=>p.id===detail.panel)+1)%views.length;
+    selectWallPanel(views[next].id);
+  },monInterval()*1000);
+}
 function paintWallDetail(wall,g){
   const host=wall.querySelector('.wall-detail'),detail=leagueWall.detail;
   const active=Boolean(wall.closest('#monboard'))===MON.on;
@@ -6430,11 +6455,16 @@ function paintWallDetail(wall,g){
   host.hidden=false;
   if(host.dataset.game!==g.id){
     host.dataset.game=g.id;
-    const panels=MON_PANELS.filter(p=>(p.id!=='field'||isFootball(g.lg))&&(p.id!=='fantasy'||g.lg==='nfl'));
+    const panels=wallPanelOptions(g.lg);
     host.innerHTML='<header><div><small>'+esc(LG[g.lg].short)+' · Game panels</small><h3>'+esc(g.away.abbr+' at '+g.home.abbr)+'</h3></div><button type="button" class="btn sm" data-wall-close>Close</button></header>'+
-      '<label class="wall-picker">View<select data-wall-panel>'+panels.map(p=>'<option value="'+p.id+'">'+esc(p.label)+'</option>').join('')+'</select></label><div class="wall-detail-status" role="status"></div><div class="wall-panel-body"></div>';
+      '<label class="wall-picker">View<select data-wall-panel>'+panels.map(p=>'<option value="'+p.id+'">'+esc(p.label)+'</option>').join('')+'</select></label>'+
+      '<div class="wall-rotation"><button type="button" data-wall-rotate aria-label="Auto-rotate game panels"></button><label>Interval <select data-wall-delay aria-label="Seconds per game panel">'+[8,12,20].map(n=>'<option value="'+n+'">'+n+'s</option>').join('')+'</select></label></div><div class="wall-detail-status" role="status"></div><div class="wall-panel-body"></div>';
   }
-  host.querySelector('select').value=detail.panel;
+  host.querySelector('[data-wall-panel]').value=detail.panel;
+  const toggle=host.querySelector('[data-wall-rotate]');
+  toggle.setAttribute('aria-pressed',String(leagueWall.autoRotate));
+  toggle.textContent=leagueWall.autoRotate?'Auto-rotate on':'Auto-rotate off';
+  host.querySelector('[data-wall-delay]').value=String(monInterval());
   host.querySelector('.wall-detail-status').textContent=detail.summary&&detail.error?'Showing the last available game details.':'';
   const body=host.querySelector('.wall-panel-body'),html=wallPanelContent(detail,g);
   if(body._markup!==html){
@@ -6454,15 +6484,19 @@ async function refreshWallDetail(g){
   }catch(_){detail.error=true;}
   finally{detail.pending=false;}
   if(leagueWall.detail!==detail||TAB!=='monitor')return;
-  const current=leagueWall.feeds.get(g.lg)?.games.find(x=>x.id===g.id);
-  if(current)document.querySelectorAll('.league-wall').forEach(wall=>paintWallDetail(wall,current));
+  repaintSelectedWallPanel(detail);
+}
+function repaintSelectedWallPanel(detail){
+  const game=leagueWall.feeds.get(detail.lg)?.games.find(g=>g.id===detail.id);
+  if(game)document.querySelectorAll('.league-wall').forEach(wall=>paintWallDetail(wall,game));
 }
 function selectWallPanel(panel){
   const detail=leagueWall.detail;
   if(!detail)return;
   detail.panel=panel;
-  paintLeagueWall();
-  if(panel==='inj')injEnsure([detail.lg]).then(()=>{if(leagueWall.detail===detail&&TAB==='monitor')paintLeagueWall();});
+  armWallPanelTimer();
+  repaintSelectedWallPanel(detail);
+  if(panel==='inj')injEnsure([detail.lg]).then(()=>{if(leagueWall.detail===detail&&TAB==='monitor')repaintSelectedWallPanel(detail);});
 }
 function wallStats(g){
   const stats=leagueWall.stats;
@@ -6503,7 +6537,7 @@ function paintLeagueWall(){
   const feed=leagueWall.feeds.get(lg),games=feed?.games||[],live=games.filter(isLive),close=live.filter(g=>g.away.score!=null&&isClose(g));
   const lists={all:games,live,close},shown=lists[leagueWall.filter];
   const match=shown.find(g=>g.id===leagueWall.detail?.id && g.lg===leagueWall.detail.lg);
-  if(!match)leagueWall.detail=null;
+  if(!match)closeWallDetail();
   for(const wall of document.querySelectorAll('.league-wall')){
     wall.querySelector('h2').textContent=LG[lg].name+' scores';
     wall.querySelector('.wall-updated').textContent=feed?.updated?'Updated '+fmtTime(new Date(feed.updated)):'';
@@ -6576,7 +6610,7 @@ async function loadLeagueWall(tok,lg){
 document.addEventListener('change',e=>{
   if(TAB==='monitor'&&e.target.matches('[data-wall-panel]')){selectWallPanel(e.target.value);return;}
   if(!e.target.matches('[data-monitor-scope]')||TAB!=='monitor')return;
-  leagueWall.detail=null;
+  closeWallDetail();
   document.querySelectorAll('.wall-detail').forEach(el=>{el.hidden=true;el.replaceChildren();delete el.dataset.game;});
   leagueWall.stats=null;
   leagueWall.league=LGS.includes(e.target.value)?e.target.value:'';
@@ -6652,7 +6686,7 @@ function monPhoneLandscape(){ try{ return matchMedia('(orientation: landscape) a
 function monIsLandscape(){ try{ return matchMedia('(orientation: landscape)').matches; }catch(_){ return innerWidth>innerHeight; } }
 function desktopMonitor(){return matchMedia('(hover:hover) and (pointer:fine), (min-width:900px)').matches;}
 function monWantBoard(){ if(TAB!=='monitor') return false; if(MON.force) return true; if(MON.hold) return false; return desktopMonitor() || monPhoneLandscape(); }
-function monLeave(){ leagueWall.detail=null;document.querySelectorAll('.wall-detail').forEach(el=>{el.hidden=true;el.replaceChildren();delete el.dataset.game;});MON.force=false; MON.hold=false; MON.on=false; clearTimeout(MON.rot); const b=$('#monboard'); if(b) b.hidden=true; document.documentElement.classList.remove('mon-on'); monReleaseWake(); }
+function monLeave(){ closeWallDetail();document.querySelectorAll('.wall-detail').forEach(el=>{el.hidden=true;el.replaceChildren();delete el.dataset.game;});MON.force=false; MON.hold=false; MON.on=false; clearTimeout(MON.rot); const b=$('#monboard'); if(b) b.hidden=true; document.documentElement.classList.remove('mon-on'); monReleaseWake(); }
 function monExit(){ MON.force=false; MON.hold=true; monApplyMode(); }
 document.addEventListener('keydown',e=>{if(e.key==='Escape' && TAB==='monitor' && MON.on){e.preventDefault();monExit();$('#monenter')?.focus();}});
 function monAction(v){ if(v==='enter'){ MON.force=true; MON.hold=false; monApplyMode(); } else if(v==='exit') monExit(); else if(v==='next' && MON.on && MON.games.length) monNext(); }
@@ -7207,21 +7241,28 @@ document.addEventListener('click', async ev=>{
     const g=leagueWall.feeds.get(leagueWall.league)?.games.find(game=>game.id===v);
     if(!g)return;
     leagueWall.stats=null;
-    if(leagueWall.detail?.id!==v)leagueWall.detail={lg:g.lg,id:v,panel:'score'};
+    if(leagueWall.detail?.id!==v){leagueWall.detail={lg:g.lg,id:v,panel:'score'};armWallPanelTimer();}
     paintLeagueWall();
     const host=t.closest('.league-wall')||document.querySelector(MON.on?'#monstage .league-wall':'#monsetup .league-wall');
     host?.querySelector('[data-wall-panel]')?.focus({preventScroll:true});
     host?.querySelector('.wall-detail')?.scrollIntoView({block:'nearest'});
     refreshWallDetail(g);return;
   }
+  if(a('wall-rotate')!==null){
+    leagueWall.autoRotate=!leagueWall.autoRotate;
+    pref.set('monitor.panelAutoRotate',leagueWall.autoRotate?'1':'0');
+    armWallPanelTimer();
+    if(leagueWall.detail)repaintSelectedWallPanel(leagueWall.detail);
+    return;
+  }
   if(a('wall-close')!==null){
     const id=leagueWall.detail?.id,wall=t.closest('.league-wall');
-    leagueWall.detail=null;paintLeagueWall();
+    closeWallDetail();paintLeagueWall();
     Array.from(wall.querySelectorAll('[data-wall-open]')).find(b=>b.dataset.wallOpen===id)?.focus();
     return;
   }
   if((v=a('wall-stats'))!==null){
-    leagueWall.detail=null;
+    closeWallDetail();
     const g=leagueWall.feeds.get(leagueWall.league)?.games.find(game=>game.id===v);
     if(!g)return;
     leagueWall.stats=leagueWall.stats?.id===v?null:{lg:g.lg,id:v,html:'',loaded:false,error:false,pending:false};
@@ -7338,7 +7379,7 @@ document.addEventListener('change', ev=>{
     }).catch(e=>{msg.textContent=e.message;});return;
   }
   if(t.classList.contains('monpanel')){ monSavePanels(); return; }
-  if(t.name==='monint'){ const n=+t.value; if([8,12,20].includes(n)){ pref.set('monitor.interval', String(n)); document.querySelectorAll('label.btn input[name="monint"]').forEach(el=>el.parentElement.classList.toggle('pri', +el.value===n)); if(typeof monArmRotation==='function') monArmRotation(); } return; }
+  if(t.name==='monint'||t.hasAttribute('data-wall-delay')){ const n=+t.value; if([8,12,20].includes(n)){ pref.set('monitor.interval', String(n)); document.querySelectorAll('label.btn input[name="monint"]').forEach(el=>{el.checked=+el.value===n;el.parentElement.classList.toggle('pri',el.checked);}); armWallPanelTimer(); if(typeof monArmRotation==='function') monArmRotation(); } return; }
   if(t.closest('#slipform')){
     const nm=t.name||''; syncDraft();
     if(nm==='betType'){ if(DRAFT.betType==='parlay' && DRAFT.legs.length<2) DRAFT.legs.push(blankLeg(DRAFT.legs[0].league)); }
@@ -7388,6 +7429,7 @@ window.addEventListener('hashchange', ()=>{
   const t=parseHash(); if(t && t!==TAB) go(t); else if(t){ render(); }
 });
 document.addEventListener('visibilitychange', ()=>{
+  armWallPanelTimer();
   if(document.hidden){
     if(TAB==='monitor'){ clearTimeout(RT); clearTimeout(MON.rot); MON.rot=null; monWakeSync(); }
     return;
