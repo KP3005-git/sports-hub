@@ -870,6 +870,15 @@ hub-live-odds .lo-pregame{border-top:1px solid var(--line);padding-top:7px;margi
 @media(max-width:880px){.wall-layout:has(.wall-detail:not([hidden])){grid-template-columns:minmax(0,1fr)}.wall-detail{position:static;grid-row:1}.wall-panel-body{max-height:47vh}}
 @media(max-width:600px){.wall-card .wall-open,.wall-card .wall-stats-toggle{padding:5px;font-size:.69rem}.wall-card .wall-open span{display:none}.wall-drive small{font-size:.64rem}}
 
+.nfl-report{margin:12px 0 18px}.nfl-report-head{display:flex;gap:14px;align-items:center;padding:14px 18px;border:1px solid #3b536b;border-radius:12px;background:repeating-linear-gradient(110deg,transparent 0 36px,#ffffff09 36px 38px),linear-gradient(108deg,#12263d,#284b61);color:#fff}
+.nfl-report-head .gridiron-logo{width:54px;height:48px}.nfl-report-head small{color:#c2d8e8}.nfl-report-head h3{margin:2px 0;font-size:clamp(1.3rem,3vw,1.9rem);color:white}
+.nfl-units{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:12px 0}
+.nfl-unit{--unit:#65dcb0;min-width:0;overflow:hidden;border:1px solid var(--line);border-top:3px solid var(--unit);border-radius:11px;background:var(--card)}.nfl-unit.defense{--unit:#96baff}
+.nfl-unit header{display:flex;align-items:center;justify-content:space-between;padding:13px;background:linear-gradient(120deg,#14283a,#18212e);color:#fff}.nfl-unit header small,.nfl-unit header span{display:block;color:#c5d3e1;font-size:.75rem}.nfl-unit header small{text-transform:uppercase;font-weight:800;letter-spacing:.1em;color:var(--unit)}.nfl-unit header strong{font-size:2rem;line-height:1.15}.nfl-unit header>div+div{text-align:right}
+.nfl-unit table{border-collapse:collapse;width:100%;font-size:.83rem;font-variant-numeric:tabular-nums;color:var(--txt)}.nfl-unit :is(th,td){text-align:right;padding:7px 9px;border-bottom:1px solid var(--line)}.nfl-unit th:first-child{text-align:left}.nfl-unit tbody th{font-weight:600}.nfl-unit thead th{font-size:.73rem;color:var(--mut)}
+.nfl-rank-controls{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0}.nfl-rank-board select{max-width:100%}.nfl-rank-board .league-scroll{max-height:62vh}
+.nfl-unit tbody th{position:static;color:var(--txt);background:transparent;text-transform:none;letter-spacing:0;font-size:inherit;white-space:normal}
+@media(max-width:720px){.nfl-units{grid-template-columns:minmax(0,1fr)}.nfl-unit table{table-layout:fixed}.nfl-unit th:first-child{width:44%}.nfl-unit th:last-child{width:20%}.nfl-unit :is(td,th){padding:7px 6px;white-space:normal;vertical-align:middle}}
 .tourney-switch{margin:12px 0}
 .tourney-board{--bracket:#80d6be;--arena:#115745;--arena-dark:#092b2a;min-width:0}
 .tourney-board.nba{--bracket:#f9bd78;--arena:#744028;--arena-dark:#291824}
@@ -2947,7 +2956,8 @@ function paintTeam(p){
   const news=(p.news||[]).length?`<div class="tnews">${p.news.map(n=>`<a href="${esc(n.href||'#')}" ${n.href?'target="_blank" rel="noopener noreferrer"':''}>${n.img?`<img src="${esc(n.img)}" alt="" loading="lazy" onerror="this.remove()">`:''}<span><b>${esc(n.headline)}</b>${n.when?`<span class="note">${esc(n.when)}</span>`:''}</span></a>`).join('')}</div>`
     :`<div class="empty">No recent team news from ESPN.</div>`;
   body.innerHTML=`<div class="thead">${p.logo?`<img class="tmark" src="${esc(p.logo)}" alt="">`:''}<div><div class="rtitle">${esc(p.name)}</div><div class="note">${esc(LG[p.lg].short)}${p.season?' · '+esc(String(p.season)):''}${p.standing?' · '+esc(p.standing):''}</div></div></div>
-    <div class="glbar"><button type="button" class="btn sm" data-teamback="1">← Back</button><button type="button" class="btn sm pri" data-roster="${esc(p.lg)}|${esc(p.id)}">Roster</button></div>
+    <div class="glbar"><button type="button" class="btn sm" data-teamback="1">← Back</button><button type="button" class="btn sm pri" data-roster="${esc(p.lg)}|${esc(p.id)}">Roster</button>${p.lg==='nfl'?'<button type="button" class="btn sm" data-nfl-team-ranks="'+esc(p.id)+'" aria-expanded="false">Offense &amp; defense ranks</button>':''}</div>
+    ${p.lg==='nfl'?'<div data-nfl-team-report="'+esc(p.id)+'" hidden></div>':''}
     ${recChips?`<div class="trec">${recChips}</div>`:`<p class="note">Record unavailable.</p>`}
     <section class="tsec" aria-label="Schedule">${sched}</section>
     <section class="tsec"><h3 class="gdh">Team stats</h3>${stats}</section>
@@ -3644,7 +3654,7 @@ function leagueViewIcon(view){
     cup:'M7 3h10v5a5 5 0 0 1-10 0zM7 5H3v2a4 4 0 0 0 5 4m9-6h4v2a4 4 0 0 1-5 4m-4 2v6m-5 2h10',
     playoffs:'M3 3v5h5V3m-5 13v5h5v-5m0-10h5v12H8m5-6h8',
     compare:'M4 8h15l-4-4m5 12H5l4 4',poll:'M3 6h3m4 0h11M3 12h3m4 0h11M3 18h3m4 0h11',
-    bubble:'M4 17a9 9 0 1 1 16 0M12 14l5-6',overview:'M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3zm11 0h7v7h-7z'
+    teamstats:'M3 20h18M5 16v-5m6 5V4m6 12V8',bubble:'M4 17a9 9 0 1 1 16 0M12 14l5-6',overview:'M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3zm11 0h7v7h-7z'
   };
   return '<svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="'+paths[view]+'"/></svg>';
 }
@@ -3652,6 +3662,7 @@ function leagueViewButtons(lg){
   const selected = leagueViews[lg] || 'scores';
   const options = LG[lg].college ? [['scores','Scores'],['poll','AP Top 25']] :
     [['scores','Scores'],['league','League standings'],...(lg==='nba' ? [['conferences','East / West'],['cup','NBA Cup']] : [['divisions','Divisions']])];
+  if(lg==='nfl')options.push(['teamstats','Team stats']);
   if(lg==='cfb' || lg==='nfl') options.push(['playoffs','Playoff picture']);
   options.push(['compare','Compare teams']);
   if(lg==='cbb') options.push(['bubble','Bubble Watch']);
@@ -3696,6 +3707,107 @@ function nflLogo(team){
 function nflTeam(team){
   return '<button type="button" class="gridiron-team" data-teampage="nfl|'+esc(team.id)+'">'+nflLogo(team)+'<span>'+esc(team.shortDisplayName||team.displayName)+'</span></button>';
 }
+// Team totals (split 0) and opponents' totals (split 900) share the same ESPN schema.
+const nflMetrics=[
+  {key:'yards',labels:['Total offense','Total defense'],group:'passing',num:'netTotalYards',unit:'yds/game'},
+  {key:'pass',labels:['Net passing yards','Net pass yards allowed'],group:'passing',num:'netPassingYards',unit:'yds/game'},
+  {key:'rush',labels:['Rushing yards','Rush yards allowed'],group:'rushing',num:'rushingYards',unit:'yds/game'},
+  {key:'points',labels:['Team scoring','Points allowed'],group:'passing',num:'totalPoints',unit:'pts/game'},
+  {key:'carry',labels:['Yards per carry','Yards allowed per carry'],group:'rushing',num:'rushingYards',den:'rushingAttempts',unit:'yds/carry'},
+  {key:'completion',labels:['Completion rate','Completion rate allowed'],group:'passing',num:'completions',den:'passingAttempts',percent:true},
+  {key:'third',labels:['Third-down conversions','Third-down rate allowed'],group:'miscellaneous',num:'thirdDownConvs',den:'thirdDownAttempts',percent:true},
+  {key:'sacks',labels:['Sacks allowed','Sacks made'],group:'passing',num:'sacks',unit:'per game',lower:true},
+  {key:'turnovers',labels:['Giveaways','Takeaways'],group:'miscellaneous',num:'totalGiveaways',unit:'per game',lower:true}
+];
+const nflRanksView={id:'',side:0,metric:'yards'};
+function nflRankModel(data){
+  const season=data.requestedSeason;
+  if(Number(season?.type?.type)!==2||!season?.year)throw Error('Regular-season statistics are unavailable.');
+  const schemas=new Map((data.categories||[]).map(c=>[c.name,c.names||[]]));
+  const rows=(data.teams||[]).filter(r=>r.team?.id).map(({team,categories})=>{
+    const splits=new Map((categories||[]).map(c=>[c.splitId+'|'+c.name,c.values]));
+    function value(split,group,key){
+      const i=schemas.get(group)?.indexOf(key);
+      const v=splits.get(split+'|'+group)?.[i];
+      return Number.isFinite(v)?v:null;
+    }
+    const gp=value('0','general','gamesPlayed');
+    const units=['0','900'].map(split=>Object.fromEntries(nflMetrics.map(m=>{
+      const num=value(split,m.group,m.num),den=m.den?value(split,m.group,m.den):gp;
+      return [m.key,{v:gp>0&&num!=null&&den>0?(num/den)*(m.percent?100:1):null,rank:null,tied:false}];
+    })));
+    return {team,gp,units};
+  }).sort((a,b)=>a.team.displayName.localeCompare(b.team.displayName));
+  for(const side of [0,1])for(const m of nflMetrics){
+    const lower=side===0?!!m.lower:!m.lower;
+    const values=rows.map(r=>r.units[side][m.key]).filter(x=>x.v!=null).sort((a,b)=>lower?a.v-b.v:b.v-a.v);
+    values.forEach((x,i)=>{
+      const prev=values[i-1];
+      x.tied=prev?.v===x.v||values[i+1]?.v===x.v;
+      x.rank=prev?.v===x.v?prev.rank:i+1;
+    });
+  }
+  return {year:season.year,rows};
+}
+let nflStatsRequest;
+function nflStatsFeed(){
+  if(!nflStatsRequest){
+    const url='https://site.web.api.espn.com/apis/common/v3/sports/football/nfl/statistics/byteam?seasontype=2&limit=50';
+    nflStatsRequest=getJSON(url,5*60e3).then(nflRankModel).finally(()=>{nflStatsRequest=null;});
+  }
+  return nflStatsRequest;
+}
+function nflRankText(x){return x.rank==null?'—':(x.tied?'T-':'#')+x.rank;}
+function nflRateText(x,m){
+  if(x.v==null)return '—';
+  const digits=['sacks','turnovers'].includes(m.key)?2:1;
+  return x.v.toFixed(digits)+(m.percent?'%':' '+m.unit);
+}
+function nflUnitCard(row,side){
+  const stats=row.units[side],overall=stats.yards;
+  return '<section class="nfl-unit '+(side?'defense':'offense')+'"><header><div><small>'+ (side?'Defense':'Offense')+'</small><strong>'+nflRankText(overall)+'</strong></div><div><b>'+nflRateText(overall,nflMetrics[0])+'</b><span>Net yards '+(side?'allowed':'gained')+'</span></div></header>'+
+    '<table><thead><tr><th scope="col">Category</th><th scope="col">Rate</th><th scope="col">NFL rank</th></tr></thead><tbody>'+nflMetrics.slice(1).map(m=>'<tr><th scope="row">'+m.labels[side]+'</th><td>'+nflRateText(stats[m.key],m)+'</td><td><b>'+nflRankText(stats[m.key])+'</b></td></tr>').join('')+'</tbody></table></section>';
+}
+function nflTeamReport(row,model){
+  return '<div class="nfl-report"><div class="nfl-report-head">'+nflLogo(row.team)+'<div><small>'+esc(model.year)+' regular season · '+esc(row.gp??'—')+' games played</small><h3>'+esc(row.team.displayName)+'</h3></div></div><div class="nfl-units">'+nflUnitCard(row,0)+nflUnitCard(row,1)+'</div><p class="note">Overall ranks use net yards per game. Team scoring includes all points. Tied rates share a rank among teams with reported stats.</p></div>';
+}
+function drawNflRankBoard(host,model){
+  const state=nflRanksView;
+  const row=model.rows.find(r=>String(r.team.id)===state.id)||model.rows.find(r=>favIds('nfl').has(String(r.team.id)))||model.rows[0];
+  if(!row){host.innerHTML='<p class="empty">No NFL team statistics are available for this season yet.</p>';return;}
+  state.id=String(row.team.id);
+  const side=state.side,m=nflMetrics.find(m=>m.key===state.metric)||nflMetrics[0];
+  const sorted=model.rows.slice().sort((a,b)=>(a.units[side][m.key].rank??Infinity)-(b.units[side][m.key].rank??Infinity)||a.team.displayName.localeCompare(b.team.displayName));
+  host.innerHTML='<h2>NFL team stats</h2>'+teamSelect('Team','data-nfl-stat-team',model.rows,state.id)+nflTeamReport(row,model)+
+    '<h3>League rankings</h3><div class="nfl-rank-controls"><label>Unit <select data-nfl-stat-side><option value="0">Offense</option><option value="1" '+(side?'selected':'')+'>Defense</option></select></label><label>Category <select data-nfl-stat-metric>'+nflMetrics.map(k=>'<option value="'+k.key+'" '+(k.key===m.key?'selected':'')+'>'+k.labels[side]+'</option>').join('')+'</select></label></div>'+
+    leagueTable(['NFL rank','Team',m.labels[side]],sorted.map(r=>[nflRankText(r.units[side][m.key]),'<button type="button" data-nfl-stat-pick="'+esc(r.team.id)+'" class="gridiron-team">'+nflLogo(r.team)+'<span>'+esc(r.team.displayName)+'</span></button>',nflRateText(r.units[side][m.key],m)]));
+}
+async function loadNflRanks(host,id){
+  host.innerHTML='<p role="status">Loading NFL team stats…</p>';
+  try{
+    const model=await nflStatsFeed();
+    if(!host.isConnected)return;
+    if(id){
+      const row=model.rows.find(r=>String(r.team.id)===id);
+      host.innerHTML=row?nflTeamReport(row,model):'<p class="empty">No regular-season statistics for this team yet.</p>';
+    }else{
+      host._nflModel=model;
+      drawNflRankBoard(host,model);
+    }
+  }catch(_){
+    if(host.isConnected)host.innerHTML='<p role="status">NFL team statistics are unavailable. <button type="button" class="btn sm" data-nfl-stat-retry>Retry</button></p>';
+  }
+}
+document.addEventListener('change',event=>{
+  const control=event.target,host=control.closest('[data-nfl-rank-board]');
+  if(!host?._nflModel)return;
+  if(control.hasAttribute('data-nfl-stat-team'))nflRanksView.id=control.value;
+  else if(control.hasAttribute('data-nfl-stat-side'))nflRanksView.side=Number(control.value);
+  else if(control.hasAttribute('data-nfl-stat-metric'))nflRanksView.metric=control.value;
+  else return;
+  const attribute=Array.from(control.attributes).find(a=>a.name.startsWith('data-nfl-stat-')).name;
+  drawNflRankBoard(host,host._nflModel);host.querySelector('['+attribute+']')?.focus({preventScroll:true});
+});
 function nflHeading(season,title,note){
   return '<div class="gridiron-title"><small>NFL &nbsp;/&nbsp; '+esc(season)+'</small><h2>'+title+'</h2><p>'+note+'</p></div>';
 }
@@ -4040,6 +4152,10 @@ async function renderLeagueBoard(lg,tok,view){
   view.innerHTML=nav+'<p role="status">Loading '+(college?'rankings':'standings')+'…</p>';
   setRefresh([],null);
   const mode=leagueViews[lg];
+  if(lg==='nfl'&&mode==='teamstats'){
+    view.innerHTML=nav+'<section class="nfl-rank-board" data-nfl-rank-board></section>';
+    return loadNflRanks(view.querySelector('[data-nfl-rank-board]'));
+  }
   const nbaSpecial=lg==='nba' && (mode==='cup' || mode==='conferences');
   const query=mode==='playoffs'?'level=2':nbaSpecial ? (mode==='cup'?'type=3&level=1':'level=2') : 'level=3';
   const url=college ? API+LG[lg].path+'/rankings' : 'https://site.api.espn.com/apis/v2/sports/'+LG[lg].path+'/standings?'+query;
@@ -7041,6 +7157,23 @@ document.addEventListener('click', async ev=>{
     if(phoneScores.matches){phoneCompactScores=!phoneCompactScores;pref.set('phoneCompactScores',phoneCompactScores?'1':'0');}
     else{pinCompactScores=!pinCompactScores;pref.set('compactScores',pinCompactScores?'1':'0');}
     syncCompactScores();return;
+  }
+  if((v=a('nfl-stat-pick'))!==null){
+    const host=t.closest('[data-nfl-rank-board]');
+    nflRanksView.id=v;drawNflRankBoard(host,host._nflModel);
+    host.querySelector('[data-nfl-stat-team]').focus();return;
+  }
+  if((v=a('nfl-team-ranks'))!==null){
+    const host=$('#teambody [data-nfl-team-report]');
+    if(!host)return;
+    host.hidden=!host.hidden;
+    t.closest('button').setAttribute('aria-expanded',String(!host.hidden));
+    if(!host.hidden&&!host.firstChild)loadNflRanks(host,v);
+    return;
+  }
+  if(a('nfl-stat-retry')!==null){
+    const host=t.closest('[data-nfl-rank-board],[data-nfl-team-report]');
+    if(host)loadNflRanks(host,host.dataset.nflTeamReport);return;
   }
   if((v=a('league-view'))!==null && LGS.includes(TAB)){ comparePick=null; leagueViews[TAB]=v; return render(); }
   if((v=a('theme-accent'))!==null){ if(!THEME_ACCENTS.includes(v)) return; const th=themeRead(); th.accent=v; themeApply(th,true); return; }
