@@ -805,8 +805,6 @@ hub-live-odds .lo-pregame{border-top:1px solid var(--line);padding-top:7px;margi
   .g[data-ev]>hub-live-odds{margin:7px 0;padding:7px;font-size:.8rem}
   .g[data-ev]>hub-live-odds :is(th,td){padding:2px;white-space:normal}
 }
-.score-density{margin:4px 0 8px}.score-density[aria-pressed=true]{background:var(--accent-fill);color:var(--accent-ink)}
-@media(max-width:760px),(max-height:520px){.score-density{display:none}}
 .score-wall:not(.reorder) .grid:has(> .g[data-ev]){grid-template-columns:repeat(auto-fill,minmax(min(100%,80px),1fr));gap:4px;align-items:stretch}
 .score-wall:not(.reorder) .grid:has(> .g[data-ev])>:not(.g[data-ev]){grid-column:1/-1}
 .score-wall:not(.reorder) .grid>.g[data-ev]{padding:6px 4px 4px;border-radius:6px;min-width:0;position:relative}
@@ -821,7 +819,6 @@ hub-live-odds .lo-pregame{border-top:1px solid var(--line);padding-top:7px;margi
 .score-wall:not(.reorder) .grid>.g[data-ev]>.foot .gdbtn{position:absolute;inset:0;width:100%;height:100%;min-height:0;min-width:0;margin:0;padding:0;font-size:0;border:0;background:transparent;cursor:pointer}
 .score-wall:not(.reorder) .grid>.g[data-ev]:focus-within{outline:2px solid var(--blue)}
 /* Touch scorecards show the full matchup unless compact mode is explicitly selected. */
-.phone-scores .score-density{display:inline-flex}
 .phone-scores:not(.score-wall) .grid:has(> .g[data-ev]){grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:12px}
 .phone-scores:not(.score-wall) .g[data-ev]{--signal:#52617a;border-inline-start:3px solid var(--signal);border-radius:12px;padding:14px 12px 10px;background:linear-gradient(125deg,#192234,var(--card) 68%)}
 .phone-scores:not(.score-wall) .g[data-ev].fav{--signal:var(--gold)}
@@ -977,6 +974,24 @@ hub-round-links{position:absolute;inset:0;pointer-events:none;color:color-mix(in
  .league-view-nav button,.tourney-switch button,[data-pick-compare].btn{min-height:44px}
 }
 
+/* Score size is shared by every game-card surface; Auto uses the responsive defaults above. */
+#score-size-tools{display:none;margin:4px 0 10px}
+main:has(#view :is(.g[data-ev],.g[data-manual],.navbar)):not(:has(#monsetup))>#score-size-tools{display:block}
+.score-size-control{display:inline-flex;align-items:center;gap:6px;font-size:.83rem;font-weight:700}
+.score-size-control select{min-height:34px;max-width:100%;padding:5px 8px;font:inherit}
+html[data-score-size="compact"]{--card-scale:.85;--wall-width:155px;--score-width:80px}
+html[data-score-size="small"]{--card-scale:.9;--wall-width:185px;--score-width:285px}
+html[data-score-size="medium"]{--card-scale:1;--wall-width:245px;--score-width:385px}
+html[data-score-size="large"]{--card-scale:1.17;--wall-width:325px;--score-width:495px}
+html:not([data-score-size="auto"]) :is(.g[data-ev],.g[data-manual],.wall-card,.monscore,.gdscore){zoom:var(--card-scale)}
+html[data-score-size="compact"] .grid>.g[data-ev]{zoom:1}
+html[data-score-size="compact"] .grid>.g[data-manual]{grid-column:1/-1}
+html[data-score-size]:not([data-score-size="auto"]):not(.reorder) .grid:has(> :is(.g[data-ev],.g[data-manual])){grid-template-columns:repeat(auto-fill,minmax(min(100%,var(--score-width)),1fr))}
+html:not([data-score-size="auto"]) .wall-games{grid-template-columns:repeat(auto-fill,minmax(min(100%,var(--wall-width)),1fr))}
+html:not([data-score-size="auto"]) .wall-card :is(.wall-team,.wall-status,.wall-leader){overflow-wrap:anywhere}
+html:not([data-score-size="auto"]) .g[data-ev]>hub-live-odds :is(th,td){white-space:normal}
+html:not([data-score-size="auto"]) .monscore{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);overflow-wrap:anywhere}
+@media(max-width:600px){.score-size-control select{min-height:40px}#monboard .score-size-control{gap:4px}}
 </style>
 </head>
 <body>
@@ -1038,6 +1053,7 @@ hub-round-links{position:absolute;inset:0;pointer-events:none;color:color-mix(in
 </header>
 <main>
   <div class="errbox" id="err"></div>
+  <div id="score-size-tools"></div>
   <div id="view"></div>
 </main>
 <footer>Data: ESPN public scoreboard feed (unofficial, free). Scores can lag the broadcast by ~30s+. Bet status is computed here for tracking only — your sportsbook's grading is official. Bet responsibly · 1-800-GAMBLER. NO EXCUSES. NO FEAR. ALL GAS.</footer>
@@ -2640,7 +2656,7 @@ async function openGame(lg, id, opts={}){
   if(!LG[lg]||!id) return;
   id=String(id);
   if(!GD || GD.id!==id){ closeGame(); GD={lg,id,timer:null};
-    document.body.insertAdjacentHTML('beforeend', `<div id="gdmodal" class="modal"><div class="mbox" role="dialog" aria-modal="true" aria-label="Game details"><div class="mtop"><button class="btn sm mclose" data-gdclose="x" aria-label="Close">✕<span class="mcl"> Close</span></button></div><div id="gdbody"><div class="note">Loading game…</div></div></div></div>`);
+    document.body.insertAdjacentHTML('beforeend', `<div id="gdmodal" class="modal"><div class="mbox" role="dialog" aria-modal="true" aria-label="Game details"><div class="mtop"><button class="btn sm mclose" data-gdclose="x" aria-label="Close">✕<span class="mcl"> Close</span></button></div>${scoreSizeControl()}<div id="gdbody"><div class="note">Loading game…</div></div></div></div>`);
     document.body.classList.add('modal-on'); GD.openedAt=Date.now(); }
   if($('#teammodal') && $('#gdmodal')) $('#gdmodal').style.zIndex='70';
   const me=GD; if(me.timer){ clearTimeout(me.timer); me.timer=null; }
@@ -3642,18 +3658,32 @@ async function bubbleBoard(data,tok,view,nav){
 
 const phoneScores=matchMedia('(max-width:600px) and (orientation:portrait), (max-width:1000px) and (pointer:coarse)');
 const narrowScores=matchMedia('(max-width:760px), (max-height:520px)');
-let pinCompactScores=pref.get('compactScores','0')==='1';
-let phoneCompactScores=pref.get('phoneCompactScores','0')==='1';
-function syncCompactScores(){
-  const phone=phoneScores.matches;
-  const compact=phone?phoneCompactScores:(pinCompactScores||narrowScores.matches);
-  document.documentElement.classList.toggle('phone-scores',phone);
-  document.documentElement.classList.toggle('score-wall',compact);
-  document.querySelector('[data-density]')?.setAttribute('aria-pressed',String(compact));
+const scoreSizes=['auto','compact','small','medium','large'];
+const storedScoreSize=pref.get('scoreSize','');
+let scoreSize=scoreSizes.includes(storedScoreSize)?storedScoreSize:'auto';
+let legacyScoreSize=!storedScoreSize;
+function scoreSizeControl(){
+  return '<label class="score-size-control">Card size <select data-score-size>'+scoreSizes.map(size=>'<option value="'+size+'"'+(size===scoreSize?' selected':'')+'>'+size[0].toUpperCase()+size.slice(1)+'</option>').join('')+'</select></label>';
 }
-syncCompactScores();
-narrowScores.addEventListener('change',syncCompactScores);
-phoneScores.addEventListener('change',syncCompactScores);
+function syncScoreSize(){
+  const phone=phoneScores.matches,root=document.documentElement;
+  const savedCompact=legacyScoreSize&&pref.get(phone?'phoneCompactScores':'compactScores','0')==='1';
+  root.dataset.scoreSize=scoreSize;
+  root.classList.toggle('phone-scores',phone);
+  root.classList.toggle('score-wall',scoreSize==='compact'||(scoreSize==='auto'&&(savedCompact||(!phone&&narrowScores.matches))));
+  document.querySelectorAll('[data-score-size]').forEach(select=>{select.value=scoreSize;});
+}
+document.getElementById('score-size-tools').innerHTML=scoreSizeControl();
+syncScoreSize();
+narrowScores.addEventListener('change',syncScoreSize);
+phoneScores.addEventListener('change',syncScoreSize);
+document.addEventListener('change',event=>{
+  if(!event.target.matches('[data-score-size]')||!scoreSizes.includes(event.target.value))return;
+  legacyScoreSize=false;
+  scoreSize=event.target.value;
+  pref.set('scoreSize',scoreSize);
+  syncScoreSize();
+});
 const leagueViews = {};
 function leagueViewIcon(view){
   const paths={
@@ -4301,7 +4331,7 @@ async function renderLeague(lg, tok, view){
       <div class="chips">${r.length?r.map(x=>`<span class="chip">${esc(x.name)} <span class="note">${esc(x.teamAbbr||'?')}</span></span>`).join(''):'<span class="note">No roster players yet — add them in Settings to get FF badges on games.</span>'}</div></div>`;
   }
   const slate = slateGames(lg, games);
-  view.innerHTML = `${leagueViewButtons(lg)}<button class="btn sm score-density" data-density="1" aria-pressed="${document.documentElement.classList.contains('score-wall')}">Compact grid</button><div class="navbar">${nav}</div>
+  view.innerHTML = `${leagueViewButtons(lg)}<div class="navbar">${nav}</div>
     ${playersHere.length?`<h2>👑 Favorite Players</h2><div class="grid" id="plgrid" ${sortAttrs(KEY_PL, playersAll.map(p=>'p:'+p.id))}>${playersHere.map(p=>withSid(`<div class="g" id="pl-${esc(p.id)}"><div class="note">Loading ${esc(p.name)}…</div></div>`,'p:'+p.id)).join('')}</div>`:''}
     ${favList.length?`<h2>⭐ My ${esc(L.short)} Teams</h2><div class="grid" id="favgrid" ${sortAttrs(KEY_FAV, favList.map(t=>'team:'+t.id))}>${featured}</div>`:''}
     ${ffPanel}
@@ -6699,7 +6729,7 @@ function monApplyMode(){
   MON.on=want;
   document.documentElement.classList.toggle('mon-on', want);
   let board=$('#monboard');
-  if(!board){ document.body.insertAdjacentHTML('beforeend', '<div id="monboard" hidden><div class="monbar">'+monitorLeagueSelect()+'<span class="who" id="monwho"></span><span class="monwake" id="monwake"><i></i><span></span></span><button type="button" class="btn sm" data-mon="next">Next panel</button><button type="button" class="btn sm" data-mon="exit">Settings / Exit</button></div><div id="monstage"></div><div class="mondots" id="mondots"></div></div>'); board=$('#monboard'); }
+  if(!board){ document.body.insertAdjacentHTML('beforeend', '<div id="monboard" hidden><div class="monbar">'+monitorLeagueSelect()+scoreSizeControl()+'<span class="who" id="monwho"></span><span class="monwake" id="monwake"><i></i><span></span></span><button type="button" class="btn sm" data-mon="next">Next panel</button><button type="button" class="btn sm" data-mon="exit">Settings / Exit</button></div><div id="monstage"></div><div class="mondots" id="mondots"></div></div>'); board=$('#monboard'); }
   board.hidden=!want;
   board.querySelector('[data-monitor-scope]').value=leagueWall.league;
   board.querySelector('[data-mon="next"]').hidden=Boolean(leagueWall.league);
@@ -7014,7 +7044,7 @@ function monSetupHTML(){
         <button type="button" class="btn pri" id="monenter" data-mon="enter">Enter monitor</button>
         <span class="monwake" id="monwake2"><i></i><span id="monwakenote">Checking wake lock…</span></span>
       </div>
-      ${monitorLeagueSelect()}<div id="mon-wall-preview" hidden></div><div id="mon-rotation-settings"><div class="filters" style="margin-top:8px">
+      ${monitorLeagueSelect()} ${scoreSizeControl()}<div id="mon-wall-preview" hidden></div><div id="mon-rotation-settings"><div class="filters" style="margin-top:8px">
         <span class="note" style="align-self:center">Each panel</span>
         ${[8,12,20].map(n=>`<label class="btn ${n===iv?'pri':''}" style="display:inline-flex;gap:6px;align-items:center"><input type="radio" name="monint" value="${n}" ${n===iv?'checked':''}> ${n}s</label>`).join('')}
       </div>
@@ -7191,11 +7221,6 @@ document.addEventListener('click', async ev=>{
   let v;
   if((v=a('tourney'))!==null){tourneyViews[TAB]=v==='1';return render();}
   if((v=a('cup-jump'))!==null){ document.getElementById(v)?.scrollIntoView({block:'start'}); return; }
-  if(a('density')!==null){
-    if(phoneScores.matches){phoneCompactScores=!phoneCompactScores;pref.set('phoneCompactScores',phoneCompactScores?'1':'0');}
-    else{pinCompactScores=!pinCompactScores;pref.set('compactScores',pinCompactScores?'1':'0');}
-    syncCompactScores();return;
-  }
   if((v=a('nfl-stat-pick'))!==null){
     const host=t.closest('[data-nfl-rank-board]');
     nflRanksView.id=v;drawNflRankBoard(host,host._nflModel);
