@@ -57,7 +57,7 @@ These seed objects are only read the first time the page opens in a browser. Aft
 **Fantasy (Yahoo)** (Settings → Fantasy): paste your Yahoo league link and add your roster players. The hub looks up each player's NFL team from ESPN, or you can pick the team by hand. NFL games with your players get a blue **FF: names** badge. This does **not** log into Yahoo. A live Yahoo roster sync would need Yahoo OAuth (a developer app and sign-in), which could be added later.
 
 ## Bets: the Google Sheet is the source of truth
-**Recommendations** and **README**.
+**Bet log sheet:** [Sports Hub – Bet Log](https://docs.google.com/spreadsheets/d/18Rr-vtGEaRRzV4UbiD0_vOWC929ZBlms7TMdE0NvYFU/edit), with tabs **Placed**, **Recommendations** and **README**.
 - Blitz (football analyst), Court (basketball analyst) or you add one row per bet. Each time the Bets tab opens or refreshes, the hub reads both tabs and grades them. A bar shows **🟢 Synced from Google Sheet · time**.
 - **The sheet must be shared as "Anyone with the link → Viewer"** (Share → General access). Never give the link edit access. Until it's shared, the hub shows "Couldn't reach the Google Sheet… showing cached copy".
 - If you're offline or the sheet can't be reached, the hub falls back to the last synced copy.
@@ -65,10 +65,32 @@ These seed objects are only read the first time the page opens in a browser. Aft
 - Rows deleted from the sheet disappear from the hub. Bets logged in the hub itself are marked **hub only**, and a **📋 Copy row for sheet** button gives you a tab-separated row to paste into the sheet (or just ask Blitz for football / Court for basketball to log it).
 - The sheet ID lives in Settings → Google Sheet. Pasting a full sheet URL there also works.
 
+### Enable Picks Desk logging
+
+In game details, **Take this bet** opens a short confirmation on the suggested pick. Check the sportsbook and American ticket odds, enter your stake, then tap **Log**. A saved unit size prefills the stake. **Cancel** closes the confirmation. **Logged** means the ticket already exists or the writer confirmed it. The next sheet sync brings it into **Your bets** on each device.
+
+1. Open the Bet Log spreadsheet under your Google account. Choose **Extensions → Apps Script** and paste [BetLog.gs](apps-script/BetLog.gs) into the bound project.
+2. In **Project Settings → Script properties**, add `BET_LOG_SECRET` with a long random value you choose. Add `BET_LOG_SHEET_ID` with the ID between `/d/` and `/edit` in the spreadsheet URL. This pins the writer to that sheet even when it runs outside the spreadsheet editor.
+3. Choose **Deploy → New deployment → Web app**, set **Execute as** to **Me** and **Who has access** to **Anyone**. Authorize the deployment and copy its web-app URL ending in `/exec`. Keep the spreadsheet shared as **Anyone with the link → Viewer**.
+4. Open **Sports Hub → Settings → Google Sheet**, enter the web-app URL and the same shared secret, and check the Sheet ID. Repeat on each browser or device. These writer settings stay in browser storage and are excluded from profile backups.
+5. After changing the script, use **Deploy → Manage deployments → Edit → New version → Deploy** to update the existing URL.
+
+The writer accepts authenticated POSTs and appends to **Placed**. It checks the ticket ID, source tag and legs under a lock so retries are safe. If the browser cannot read the reply, the hub checks Placed for the ticket before reporting success. If confirmation fails, check the writer settings and retry. The Bets-tab slip form still saves locally and offers **Copy row for sheet**.
+
+To run the mocked writer and browser tests, install Playwright for Node and its Chromium browser, then run the following in the repository root. Set `BET_LOG_SHOTS` to an output directory to also capture the desktop and 390 × 844 phone screenshots.
+
+```sh
+npm install --no-save --package-lock=false playwright
+npx playwright install chromium
+node --test tests/bet-log-script.test.cjs tests/take-bet.test.cjs
+```
+
 ### Sheet format (for Blitz and Court)
 Row 1 is the header; don't rename or reorder it. Write values RAW: numbers as plain numbers, everything else as text.
 
 **Placed:** `id | date | sportsbook | bet_type | stake | odds | boosted | odds_note | odds_entered_at | odds_verified_at | closing_odds | closing_entered_at | result_override | cashout_amount | notes | legs`
+
+The quick logger leaves `graded_at`, `ladder`, `ladder_run`, `ladder_rung`, `ladder_stake` and `ladder_bankroll` blank. It looks up columns by their existing headers.
 
 **Recommendations:** `id | date | sportsbook | bet_type | odds | boosted | odds_note | odds_entered_at | odds_verified_at | verdict | closing_odds | closing_entered_at | result_override | notes | legs`
 
