@@ -405,6 +405,11 @@ th.brsort{cursor:pointer;color:var(--gold2)}
 .pkodds{font-size:1.15em;font-weight:900;font-variant-numeric:tabular-nums;color:var(--txt)}
 .pkbook{font-size:.92em;font-weight:800;color:var(--gold2)}
 .pkmeta{font-size:12px;color:var(--mut)}.pkmeta b{color:var(--txt)}
+.pktake{margin-top:8px}.pktake form{display:flex;align-items:end;flex-wrap:wrap;gap:8px}
+.pktake label{display:grid;gap:3px;font-size:12px;color:var(--mut)}
+.pktake input{width:7em;max-width:100%}.pktake [name="book"]{width:10em}
+.pktake .note{flex-basis:100%;margin:0}.pktake button:disabled{cursor:default}
+.pktake .logged:disabled{color:var(--ok);opacity:1}html.touch .pktake button{min-height:44px}
 .pknotes{font-size:13px;margin-top:4px;line-height:1.4}
 .why{margin-top:8px;padding:10px 12px;border-radius:14px;background:rgba(6,10,18,.72);border:1px solid rgba(255,255,255,.16);color:#f4f7ff;font-size:15px;line-height:1.5}
 .whylabel{font-size:11px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:#d5e2ff;margin:0 0 6px}
@@ -2437,7 +2442,7 @@ async function renderInjuries(tok, view, force){
 }
 function injRefreshSoon(){ // after a fetch, patch whatever is on screen that shows injuries (no full re-render)
   myInjPatch();
-  if(GD && GD.last){ const {d,lg,g}=GD.last; const el=$('#gdinj'); if(el) el.innerHTML=gdInjHTML(d,lg,g); const pk=$('#gdpicks'); if(pk) pk.innerHTML=gdPicksHTML(g, d); gdPlayersRender(); }
+  if(GD && GD.last){ const {d,lg,g}=GD.last; const el=$('#gdinj'); if(el) el.innerHTML=gdInjHTML(d,lg,g); refreshGamePicks(); gdPlayersRender(); }
 }
 
 // ---------------- GAME DETAIL MODAL ----------------
@@ -2738,7 +2743,7 @@ async function openGame(lg, id, opts={}){
     const oldField = $('#gdfield'), oldPl = $('#gdplayers'), plScroll = oldPl ? new Map([...oldPl.querySelectorAll('.pscroll')].map(x=>[x.dataset.psk, x.scrollLeft])) : null;
     me.last = {d, lg, g, groups};
     injAddSummary(lg, d);
-    const playersHTML = gdPlayersHTML(d, lg, g, groups);
+    const playersHTML = gdPlayersHTML(d, lg, g, groups), restoreTakeFocus=takeFocus();
     holdDockScroll();
     $('#gdbody').innerHTML = `<div class="note">${esc(LG[lg].icon+' '+LG[lg].name)}${g.cup?' '+cupBadge(g):(g.note?' · '+esc(g.note):'')}</div>
       <div class="gdscore">${side(g.away)}${side(g.home)}</div>
@@ -2760,11 +2765,12 @@ async function openGame(lg, id, opts={}){
     { const np=$('#gdplayers'); if(np){ np.dataset.h=strHash(playersHTML);
         let el=np; if(oldPl && oldPl.dataset.h===np.dataset.h){ np.replaceWith(oldPl); el=oldPl; }   // unchanged box score: keep the node (no flicker)
         if(plScroll) el.querySelectorAll('.pscroll').forEach(x=>{ if(plScroll.has(x.dataset.psk)) x.scrollLeft=plScroll.get(x.dataset.psk); }); } }   // re-inserted nodes lose scrollLeft: restore   // unchanged field: keep the same node (no flicker)
+    restoreTakeFocus();
     if(modal) modal.scrollTop=st; const np2=$('#gdpbp'); if(np2) np2.scrollTop=pst;
     if(g.state==='in' || (g.state==='pre' && +g.date<=Date.now())) me.timer=setTimeout(()=>{ if(GD===me){ if(DRAG) return; openGame(lg,id,{refresh:true}); } }, GD_REFRESH_MS);
     me.data={groups:groups.length, state:g.state};
     { const c=INJ[lg]; if(!c || !c.tried || Date.now()-Date.parse(c.tried)>=(c.err?INJ_RETRY:INJ_TTL)) injEnsure([lg]).then(()=>{ if(GD===me) injRefreshSoon(); }); }
-    syncSheet().then(()=>gdLoadPickLegs(id)).then(()=>{ if(GD!==me) return; const el=$('#gdpicks'); if(el){ holdDockScroll(); el.innerHTML=gdPicksHTML(g, me.last&&me.last.d); } const lad=$('#gdladder'); if(lad) lad.innerHTML=ladderSectionHTML(g); }).catch(()=>{});   // throttled (20 s); picks update in place
+    syncSheet().then(()=>gdLoadPickLegs(id)).then(()=>{ if(GD!==me) return; refreshGamePicks(); const lad=$('#gdladder'); if(lad) lad.innerHTML=ladderSectionHTML(g); }).catch(()=>{});   // throttled (20 s); picks update in place
   }catch(e){ if(GD===me) $('#gdbody').innerHTML=`<div class="empty">Could not load this game from ESPN (${esc(e.message)}).</div>`; }
 }
 document.addEventListener('keydown', e=>{
@@ -4826,7 +4832,114 @@ function pkBetLine(l, g, b){
   const book=b.book||'';
   return `<div class="pkbet"><b>${esc(title)}</b>${odds!=null&&odds!==''?`<span class="pkodds">${esc(fmtOdds(odds))}</span>`:''}${book?`<span class="pkbook">${esc(book)}</span>`:''}</div>`;
 }
-function gdPickCard(b, id, g, mine, sum){
+const TAKE_SETUP='<a href="https://github.com/KP3005-git/sports-hub#enable-picks-desk-logging" target="_blank" rel="noopener">Setup guide ↗</a>';
+const takeDrafts=new Map();
+const takeKey=id=>JSON.stringify([sheetId(),id]);
+const writerURLValid=url=>/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(url);
+function writerProblem(){
+  if(!sheetId()) return 'Add your Bet Log sheet ID in Settings.';
+  if(!writerURLValid(pref.get('writer.url',''))) return 'Add the deployed web-app URL in Settings.';
+  if(!pref.get('writer.secret','')) return 'Add the shared secret in Settings.';
+  return '';
+}
+// A ticket is the complete multiset of selections. Prices and the order of parlay legs can change.
+function ticketKey(legs){
+  const norm=v=>String(v??'').trim().toLowerCase();
+  return JSON.stringify(legs.map(l=>JSON.stringify([l.league,l.eventId||l.game,l.market,l.selection||l.selectionName,norm(l.line)===''?'':Number(l.line),
+    l.market==='prop' ? l.propType : '',l.market==='prop' ? l.athleteId||l.selectionName : ''].map(norm))).sort());
+}
+function alreadyTaken(rec){
+  const legs=ticketKey(rec.legs);
+  return DATA.placedBets.some(p=>p.id==='took-'+rec.id || ((p.notes||'').replace(/\s+/g,' ')+' ').includes(' rec '+rec.id+'. ') ||
+    (p.legs?.length===rec.legs.length && ticketKey(p.legs)===legs));
+}
+function takeCardHTML(rec){
+  const key=takeKey(rec.id), draft=takeDrafts.get(key);
+  if(alreadyTaken(rec) || pref.get('writer.receipt.'+key,''))
+    return '<button class="btn sm logged" type="button" disabled>✓ Logged</button>';
+  if(!draft) return '<button type="button" class="btn sm" data-take>Take this bet</button>';
+  const problem=writerProblem();
+  if(problem) return '<div class="note" role="status">'+problem+' '+TAKE_SETUP+'</div><button type="button" class="btn sm" data-take-cancel>Cancel</button>';
+  const disabled=draft.busy?' disabled':'';
+  return `<form data-take-form="${esc(rec.id)}" aria-label="Log suggested bet" novalidate>
+    <label>Stake ($)<input name="stake" inputmode="decimal" required value="${esc(draft.stake)}"${disabled}></label>
+    <label>American odds<input name="odds" required value="${esc(draft.odds)}"${disabled}></label>
+    <label>Sportsbook<input name="book" required value="${esc(draft.book)}"${disabled}></label>
+    <button type="submit" class="btn sm pri"${disabled}>${draft.busy?'Logging…':'Log'}</button>
+    <button type="button" class="btn sm" data-take-cancel${disabled}>Cancel</button>
+    <span class="note" role="status">${esc(draft.error||'')}</span></form>`;
+}
+function takeFocus(){
+  const input=document.activeElement, id=input?.form?.dataset.takeForm;
+  if(!id || !input.name) return ()=>{};
+  const start=input.selectionStart, end=input.selectionEnd;
+  return ()=>{
+    const field=document.querySelector('[data-take-form="'+CSS.escape(id)+'"]')?.elements.namedItem(input.name);
+    if(field && !field.disabled){ field.focus({preventScroll:true}); field.setSelectionRange(start,end); }
+  };
+}
+function refreshGamePicks(){
+  const host=$('#gdpicks');
+  if(!host || !GD?.last) return;
+  const html=gdPicksHTML(GD.last.g,GD.last.d);
+  if(html===host._picksMarkup) return;
+  const restore=takeFocus();
+  holdDockScroll();
+  host.innerHTML=host._picksMarkup=html;
+  restore();
+}
+function takenRow(rec, draft){
+  const now=new Date(), notes=('Took '+analystOf(rec)+' rec '+rec.id+'. '+(rec.notes||'')).trim();
+  const row=sheetRowFields({id:'took-'+rec.id, date:now.toLocaleDateString('sv-SE',{timeZone:'America/Indiana/Indianapolis'}),
+    book:draft.book.trim(), betType:rec.betType, stake:Number(draft.stake), odds:Number(draft.odds),
+    boosted:rec.boosted, oddsNote:rec.sheetOddsNote??rec.oddsNote, oddsEnteredAt:now.toISOString(), notes, legs:rec.legs});
+  if(rec.boosted!=null) row.boosted=rec.boosted?'TRUE':'FALSE';
+  return Object.fromEntries(PLACED_COLS.map(k=>[k,row[k]]));
+}
+async function submitTaken(rec, draft){
+  if(!draft || draft.busy || alreadyTaken(rec)) return refreshGamePicks();
+  draft.error=writerProblem();
+  if(!draft.error && !(Number.isFinite(Number(draft.stake)) && Number(draft.stake)>0)) draft.error='Enter a stake greater than $0.';
+  if(!draft.error && !(/^[+-]?\d+$/.test(draft.odds.trim()) && validOdds(draft.odds))) draft.error='Enter American odds, such as +120 or -110.';
+  if(!draft.error && !draft.book.trim()) draft.error='Enter the sportsbook on your ticket.';
+  if(draft.error) return refreshGamePicks();
+  const key=takeKey(rec.id), target=sheetId(), row=takenRow(rec,draft);
+  if(pref.get('writer.receipt.'+key,'')) return refreshGamePicks();
+  draft.busy=true;
+  refreshGamePicks();
+  try{
+    let reply;
+    const abort=new AbortController(), timer=setTimeout(()=>abort.abort(),20000);
+    try{
+      const response=await fetch(pref.get('writer.url',''),{method:'POST',credentials:'omit',referrerPolicy:'no-referrer',
+        headers:{'Content-Type':'text/plain;charset=UTF-8'}, signal:abort.signal,
+        body:JSON.stringify({secret:pref.get('writer.secret',''),sheetId:target,row})});
+      reply=await response.json();
+    }catch(_){ /* CORS can hide a committed append. Read Placed before allowing a retry. */ }
+    finally{ clearTimeout(timer); }
+    if(reply?.status==='error'){
+      draft.error=reply.reason==='rejected'?'Request rejected. Check the shared secret in Settings.':'Sheet append failed. Check the setup and retry.';
+      return;
+    }
+    const acknowledged=['ok','duplicate'].includes(reply?.status) && reply.id===row.id;
+    if(acknowledged){ pref.set('writer.receipt.'+key,'1'); refreshGamePicks(); }
+    // An older background read may have started before the POST.
+    if(SYNCING) await SYNCING;
+    for(let attempt=0;attempt<3 && sheetId()===target;attempt++){
+      if(attempt) await new Promise(resolve=>setTimeout(resolve,attempt*1000));
+      if(sheetId()!==target) break;
+      const sync=await syncSheet(true);
+      if(sheetId()===target && sync?.ok && DATA.placedBets.some(p=>p.source==='sheet' && p.id===row.id)){
+        takeDrafts.delete(key);
+        return;
+      }
+      if(!sync?.ok || (acknowledged && alreadyTaken(rec))) break;
+    }
+    if(acknowledged) takeDrafts.delete(key);
+    else draft.error='Couldn’t confirm this ticket on Placed. Check the connection and writer settings, then retry.';
+  }finally{ draft.busy=false; refreshGamePicks(); }
+}
+function gdPickCard(b, id, g, mine, sum, quickLog){
   const legs = b.legs||[], hit = legs.filter(l=>evMatch(l,id)), rest = legs.filter(l=>!evMatch(l,id));
   const boosted = b.boosted || /boost/i.test(b.oddsNote||'');
   const gr = legs.length>1 ? gradeBet(b) : null;
@@ -4846,8 +4959,9 @@ function gdPickCard(b, id, g, mine, sum){
     <div class="pktop">${head}<b>${esc(BETTYPES[b.betType]||b.betType)}</b>${lad?` ${lad}`:''}${legs.length>1?` <span class="badge b-n">Parlay leg (${legs.length} legs, ${fmtOdds(b.odds)})</span>`:''}${gr?` <span class="badge ${gr.cls}" title="Whole ticket">${esc(!mine&&gr.status==='won'?'TICKET WON ✓':(/^TICKET/.test(gr.txt)?'':'TICKET · ')+gr.txt)}</span>`:''}<span class="note">${esc(b.date||'')}${b.source==='sheet'?' · 📄 sheet':b.source==='demo'?' · demo':' · hub only'}</span></div>
     ${hit.map(row).join('')||rest.map(row).join('')}
     ${hit.length&&rest.length?`<div class="note">Other legs</div>${rest.map((l,i)=>row(l, hit.length+i)).join('')}`:''}
-    <div class="pkmeta">${boosted?'<span class="badge b-gold">🚀 BOOSTED</span> ':''}${mine&&b.stake!=null?`Stake <b>${money(+b.stake)}</b> `:''}${legs.length>1?`Ticket <b>${fmtOdds(b.odds)}</b> `:''}${b.oddsNote?`<span title="${esc(b.oddsNote)}">${esc(b.oddsNote.length>90?b.oddsNote.slice(0,90)+'…':b.oddsNote)}</span>`:''}</div>
+    <div class="pkmeta">${boosted?'<span class="badge b-gold">🚀 BOOSTED</span> ':''}${mine&&b.stake!=null?`Stake <b>${money(+b.stake)}</b> `:''}${legs.length>1 || (mine && validOdds(legs[0]?.odds) && +legs[0].odds!==+b.odds)?`Ticket <b>${fmtOdds(b.odds)}</b> `:''}${b.oddsNote?`<span title="${esc(b.oddsNote)}">${esc(b.oddsNote.length>90?b.oddsNote.slice(0,90)+'…':b.oddsNote)}</span>`:''}</div>
     ${b.notes?whyHTML(b.notes, 'why|'+b.id):''}
+    ${quickLog && !mine ? '<div class="pktake">'+takeCardHTML(b)+'</div>' : ''}
   </div>`;
 }
 async function gdLoadPickLegs(id){ // other legs of parlays on this game: fetch their games once so they get names + grades
@@ -4857,7 +4971,7 @@ async function gdLoadPickLegs(id){ // other legs of parlays on this game: fetch 
   await Promise.all(uniq.map(async l=>{ try{ const g=await summaryEvent(l.league, l.eventId); if(g) LEGEV.set(String(l.eventId), g); }catch(_){ } }));
   return true;
 }
-function gdPicksHTML(g, sum){
+function gdPicksHTML(g, sum, quickLog=true){
   const id = String(g.id), ord = b=>[VERDICTS.indexOf(b.verdict)<0?9:VERDICTS.indexOf(b.verdict), (b.legs||[]).length>1?1:0];
   const recs = betsForEvent(DATA.recommendations, id).sort((a,b)=>{ const x=ord(a), y=ord(b); return x[0]-y[0] || x[1]-y[1]; });
   const placed = betsForEvent(DATA.placedBets, id);
@@ -4866,7 +4980,7 @@ function gdPicksHTML(g, sum){
     ? `<div class="syncbar warn pkhint">⚠ Couldn't load the Picks Desk sheet. Share it by link (Viewer) so picks show up.${st.at?` <span class="note">Showing cached picks from ${esc(fmtStamp(st.at))}.</span>`:''} <a href="${esc(sheetURL())}" target="_blank" rel="noopener">Open sheet ↗</a></div>` : '';
   const ans=analystsIn(recs);
   return `<h3 class="gdh" id="gdpickh" title="Picks Desk: Blitz (football) &amp; Court (basketball)">🎯 Picks Desk <span class="note" style="letter-spacing:0;text-transform:none">${recs.length?`${esc(ans.join(' & '))} · ${recs.length} on this game`:'Blitz &amp; Court'}</span></h3>${hint}
-    ${recs.length?`<div class="pklist">${recs.map(b=>gdPickCard(b,id,g,false,sum)).join('')}</div>`:'<div class="empty">No Picks Desk picks (Blitz &amp; Court) for this game.</div>'}
+    ${recs.length?`<div class="pklist">${recs.map(b=>gdPickCard(b,id,g,false,sum,quickLog)).join('')}</div>`:'<div class="empty">No Picks Desk picks (Blitz &amp; Court) for this game.</div>'}
     ${placed.length?`<h3 class="gdh">🎟️ Your bets</h3><div class="pklist">${placed.map(b=>gdPickCard(b,id,g,true,sum)).join('')}</div>`:''}`;
 }
 
@@ -5704,7 +5818,7 @@ function rowToBet(r, kind){
     resultOverride:sStr(r.result_override).toLowerCase()||null, payoutOverride:kind==='placed'?sNum(r.cashout_amount):null, notes:sStr(r.notes), legs,
     analyst:sStr(r.analyst)||null };   // optional column; analystOf() applies the fallbacks
   const lad=ladderFromRow(r); if(lad) b.ladder=lad;
-  if(b.boosted && !/boost/i.test(b.oddsNote)) b.oddsNote = (b.oddsNote?b.oddsNote+', ':'')+'boosted';
+  if(b.boosted && !/boost/i.test(b.oddsNote)){ b.sheetOddsNote=b.oddsNote; b.oddsNote=(b.oddsNote?b.oddsNote+', ':'')+'boosted'; }
   if(!BETTYPES[b.betType]) throw new Error('bet_type must be moneyline/spread/total/parlay/prop');
   if(b.resultOverride && !['won','lost','push','void','cashout'].includes(b.resultOverride)) throw new Error('bad result_override');
   if(kind==='placed'){ b.stake=sNum(r.stake); if(!(b.stake>0)) throw new Error('stake must be > 0'); }
@@ -5736,9 +5850,14 @@ async function syncSheet(force, maxAge=20000){
       const warnings=[]; const conv=(rows,kind,tab)=>rows.map(r=>{ try{ return rowToBet(r,kind); }catch(e){ warnings.push(`${tab} row ${r._row}: ${e.message}`); return null; } }).filter(Boolean);
       const placed=conv(pd,'placed','Placed'), recs=conv(rd,'rec','Recommendations');
       mergeSheet('placed',placed); mergeSheet('rec',recs);
+      // Once gviz sees the ticket, the normal sheet cache carries its Logged state across reloads.
+      for(const rec of DATA.recommendations){
+        const receipt='writer.receipt.'+takeKey(rec.id);
+        if(pref.get(receipt,'') && alreadyTaken(rec)) localStorage.removeItem('sportsHub.'+receipt);
+      }
       DATA.sheetSync={ok:true, at:tried, tried, placed:placed.length, recs:recs.length, warnings, error:null};
     }catch(e){ DATA.sheetSync=Object.assign({}, st, {ok:false, tried, error:e.message}); }
-    saveData(); SYNCING=null; try{ refreshPickChips(); }catch(_){ }
+    saveData(); SYNCING=null; try{ refreshPickChips(); refreshGamePicks(); }catch(_){ }
     try{ if(typeof refreshOpenRosterProps==='function') refreshOpenRosterProps(); }catch(_){ }
     try{ if(typeof ladderDemoApply==='function') ladderDemoApply(); }catch(_){ }
     if(TAB==='ladders' && document.body.dataset.loaded) render();
@@ -5754,11 +5873,14 @@ function syncBarHTML(){
   if(st.ok) return `<div class="syncbar ok" id="syncbar">🟢 <b>Synced from Google Sheet</b> · ${esc(fmtStamp(st.at))} · ${st.placed} placed · ${st.recs} recs${warn} ${link}</div>${(st.warnings||[]).length?`<div class="note" style="margin:-6px 0 10px">${st.warnings.map(esc).join('<br>')}</div>`:''}`;
   return `<div class="syncbar warn" id="syncbar">⚠ Couldn't reach the Google Sheet (${esc(st.error)}). Showing cached copy${st.at?' from '+esc(fmtStamp(st.at)):' (never synced)'}. ${link}</div>`;
 }
-function sheetRowTSV(b){
-  const legs=JSON.stringify(b.legs.map(l=>({league:l.league,eventId:l.eventId,market:l.market,selection:String(l.selection),selectionName:l.selectionName||'',line:l.line??null,odds:l.odds??null,game:l.game||''})));
-  const m={id:b.id,date:b.date,sportsbook:b.book,bet_type:b.betType,stake:b.stake??'',odds:b.odds,boosted:b.boosted||/boost/i.test(b.oddsNote||'')?'TRUE':'FALSE',odds_note:b.oddsNote||'',
+function sheetRowFields(b){
+  const legs=JSON.stringify(b.legs.map(l=>({league:l.league,eventId:l.eventId,market:l.market,selection:String(l.selection),selectionName:l.selectionName||'',line:l.line??null,odds:l.odds??null,game:l.game||'',athleteId:l.athleteId||undefined,date:l.date||undefined,propType:l.propType||undefined})));
+  return {id:b.id,date:b.date,sportsbook:b.book,bet_type:b.betType,stake:b.stake??'',odds:b.odds,boosted:b.boosted||/boost/i.test(b.oddsNote||'')?'TRUE':'FALSE',odds_note:b.oddsNote||'',
     odds_entered_at:b.oddsEnteredAt||'',odds_verified_at:b.oddsVerifiedAt||'',verdict:b.verdict||'',closing_odds:b.closingOdds??'',closing_entered_at:b.closingEnteredAt||'',
-    result_override:b.resultOverride||'',cashout_amount:b.payoutOverride??'',notes:(b.notes||'').replace(/[\t\n]/g,' '),legs};
+    result_override:b.resultOverride||'',cashout_amount:b.payoutOverride??'',notes:(b.notes||'').replace(/[\t\r\n]+/g,' '),legs};
+}
+function sheetRowTSV(b){
+  const m=sheetRowFields(b);
   return (b.kind==='rec'?REC_COLS:PLACED_COLS).map(c=>m[c]??'').join('\t');
 }
 let LASTSAVED=null;
@@ -5877,6 +5999,11 @@ function renderSettings(view){
     <div class="panel"><h3>📄 Google Sheet (bet log + Picks Desk)</h3>
       <p class="note">Bets live in a Google Sheet (Blitz and Court write rows, the hub reads them every time you open or refresh the Bets tab). The sheet must be shared <b>Anyone with the link → Viewer</b>. Your local result overrides, closing odds and "verified" marks are kept on top of the sheet's rows.</p>
       <label class="f">Sheet ID<input id="setsheet" value="${esc(DATA.settings.sheetId||'')}" placeholder="the long id in the sheet URL"></label>
+      <h3>Log suggested bets</h3>
+      <label class="f">Apps Script web-app URL<input id="setwriteurl" type="url" autocomplete="off" spellcheck="false"></label>
+      <label class="f">Shared secret<input id="setwritesecret" type="password" autocomplete="off"></label>
+      <p class="note">Saved on this browser for logging from game details. ${TAKE_SETUP}</p>
+      <p class="note" id="writermsg" role="status"></p>
       <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">${sheetId()?`<a class="btn sm" href="${esc(sheetURL())}" target="_blank" rel="noopener">Open sheet ↗</a>`:''}<button class="btn sm" data-syncnow="1">↻ Sync now</button></div>
       <div style="margin-top:8px">${syncBarHTML()}</div>
     </div>
@@ -5884,7 +6011,7 @@ function renderSettings(view){
       <div class="formgrid"><label class="f">Default sportsbook<input id="setbook" list="books2" value="${esc(S.defaultBook)}"></label>
       <label class="f">Unit size ($, optional)<input id="setunit" inputmode="decimal" placeholder="e.g. 5" value="${S.unitSize??''}"></label></div>
       <datalist id="books2">${['FanDuel','DraftKings','BetMGM','Caesars','ESPN BET','Fanatics','bet365'].map(b=>`<option>${b}</option>`).join('')}</datalist>
-      <p class="note">Unit size only changes how results are displayed (P/L in units). Nothing here connects to a sportsbook.</p>
+      <p class="note">Unit size shows P/L in units and prefills the stake when you log a suggested bet.</p>
       <h3>💾 Backup & restore</h3>
       <p class="note">Everything is stored in this browser only (localStorage). Export a backup regularly — clearing browser data or switching browsers wipes it.</p>
       <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn pri" data-export="json">⬇ Full backup (JSON)</button><button class="btn" data-export="csv">⬇ Bets CSV</button><button class="btn" data-export="reccsv">⬇ Recs CSV</button>
@@ -5892,6 +6019,8 @@ function renderSettings(view){
       <p class="note" id="setmsg"></p>
     </div>
   </div>`;
+  $('#setwriteurl').value=pref.get('writer.url','');
+  $('#setwritesecret').value=pref.get('writer.secret','');
   nflTeams().then(ts=>{ const s=$('#ffteam'); if(s) s.innerHTML='<option value="">team…</option>'+ts.map(t=>`<option value="${t.id}|${esc(t.abbr)}">${esc(t.name)}</option>`).join(''); }).catch(()=>{});
 }
 let SEARCH_T;
@@ -6506,7 +6635,7 @@ function wallPanelContent(detail,g){
     const visual=d?(isFootball(g.lg)?gdField(d,g.lg,g,gdPlays(d,g.lg)):gdWinProb(d,g)):'';
     return score+visual;
   }
-  if(id==='picks')return gdPicksHTML(g,d);
+  if(id==='picks')return gdPicksHTML(g,d,false);
   if(id==='inj'&&!d&&detail.error)return gdInjHTML({},g.lg,g);
   if(!d)return '<p role="status">'+(detail.error?'Game details are unavailable.':'Loading game details…')+'</p>';
   if(id==='clips'){
@@ -7045,7 +7174,7 @@ function monPanelHTML(id, g, d){
   if(id==='stats') return d?(gdTeamStats(d, g)||'<div class="empty">No team stats yet.</div>'):'<div class="empty">Loading team stats…</div>';
   if(id==='leaders') return d?(gdLeaders(d, g)||'<div class="empty">No leaders yet.</div>'):'<div class="empty">Loading leaders…</div>';
   if(id==='win') return d?(gdWinProb(d, g)||'<div class="empty">ESPN has no win probability for this game.</div>'):'<div class="empty">Loading win probability…</div>';
-  if(id==='picks') return gdPicksHTML(g, MON.sums.get(g.lg+'|'+g.id)||null);
+  if(id==='picks') return gdPicksHTML(g, MON.sums.get(g.lg+'|'+g.id)||null,false);
   if(id==='fantasy') return monFantasyHTML(g, d)||'<div class="empty">No fantasy players in this game.</div>';
   if(id==='inj') return d?gdInjHTML(d, g.lg, g):'<div class="empty">Loading injuries…</div>';
   if(id==='clips') return monClipsHTML(g, d)||'<div class="empty">No public ESPN clip on this game yet.</div>';
@@ -7380,6 +7509,15 @@ document.addEventListener('click', async ev=>{
   if((v=a('mv'))!==null){ moveItem(t.closest('[data-mv]'), +v); return; }
   if(t.id==='gdmodal' && GD && Date.now()-(GD.openedAt||0)<450) return;   // the 2nd tap of a quick double-tap must not close what the 1st opened
   if(t.id==='gdmodal' || t.closest('[data-gdclose="x"]')){ closeGame(); return; }
+  if(t.closest('[data-take],[data-take-cancel]')){
+    const rec=DATA.recommendations.find(b=>b.id===t.closest('[data-pick]').dataset.pick);
+    if(!rec) return;
+    const key=takeKey(rec.id);
+    if(takeDrafts.get(key)?.busy) return;
+    if(t.closest('[data-take-cancel]')) takeDrafts.delete(key);
+    else if(!alreadyTaken(rec)) takeDrafts.set(key,{stake:String(DATA.settings.unitSize||''),odds:rec.odds==null?'':fmtOdds(rec.odds),book:rec.book||rec.sportsbook||'FanDuel'});
+    return refreshGamePicks();
+  }
   if((v=a('hitopen'))!==null){
     ev.preventDefault();
     if(HIT_OPEN.has(v)) HIT_OPEN.delete(v); else HIT_OPEN.add(v);
@@ -7430,7 +7568,10 @@ document.addEventListener('click', async ev=>{
     if(!ok && !$('#copyrow')){ LASTSAVED={id,kind:k}; render(); } return; }
   if((v=a('export'))!==null){ if(v==='json') exportJSON(); else if(v==='teams') exportJSON(['myTeams']); else if(v==='csv') exportCSV('placed'); else if(v==='reccsv') exportCSV('rec'); return; }
   if((v=a('import'))!==null){ IMPORT_MODE=v; $('#filein').value=''; $('#filein').click(); return; }
-  if(a('wipe')){ if(confirm('Erase ALL teams, players, fantasy, bets and recommendations from this browser? Export a backup first!') && confirm('Really erase everything?')){ localStorage.removeItem(KEY); DATA=normalizeData({}); saveData(); render(); } return; }
+  if(a('wipe')){ if(confirm('Erase ALL teams, players, fantasy, bets and recommendations from this browser? Export a backup first!') && confirm('Really erase everything?')){
+    for(const key of Object.keys(localStorage).filter(k=>k.startsWith('sportsHub.writer.'))) localStorage.removeItem(key);
+    takeDrafts.clear(); localStorage.removeItem(KEY); DATA=normalizeData({}); saveData(); render();
+  } return; }
   if(a('resetteams')){ if(confirm('Replace your teams with the MY_TEAMS config in the file?')){ DATA.myTeams=JSON.parse(JSON.stringify(MY_TEAMS)); saveData(); render(); } return; }
   if((v=a('rmteam'))!==null){ const [lg,id]=v.split('|'); DATA.myTeams[lg]=DATA.myTeams[lg].filter(x=>String(x.id)!==id); saveData(); return render(); }
   if((v=a('addteam'))!==null){ const [lg,id]=v.split('|'); const tm=(TEAMLIST[lg]||[]).find(x=>x.id===id); if(tm && !DATA.myTeams[lg].some(x=>String(x.id)===id)){ DATA.myTeams[lg].push({id:tm.id,name:tm.name,abbr:tm.abbr,logo:tm.logo}); saveData(); } return render(); }
@@ -7486,19 +7627,43 @@ document.addEventListener('change', ev=>{
   if(t.id==='ffpreset'){ if(FANTASY_PRESETS[t.value]){ DATA.settings.fantasyScoring=Object.assign({},FANTASY_PRESETS[t.value].v); } DATA.settings.fantasyPreset=t.value; saveData(); return render(); }
   if(d.ffscore){ if(!t.isConnected) return; const n=parseFloat(t.value); if(!Number.isFinite(n)){ t.value=FSC()[d.ffscore]; return; } DATA.settings.fantasyScoring[d.ffscore]=n; DATA.settings.fantasyPreset='custom'; saveData(); $('#ffpreset').value='custom'; return; }
   if(t.id==='setsheet'){ let v=t.value.trim(); const m=/\/d\/([a-zA-Z0-9_-]{20,})/.exec(v); if(m) v=m[1]; DATA.settings.sheetId=v; DATA.sheetSync=null; saveData(); syncSheet(true).then(()=>render()); return; }
+  if(t.id==='setwriteurl' || t.id==='setwritesecret'){
+    const url=t.id==='setwriteurl', value=url?t.value.trim():t.value;
+    if(url && value!==pref.get('writer.url','')){ pref.set('writer.secret',''); $('#setwritesecret').value=''; }
+    pref.set(url?'writer.url':'writer.secret',value);
+    $('#writermsg').textContent=pref.get(url?'writer.url':'writer.secret','')!==value?'Couldn’t save. Check browser storage.':
+      url && value && !writerURLValid(value)?'Use the deployed script.google.com web-app URL ending in /exec.':'Saved on this browser.';
+    return;
+  }
   if(t.id==='setwatch'){ pref.set('watch.suggest', t.checked?'1':'0'); if(!t.checked) Object.keys(WATCH_HOLD).forEach(k=>delete WATCH_HOLD[k]); const m=$('#setmsg'); if(m) m.textContent=t.checked?'Game to watch is on.':'Game to watch is off.'; return; }
   if(t.id==='setbook'){ DATA.settings.defaultBook=t.value.trim()||'FanDuel'; saveData(); $('#setmsg').textContent='Saved default sportsbook.'; return; }
   if(t.id==='setunit'){ const n=parseFloat(t.value); DATA.settings.unitSize = n>0?n:null; saveData(); $('#setmsg').textContent='Saved unit size.'; return; }
 });
 document.addEventListener('input', ev=>{
   const t=ev.target, d=t.dataset;
+  if(t.form?.hasAttribute('data-take-form')){
+    const draft=takeDrafts.get(takeKey(t.form.dataset.takeForm));
+    if(draft && ['stake','odds','book'].includes(t.name)) draft[t.name]=t.value;
+    return;
+  }
   if(d.teamsearch){ clearTimeout(SEARCH_T); SEARCH_T=setTimeout(()=>teamSearch(d.teamsearch,t.value),150); }
   if(t.id==='injq'){ clearTimeout(SEARCH_T); SEARCH_T=setTimeout(()=>{ pref.set('inj.q',t.value); const b=$('#injbody'); if(b) b.innerHTML=injBodyHTML(); },150); }
   if(t.id==='plogseason'){ return openPlayerLog(t.dataset.athlete, t.value); }
   if(t.id==='rosterq') paintRoster(t.value);
   if(d.playersearch){ clearTimeout(SEARCH_T); SEARCH_T=setTimeout(()=>playerSearch(d.playersearch,t.value),300); }
 });
-document.addEventListener('submit', ev=>{ if(ev.target.id==='slipform'){ ev.preventDefault(); saveDraft(); } });
+document.addEventListener('submit', ev=>{
+  if(ev.target.id==='slipform'){ ev.preventDefault(); saveDraft(); }
+  if(ev.target.hasAttribute('data-take-form')){
+    ev.preventDefault();
+    const id=ev.target.dataset.takeForm, rec=DATA.recommendations.find(b=>b.id===id);
+    const draft=takeDrafts.get(takeKey(id));
+    if(rec && draft && !draft.busy){
+      Object.assign(draft,Object.fromEntries(new FormData(ev.target)));
+      submitTaken(rec,draft);
+    }
+  }
+});
 $('#filein').addEventListener('change', async ev=>{
   const f=ev.target.files[0]; if(!f) return;
   try{ const obj=JSON.parse(await f.text());
