@@ -148,8 +148,11 @@ html.touch .rbtn::after{content:"";position:absolute;inset:-8px}
 .row .rk{color:var(--gold2);font-size:11px;font-weight:800;margin-right:3px}
 .row .rec{color:var(--mut);font-size:11px;margin-left:4px;font-weight:400}
 .row .sc{font-weight:900;font-size:20px;min-width:30px;text-align:right;font-variant-numeric:tabular-nums}
-.row .ml,.gdwho .ml,.mongame .note .ml{flex:none;font-size:12px;font-weight:700;color:var(--mut);font-variant-numeric:tabular-nums;white-space:nowrap}
+.row .spread,.row .ml,.gdwho .ml,.mongame .note .ml{flex:none;font-size:12px;font-weight:700;color:var(--mut);font-variant-numeric:tabular-nums;white-space:nowrap}
 .row .ml.fav,.gdwho .ml.fav,.mongame .note .ml.fav,.monmeta .ml.fav{font-weight:800;color:var(--gold2)}
+.row .score-odds{display:inline-flex;align-items:center;gap:5px;flex:none;white-space:nowrap}
+.row .spread-label{font-size:10px;margin-right:3px}
+.row:has(> .score-odds) > .sc:empty{display:none}
 .row.lose .sc,.row.lose .nm{color:var(--mut)}
 .row.favt .nm{color:var(--gold2)}
 .pos{color:var(--gold2);font-size:13px;margin-left:3px}
@@ -818,7 +821,7 @@ hub-live-odds .lo-pregame{border-top:1px solid var(--line);padding-top:7px;margi
 .score-wall:not(.reorder) .grid>.g[data-ev]>.row .nm{font:750 12px/1.2 system-ui;white-space:nowrap;min-width:0}
 .score-wall:not(.reorder) .grid>.g[data-ev]>.row .sc{font-size:16px;min-width:0;line-height:1.2}
 .score-wall:not(.reorder) .grid>.g[data-ev] .score-abbr{display:inline}
-.score-wall:not(.reorder) .grid>.g[data-ev] :is(.score-name,.rk,.pos,.rec,.rbtn,.tlogo,.ml,.score-tv,.addslip,.score-details-label),
+.score-wall:not(.reorder) .grid>.g[data-ev] :is(.score-name,.rk,.pos,.rec,.rbtn,.tlogo,.score-odds,.score-tv,.addslip,.score-details-label),
 .score-wall:not(.reorder) .grid>.g[data-ev]>:is(.dh,.mv,.sit,.tags,.lgtag,.watchpill,hub-live-odds),
 .score-wall:not(.reorder) .grid>.g[data-ev]>.row>img,.score-wall:not(.reorder) .grid>.g[data-ev]>.row>span:first-child{display:none}
 .score-wall:not(.reorder) .grid>.g[data-ev]>.foot{display:block;margin:3px 0 0;padding:3px 0 0;font:650 10px/1.22 system-ui;overflow-wrap:anywhere}
@@ -1311,6 +1314,41 @@ function spreadAbsFromList(list){
   }
   return null;
 }
+function spreadNumber(value){
+  const line=String(value??'').trim().replace('−','-');
+  if(/^(PK|PICK(?:'EM)?)$/i.test(line)) return 0;
+  return /^[+-]?\d+(?:\.\d+)?$/.test(line) && Number.isFinite(Number(line)) ? Number(line) : null;
+}
+function teamSpreadsFromList(list, game){
+  const books=Array.isArray(list)?list:list?[list]:[];
+  for(const book of books){
+    if(!book) continue;
+    for(const phase of ['close','open']){
+      const home=spreadNumber(book.pointSpread?.home?.[phase]?.line);
+      const away=spreadNumber(book.pointSpread?.away?.[phase]?.line);
+      if(home!=null || away!=null) return {home:home??-away, away:away??-home};
+    }
+    const home=spreadNumber(book.homeTeamOdds?.spread);
+    const away=spreadNumber(book.awayTeamOdds?.spread);
+    if(home!=null || away!=null) return {home:home??-away, away:away??-home};
+
+    const detail=String(book.details??'').trim().match(/^(.*?)\s+([+−-]?\d+(?:\.\d+)?)$/);
+    const line=spreadNumber(detail?.[2]) ?? spreadNumber(book.spread) ?? spreadNumber(book.pointSpread) ?? spreadNumber(book.details);
+    if(line==null) continue;
+    if(line===0) return {home:0, away:0};
+    const team=detail?.[1].toUpperCase();
+    const homeMatch=!!(team && team===game.home.abbr?.toUpperCase());
+    const awayMatch=!!(team && team===game.away.abbr?.toUpperCase());
+    if(homeMatch!==awayMatch) return homeMatch?{home:line, away:-line}:{home:-line, away:line};
+    const homeFavorite=book.homeTeamOdds?.favorite===true;
+    const awayFavorite=book.awayTeamOdds?.favorite===true;
+    if(homeFavorite!==awayFavorite){
+      const favorite=-Math.abs(line);
+      return homeFavorite?{home:favorite, away:-favorite}:{home:-favorite, away:favorite};
+    }
+  }
+  return null;
+}
 const fmtMl = n=>{ const v=Math.round(+n); return (v>0?'+':'')+v; };
 function liveOddsPanel(g){
   return g.state==='in' && !g.snap ? '<hub-live-odds data-league="'+esc(g.lg)+'" data-event="'+esc(g.id)+'">Checking live odds…</hub-live-odds>' : '';
@@ -1391,23 +1429,31 @@ function mlSpan(g, side){
   const fav=ml.fav===side;
   return `<span class="ml${fav?' fav':''}" title="${fav?'Favorite to win':''}">${esc(fmtMl(ml[side]))}</span>`;
 }
-async function ensureMoneyline(g){
-  if(!g || g.ml) return g&&g.ml||null;
+function scoreOdds(g, side){
+  if(g.state==='in') return '';
+  const moneyline=mlSpan(g, side);
+  const line=g.teamSpreads?.[side];
+  const spread=line==null?'':`<span class="spread" title="Point spread"><span class="spread-label">Spread</span>${line>0?'+':''}${line}</span>`;
+  return moneyline || spread ? `<span class="score-odds">${moneyline}${spread}</span>` : '';
+}
+const needsScoreOdds = g => !g.ml || (g.state==='pre' && !g.teamSpreads);
+async function ensureScoreOdds(g){
+  if(!needsScoreOdds(g)) return;
   try{
     const d=await summary(g.lg, g.id);
     const comp=(((d.header||{}).competitions)||[])[0]||{};
-    g.ml = mlFromList(d.pickcenter) || mlFromList(comp.odds) || null;
+    g.ml ??= mlFromList(d.pickcenter) || mlFromList(comp.odds);
+    g.teamSpreads ??= teamSpreadsFromList(d.pickcenter, g) || teamSpreadsFromList(comp.odds, g);
   }catch(_){}
-  return g.ml||null;
 }
-function paintMoneyline(g){
-  if(!g||!g.ml) return;
+function paintScoreOdds(g){
+  if(!g.ml && !g.teamSpreads) return;
   document.querySelectorAll(`.g[data-ev="${g.id}"]`).forEach(card=>{
     const rows=[...card.children].filter(el=>el.classList&&el.classList.contains('row'));
     if(rows.length<2) return;
     [['away',rows[0]],['home',rows[1]]].forEach(([side,row])=>{
-      const html=mlSpan(g, side); if(!html) return;
-      const old=row.querySelector(':scope > .ml');
+      const html=scoreOdds(g, side); if(!html) return;
+      const old=row.querySelector(':scope > .score-odds');
       if(old) old.outerHTML=html;
       else { const nm=row.querySelector(':scope > .nm'); if(nm) nm.insertAdjacentHTML('afterend', html); }
     });
@@ -1438,7 +1484,7 @@ function normEvent(e, lg){
   let tv = [...new Set(b.flatMap(x=>x.names||(x.media&&x.media.shortName?[x.media.shortName]:[])))].join(', ');
   if(!tv) tv = (c.geoBroadcasts||[]).map(g=>g.media&&g.media.shortName).filter(Boolean).join(', ');
   const sit = c.situation||null;
-  return { seasonType:(e.seasonType&&e.seasonType.type)||(e.season&&e.season.type)||null, id:String(e.id||c.id), lg, date:new Date(e.date||c.date), name:e.name||'', state:st, statusName:t.name||'', detail:t.shortDetail||t.detail||t.description||'',
+  const game = { seasonType:(e.seasonType&&e.seasonType.type)||(e.season&&e.season.type)||null, id:String(e.id||c.id), lg, date:new Date(e.date||c.date), name:e.name||'', state:st, statusName:t.name||'', detail:t.shortDetail||t.detail||t.description||'',
     period:s.period||0, clock:s.displayClock||'', completed:!!t.completed,
     home:normSide(homeC,lg), away:normSide(awayC,lg), tv:tv||'—', neutral:!!c.neutralSite,
     sit: sit?{dd:sit.downDistanceText||'', rz:!!sit.isRedZone, poss:sit.possession?String(sit.possession):null, last:(sit.lastPlay&&sit.lastPlay.text)||'',
@@ -1447,6 +1493,8 @@ function normEvent(e, lg){
     cup: lg==='nba' ? nbaCupFrom(e) : '',
     spread:spreadAbsFromList(c.odds),
     ml:mlFromList(c.odds) };
+  game.teamSpreads=teamSpreadsFromList(c.odds, game);
+  return game;
 }
 function snapToEvent(leg){ // stored final snapshot -> minimal normalized event
   const f = leg.final; const side = x=>({id:x.id,abbr:x.abbr,name:x.name,full:x.name,logo:x.logo||(LG[leg.league]&&LG[leg.league].college?`https://a.espncdn.com/i/teamlogos/ncaa/500/${x.id}.png`:''),score:x.score,rank:null,record:'',winner:false});
@@ -1653,7 +1701,7 @@ function teamRow(g, s, favs){
   return `<div class="row ${lose?'lose':''} ${fav?'favt':''}">
     ${s.logo?teamLogoBtn(g.lg, s.id, s.logo):'<span style="width:24px"></span>'}
     <div class="nm">${s.rank?`<span class="rk">${s.rank}</span>`:''}${fav?'⭐ ':''}<span class="score-name">${esc(s.name)}</span><abbr class="score-abbr" title="${esc(s.full||s.name)}">${esc(s.abbr||s.name)}</abbr>${poss?'<span class="pos" title="Possession">🏈</span>':''}<span class="rec">${esc(s.record)}</span></div>
-    ${mlSpan(g, s===g.home?'home':'away')}
+    ${scoreOdds(g, s===g.home?'home':'away')}
     ${s.id?`<button type="button" class="rbtn" data-roster="${esc(g.lg)}|${esc(s.id)}" title="Roster · ${esc(s.full||s.name)}">Roster</button>`:''}
     <div class="sc">${g.state==='pre'||s.score==null?'':s.score}</div>
   </div>`;
@@ -1922,6 +1970,7 @@ async function summaryEvent(lg, evId){
   const g = normEvent(Object.assign({}, h, {date:h.competitions[0].date}), lg);
   if(!g.cup && h.gameNote) g.cup=nbaCupText(h.gameNote);
   if(!g.ml){ const ml=mlFromList(d.pickcenter); if(ml) g.ml=ml; }
+  g.teamSpreads ??= teamSpreadsFromList(d.pickcenter, g);
   if(d.situation) g.sit = {dd:d.situation.downDistanceText||'', rz:!!d.situation.isRedZone, poss:d.situation.possession?String(d.situation.possession):null};
   if(g.tv==='—'){ const b=(h.competitions[0].broadcasts||[]).map(x=>x.media&&x.media.shortName).filter(Boolean); if(b.length) g.tv=b.join(', '); }
   return g;
@@ -4406,15 +4455,15 @@ async function renderLeague(lg, tok, view){
   fillSlate(lg, games, tok);
   const watchFresh=()=>({fresh:!(WATCH_HOLD[lg]&&WATCH_HOLD[lg].lined)});
   paintWatch(lg, slate, '#all', watchFresh());
-  const mlNeed=games.filter(g=>!g.ml);
-  if(mlNeed.length) Promise.all(mlNeed.map(ensureMoneyline)).then(()=>{ if(tok!==TOKEN || TAB!==lg) return; mlNeed.forEach(paintMoneyline); paintWatch(lg, slate, '#all', watchFresh()); });
+  const oddsNeed=games.filter(needsScoreOdds);
+  if(oddsNeed.length) Promise.all(oddsNeed.map(ensureScoreOdds)).then(()=>{ if(tok!==TOKEN || TAB!==lg) return; oddsNeed.forEach(paintScoreOdds); paintWatch(lg, slate, '#all', watchFresh()); });
   if(lg==='nfl') ffBadgePoints(games, tok);
 
   // async fills: favorite team bye/next cards and player cards
   favList.filter(t=>!games.find(x=>involves(x,t.id))).forEach(async t=>{
     try{ const tg=await teamGames(lg,t.id); if(tok!==TOKEN) return; const el=document.getElementById(`fx-${lg}-${t.id}`); if(!el) return;
       const why = L.mode==='week' ? 'BYE / no game this week' : 'No game today';
-      if(tg.next){ if(!tg.next.ml) await ensureMoneyline(tg.next); if(tok!==TOKEN) return; el.outerHTML = withSid(gameCard(tg.next,{favs, extraTags:`<span class="badge b-n">${why} · next up</span>`}), 'team:'+t.id); }
+      if(tg.next){ await ensureScoreOdds(tg.next); if(tok!==TOKEN) return; el.outerHTML = withSid(gameCard(tg.next,{favs, extraTags:`<span class="badge b-n">${why} · next up</span>`}), 'team:'+t.id); }
       else el.innerHTML = DH+`<div class="row"><div class="nm">⭐ ${esc(t.name)}</div></div><div class="foot">${why} · no upcoming games scheduled${tg.last?` · last: ${esc(tg.last.away.abbr)} ${tg.last.away.score} @ ${esc(tg.last.home.abbr)} ${tg.last.home.score}`:''} ${rosterBtn(lg,t.id)}</div>`;
     }catch(_){}
   });
@@ -4458,7 +4507,7 @@ async function renderMine(tok, view){
       let html;
       try{
         const tg = await teamGames(lg,t.id); const g = tg.cur||tg.next;
-        if(g){ if(!g.ml) await ensureMoneyline(g); if(tok!==TOKEN) return; all.push(g); remember([g]);
+        if(g){ await ensureScoreOdds(g); if(tok!==TOKEN) return; all.push(g); remember([g]);
           const lastTxt = tg.last && tg.last!==g ? `<div class="note" style="margin-top:4px">Last: ${esc(tg.last.away.abbr)} ${tg.last.away.score??''} @ ${esc(tg.last.home.abbr)} ${tg.last.home.score??''} · ${esc(tg.last.detail)} (${esc(fmtDay(tg.last.date))})</div>` : '';
           html = gameCard(g,{showLg:true, extraTags:`<span class="badge ${g.state==='in'?'b-g':'b-n'}">${g.state==='in'?'LIVE NOW':g===tg.cur?'TODAY':'NEXT GAME'}</span>`}).replace(/<\/div>\s*$/, lastTxt+'</div>');
         } else html = `<div class="g fav"><div class="lgtag"><span>${LG[lg].icon} ${LG[lg].short}</span></div><div class="row"><div class="nm">⭐ ${esc(t.name)}</div></div><div class="foot">No upcoming games (off-season)${tg.last?` · last: ${esc(tg.last.away.abbr)} ${tg.last.away.score} @ ${esc(tg.last.home.abbr)} ${tg.last.home.score}`:''} ${rosterBtn(lg,t.id)}</div></div>`;
@@ -7338,7 +7387,7 @@ async function monLoad(tok){
   const watchFresh=()=>({fresh:!(WATCH_HOLD.monitor&&WATCH_HOLD.monitor.lined)});
   monPaintSetup(watchFresh());
   const mlNeed=(MON.choices||[]).filter(g=>!g.ml);
-  if(mlNeed.length) Promise.all(mlNeed.map(ensureMoneyline)).then(()=>{ if(tok!==TOKEN || TAB!=='monitor') return; monPaintSetup(watchFresh()); if(MON.on) monPaint(); });
+  if(mlNeed.length) Promise.all(mlNeed.map(ensureScoreOdds)).then(()=>{ if(tok!==TOKEN || TAB!=='monitor') return; monPaintSetup(watchFresh()); if(MON.on) monPaint(); });
   monApplyMode();
   setRefresh(MON.games, ()=>{ if(document.hidden){ if(TAB==='monitor') monScheduleHidden(); return; } if(TAB==='monitor') monRefresh(); });
 }
